@@ -95,12 +95,13 @@ export const definitions = [
   },
   {
     name: "discord_send_embed",
-    description: "Send a rich embed message (title, description, color, fields, footer, image).",
+    description: "Send a rich embed message with title, description, color, fields, footer, image, thumbnail, author, URL, and timestamp.",
     inputSchema: {
       type: "object",
       properties: {
         channel_id: { type: "string" },
         title: { type: "string" },
+        url: { type: "string", description: "URL that makes the title clickable." },
         description: { type: "string" },
         color: { type: "string", description: "Hex color e.g. #5865F2" },
         fields: {
@@ -115,10 +116,113 @@ export const definitions = [
             required: ["name", "value"],
           },
         },
+        author: {
+          type: "object",
+          description: "Author block shown at the top of the embed.",
+          properties: {
+            name: { type: "string" },
+            icon_url: { type: "string" },
+            url: { type: "string" },
+          },
+          required: ["name"],
+        },
+        thumbnail_url: { type: "string", description: "Small image shown in the top-right corner." },
         footer: { type: "string" },
         image_url: { type: "string" },
+        timestamp: { type: "boolean", description: "If true, adds the current timestamp to the embed." },
       },
       required: ["channel_id"],
+    },
+  },
+  {
+    name: "discord_edit_embed",
+    description: "Edit an embed message previously sent by the bot. Only provided fields are updated; omitted fields are removed.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+        message_id: { type: "string", description: "The message ID to edit (must be a bot message with an embed)." },
+        title: { type: "string" },
+        url: { type: "string", description: "URL that makes the title clickable." },
+        description: { type: "string" },
+        color: { type: "string", description: "Hex color e.g. #5865F2" },
+        fields: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              value: { type: "string" },
+              inline: { type: "boolean" },
+            },
+            required: ["name", "value"],
+          },
+        },
+        author: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            icon_url: { type: "string" },
+            url: { type: "string" },
+          },
+          required: ["name"],
+        },
+        thumbnail_url: { type: "string" },
+        footer: { type: "string" },
+        image_url: { type: "string" },
+        timestamp: { type: "boolean", description: "If true, adds the current timestamp to the embed." },
+      },
+      required: ["channel_id", "message_id"],
+    },
+  },
+  {
+    name: "discord_send_multiple_embeds",
+    description: "Send up to 10 embeds in a single message.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+        content: { type: "string", description: "Optional text content above the embeds." },
+        embeds: {
+          type: "array",
+          description: "Array of embed objects (max 10).",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              url: { type: "string" },
+              description: { type: "string" },
+              color: { type: "string", description: "Hex color e.g. #5865F2" },
+              fields: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    value: { type: "string" },
+                    inline: { type: "boolean" },
+                  },
+                  required: ["name", "value"],
+                },
+              },
+              author: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  icon_url: { type: "string" },
+                  url: { type: "string" },
+                },
+                required: ["name"],
+              },
+              thumbnail_url: { type: "string" },
+              footer: { type: "string" },
+              image_url: { type: "string" },
+              timestamp: { type: "boolean" },
+            },
+          },
+        },
+      },
+      required: ["channel_id", "embeds"],
     },
   },
   {
@@ -161,6 +265,28 @@ export const definitions = [
     },
   },
 ];
+
+/** Builds an EmbedBuilder from a flat args object. */
+function buildEmbed(args: Record<string, unknown>): EmbedBuilder {
+  const embed = new EmbedBuilder();
+  if (args.title) embed.setTitle(args.title as string);
+  if (args.url) embed.setURL(args.url as string);
+  if (args.description) embed.setDescription(args.description as string);
+  if (args.color) embed.setColor(args.color as ColorResolvable);
+  if (args.footer) embed.setFooter({ text: args.footer as string });
+  if (args.image_url) embed.setImage(args.image_url as string);
+  if (args.thumbnail_url) embed.setThumbnail(args.thumbnail_url as string);
+  if (args.timestamp) embed.setTimestamp();
+  if (args.author) {
+    const a = args.author as { name: string; icon_url?: string; url?: string };
+    embed.setAuthor({ name: a.name, iconURL: a.icon_url, url: a.url });
+  }
+  if (args.fields) {
+    const fields = args.fields as { name: string; value: string; inline?: boolean }[];
+    embed.addFields(fields.map((f) => ({ name: f.name, value: f.value, inline: f.inline ?? false })));
+  }
+  return embed;
+}
 
 /**
  * Handles all message-related tools: read, send, reply, edit, react,
@@ -238,18 +364,30 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
 
     case "discord_send_embed": {
       const channel = await getTextChannel(args.channel_id as string);
-      const embed = new EmbedBuilder();
-      if (args.title) embed.setTitle(args.title as string);
-      if (args.description) embed.setDescription(args.description as string);
-      if (args.color) embed.setColor(args.color as ColorResolvable);
-      if (args.footer) embed.setFooter({ text: args.footer as string });
-      if (args.image_url) embed.setImage(args.image_url as string);
-      if (args.fields) {
-        const fields = args.fields as { name: string; value: string; inline?: boolean }[];
-        embed.addFields(fields.map((f) => ({ name: f.name, value: f.value, inline: f.inline ?? false })));
-      }
+      const embed = buildEmbed(args);
       const sent = await channel.send({ embeds: [embed] });
       return { content: [{ type: "text", text: `✅ Embed sent (id: ${sent.id}) in #${channel.name}.` }] };
+    }
+
+    case "discord_edit_embed": {
+      const channel = await getTextChannel(args.channel_id as string);
+      const msg = await channel.messages.fetch(args.message_id as string);
+      if (msg.author.id !== discord.user?.id) throw new Error("Can only edit embeds sent by the bot.");
+      const embed = buildEmbed(args);
+      await msg.edit({ embeds: [embed] });
+      return { content: [{ type: "text", text: `✅ Embed edited on message ${args.message_id} in #${channel.name}.` }] };
+    }
+
+    case "discord_send_multiple_embeds": {
+      const channel = await getTextChannel(args.channel_id as string);
+      const embedArgs = args.embeds as Record<string, unknown>[];
+      if (embedArgs.length > 10) throw new Error("Discord allows a maximum of 10 embeds per message.");
+      const embeds = embedArgs.map((e) => buildEmbed(e));
+      const sent = await channel.send({
+        content: (args.content as string) || undefined,
+        embeds,
+      });
+      return { content: [{ type: "text", text: `✅ ${embeds.length} embeds sent (id: ${sent.id}) in #${channel.name}.` }] };
     }
 
     case "discord_delete_message": {

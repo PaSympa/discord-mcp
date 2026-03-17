@@ -1,7 +1,30 @@
 # Discord MCP Server
 
-A MCP (Model Context Protocol) server that lets Claude control Discord:
+![License](https://img.shields.io/badge/license-ISC-blue)
+![Node](https://img.shields.io/badge/node-%3E%3D18-green)
+![MCP](https://img.shields.io/badge/MCP-compatible-purple)
+![Discord.js](https://img.shields.io/badge/discord.js-v14-5865F2)
+
+A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that lets Claude control Discord:
 read/send messages, manage members, roles, channels, and permissions.
+
+## Features
+
+- **45 tools** covering messages, channels, roles, permissions, moderation, and more
+- Full **permission management** — audit, copy, and override channel permissions
+- **Moderation** — kick, ban, timeout, bulk delete, audit log
+- **Rich messages** — embeds, reactions, threads, pins, search
+- **Membership screening** — view and update server rules for new members
+- Modular architecture — easy to extend with new tools
+
+---
+
+## Quick Start
+
+1. Clone the repo and run `npm install && npm run build`
+2. Set `DISCORD_TOKEN` in your environment or a `.env` file
+3. Add the server to your Claude Desktop config (see [Configuration](#configuration))
+4. Restart Claude Desktop
 
 ---
 
@@ -77,7 +100,7 @@ The server loads `.env` automatically via `dotenv`.
 
 ---
 
-## Available MCP Tools (43 total)
+## Available MCP Tools (45 total)
 
 ### Discovery & Navigation
 
@@ -99,7 +122,9 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_add_reaction` | Add a reaction emoji to a message |
 | `discord_create_thread` | Create a thread from a message or standalone |
 | `discord_bulk_delete_messages` | Delete multiple messages at once (2-100) |
-| `discord_send_embed` | Send a rich embed (title, description, color, fields, footer, image) |
+| `discord_send_embed` | Send a rich embed (title, description, color, fields, footer, image, thumbnail, author, URL, timestamp) |
+| `discord_edit_embed` | Edit an embed previously sent by the bot |
+| `discord_send_multiple_embeds` | Send up to 10 embeds in a single message |
 | `discord_delete_message` | Delete a specific message |
 | `discord_pin_message` | Pin or unpin a message |
 | `discord_search_messages` | Search messages by keyword (last 100 messages) |
@@ -236,3 +261,20 @@ discord-mcp/
 - Never commit your Discord token to Git
 - Use environment variables or a `.env` file (not versioned)
 - Give the bot only the permissions it needs
+
+---
+
+## Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Follow the modular structure — see [Adding a new tool](#adding-a-new-tool)
+4. Commit your changes and open a pull request
+
+---
+
+## License
+
+ISC — see [LICENSE](LICENSE) for details.

@@ -19,6 +19,8 @@ import roles from "./roles.js";
 import moderation from "./moderation.js";
 import screening from "./screening.js";
 import stats from "./stats.js";
+import forums from "./forums.js";
+import webhooks from "./webhooks.js";
 
 const modules: ToolModule[] = [
   discovery,
@@ -30,6 +32,8 @@ const modules: ToolModule[] = [
   moderation,
   screening,
   stats,
+  forums,
+  webhooks,
 ];
 
 /**

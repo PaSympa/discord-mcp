@@ -1,17 +1,43 @@
 {
-  "name": "discord-mcp",
+  "name": "@pasympa/discord-mcp",
   "version": "1.1.0",
-  "description": "MCP server that lets Claude control Discord",
+  "description": "A lightweight, multi-guild Discord MCP server with 60+ tools",
   "main": "dist/index.js",
   "type": "commonjs",
+  "bin": {
+    "discord-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsc && node dist/index.js"
+    "dev": "tsc && node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "discord",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "ai",
+    "bot",
+    "discord-bot",
+    "cursor",
+    "windsurf",
+    "claude-desktop"
+  ],
+  "author": "PaSympa",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaSympa/discord-mcp"
+  },
+  "homepage": "https://github.com/PaSympa/discord-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/PaSympa/discord-mcp/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "discord.js": "^14.25.1",

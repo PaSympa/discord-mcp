@@ -10,6 +10,8 @@
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-5865F2)](https://discord.js.org)
 [![MCP](https://img.shields.io/badge/MCP-compatible-purple)](https://modelcontextprotocol.io)
 
+[![discord-mcp MCP server](https://glama.ai/mcp/servers/PaSympa/discord-mcp/badges/score.svg)](https://glama.ai/mcp/servers/PaSympa/discord-mcp)
+
 Manage your entire Discord server from **Claude Desktop**, **Claude Code**, **Cursor**, **VS Code Copilot**, or any MCP-compatible client.
 Messages, channels, roles, permissions, moderation, forums, webhooks — all through natural language.
 

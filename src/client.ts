@@ -13,10 +13,6 @@ import {
 // ────────────────────────────────────────────────────────────────────────────────
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-if (!DISCORD_TOKEN) {
-  console.error("❌  DISCORD_TOKEN env variable is required.");
-  process.exit(1);
-}
 
 export const discord = new Client({
   intents: [
@@ -29,21 +25,38 @@ export const discord = new Client({
 });
 
 let discordReady = false;
-discord.once("clientReady", () => {
-  discordReady = true;
-  console.error(`✅  Discord bot connected as ${discord.user?.tag}`);
-});
-
-discord.login(DISCORD_TOKEN);
+let loginPromise: Promise<void> | null = null;
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 /**
- * Ensures the Discord client has completed its login handshake.
- * @throws {Error} If the client is not yet connected.
+ * Lazily connects to Discord on first tool call.
+ * Allows the MCP server to start and respond to ListTools without a connection.
  */
-export function assertReady() {
-  if (!discordReady) throw new Error("Discord bot is not connected yet. Retry in a moment.");
+export async function ensureConnected(): Promise<void> {
+  if (discordReady) return;
+
+  if (!DISCORD_TOKEN) {
+    throw new Error(
+      "DISCORD_TOKEN is required. Set it in your MCP client config or a .env file."
+    );
+  }
+
+  if (!loginPromise) {
+    loginPromise = new Promise<void>((resolve, reject) => {
+      discord.once("ready", () => {
+        discordReady = true;
+        console.error(`✅  Discord bot connected as ${discord.user?.tag}`);
+        resolve();
+      });
+      discord.login(DISCORD_TOKEN).catch((err) => {
+        loginPromise = null;
+        reject(new Error(`Discord login failed: ${err.message}`));
+      });
+    });
+  }
+
+  await loginPromise;
 }
 
 /**

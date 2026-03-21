@@ -13,7 +13,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { assertReady, discord } from "./client.js";
+import { ensureConnected, discord } from "./client.js";
 import { getAllDefinitions, handleTool } from "./tools/index.js";
 
 // ─── MCP Server ────────────────────────────────────────────────────────────────
@@ -32,10 +32,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 // ─── Tool Handler ───────────────────────────────────────────────────────────────
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {
-  assertReady();
   const { name, arguments: args = {} } = req.params;
 
   try {
+    await ensureConnected();
     return await handleTool(name, args);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

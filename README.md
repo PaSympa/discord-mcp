@@ -2,7 +2,7 @@
 
 # Discord MCP Server
 
-**A lightweight, multi-guild Discord MCP server with 60+ tools**
+**A lightweight, multi-guild Discord MCP server with 66+ tools**
 
 [![npm](https://img.shields.io/npm/v/@pasympa/discord-mcp)](https://www.npmjs.com/package/@pasympa/discord-mcp)
 [![License](https://img.shields.io/github/license/PaSympa/discord-mcp)](LICENSE)
@@ -21,7 +21,7 @@ Messages, channels, roles, permissions, moderation, forums, webhooks — all thr
 
 ## Why this one?
 
-- **60+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, embeds, and more
+- **66+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, embeds, and more
 - **Multi-guild** — works across multiple servers, no `GUILD_ID` lock-in
 - **Lightweight** — TypeScript + Node.js, ~25kB package, ~73MB Docker image (vs 400MB+ for Java alternatives)
 - **Modular** — clean architecture, easy to extend with new tools
@@ -184,12 +184,12 @@ The server loads `.env` automatically via `dotenv`.
    - Message Content Intent
 5. **OAuth2 > URL Generator**:
    - Scopes: `bot`
-   - Permissions: `Send Messages`, `Read Message History`, `Manage Channels`, `Manage Roles`, `Kick Members`, `Ban Members`, `Moderate Members`, `View Audit Log`, `Manage Messages`, `Manage Threads`, `Add Reactions`, `Manage Guild`, `Manage Webhooks`
+   - Permissions: `Send Messages`, `Read Message History`, `Manage Channels`, `Manage Roles`, `Kick Members`, `Ban Members`, `Moderate Members`, `View Audit Log`, `Manage Messages`, `Manage Threads`, `Add Reactions`, `Manage Guild`, `Manage Webhooks`, `Manage Events`
 6. Copy the generated URL and invite the bot to your server
 
 ---
 
-## Available Tools (60)
+## Available Tools (66)
 
 ### Discovery & Navigation
 
@@ -287,6 +287,17 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_delete_webhook` | Delete a webhook |
 | `discord_list_webhooks` | List webhooks for a channel or guild |
 
+### Scheduled Events (6 tools)
+
+| Tool | Description |
+|---|---|
+| `discord_list_scheduled_events` | List all scheduled events in a guild |
+| `discord_get_scheduled_event` | Get detailed info about a scheduled event |
+| `discord_create_scheduled_event` | Create a voice, stage, or external event |
+| `discord_edit_scheduled_event` | Edit an existing scheduled event |
+| `discord_delete_scheduled_event` | Delete a scheduled event |
+| `discord_get_event_subscribers` | Get users who marked "Interested" |
+
 ### Moderation & Screening
 
 | Tool | Description |
@@ -313,6 +324,8 @@ The server loads `.env` automatically via `dotenv`.
 "Show the full permission audit for the server"
 "Create a webhook on #notifications and send a test message"
 "Ban user 112233445566 and delete their messages from the last 3 days"
+"Create an event called 'Game Night' for next Friday at 8pm"
+"List all upcoming events in the server"
 ```
 
 ---
@@ -346,7 +359,8 @@ discord-mcp/
 │       ├── screening.ts     ← Membership screening
 │       ├── stats.ts         ← Server statistics
 │       ├── forums.ts        ← Forum channels, posts, tags
-│       └── webhooks.ts      ← Webhook management
+│       ├── webhooks.ts      ← Webhook management
+│       └── scheduledEvents.ts ← Scheduled events
 ├── Dockerfile
 ├── .dockerignore
 ├── package.json

@@ -22,6 +22,7 @@ export const discord = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildModeration,
     GatewayIntentBits.GuildScheduledEvents,
+    GatewayIntentBits.GuildInvites,
   ],
 });
 

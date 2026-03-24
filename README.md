@@ -2,7 +2,7 @@
 
 # Discord MCP Server
 
-**A lightweight, multi-guild Discord MCP server with 66+ tools**
+**A lightweight, multi-guild Discord MCP server with 70+ tools**
 
 [![npm](https://img.shields.io/npm/v/@pasympa/discord-mcp)](https://www.npmjs.com/package/@pasympa/discord-mcp)
 [![License](https://img.shields.io/github/license/PaSympa/discord-mcp)](LICENSE)
@@ -21,7 +21,7 @@ Messages, channels, roles, permissions, moderation, forums, webhooks — all thr
 
 ## Why this one?
 
-- **66+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, embeds, and more
+- **70+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, invites, embeds, and more
 - **Multi-guild** — works across multiple servers, no `GUILD_ID` lock-in
 - **Lightweight** — TypeScript + Node.js, ~25kB package, ~73MB Docker image (vs 400MB+ for Java alternatives)
 - **Modular** — clean architecture, easy to extend with new tools
@@ -184,12 +184,12 @@ The server loads `.env` automatically via `dotenv`.
    - Message Content Intent
 5. **OAuth2 > URL Generator**:
    - Scopes: `bot`
-   - Permissions: `Send Messages`, `Read Message History`, `Manage Channels`, `Manage Roles`, `Kick Members`, `Ban Members`, `Moderate Members`, `View Audit Log`, `Manage Messages`, `Manage Threads`, `Add Reactions`, `Manage Guild`, `Manage Webhooks`, `Manage Events`
+   - Permissions: `Send Messages`, `Read Message History`, `Manage Channels`, `Manage Roles`, `Kick Members`, `Ban Members`, `Moderate Members`, `View Audit Log`, `Manage Messages`, `Manage Threads`, `Add Reactions`, `Manage Guild`, `Manage Webhooks`, `Manage Events`, `Create Instant Invite`
 6. Copy the generated URL and invite the bot to your server
 
 ---
 
-## Available Tools (66)
+## Available Tools (70)
 
 ### Discovery & Navigation
 
@@ -298,6 +298,15 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_delete_scheduled_event` | Delete a scheduled event |
 | `discord_get_event_subscribers` | Get users who marked "Interested" |
 
+### Invites (4 tools)
+
+| Tool | Description |
+|---|---|
+| `discord_list_invites` | List all active invites in a guild |
+| `discord_get_invite` | Get details about an invite by its code |
+| `discord_create_invite` | Create an invite link for a channel |
+| `discord_delete_invite` | Revoke an invite |
+
 ### Moderation & Screening
 
 | Tool | Description |
@@ -326,6 +335,8 @@ The server loads `.env` automatically via `dotenv`.
 "Ban user 112233445566 and delete their messages from the last 3 days"
 "Create an event called 'Game Night' for next Friday at 8pm"
 "List all upcoming events in the server"
+"Create a permanent invite for #general"
+"List all active invites and delete expired ones"
 ```
 
 ---
@@ -360,7 +371,8 @@ discord-mcp/
 │       ├── stats.ts         ← Server statistics
 │       ├── forums.ts        ← Forum channels, posts, tags
 │       ├── webhooks.ts      ← Webhook management
-│       └── scheduledEvents.ts ← Scheduled events
+│       ├── scheduledEvents.ts ← Scheduled events
+│       └── invites.ts        ← Invite management
 ├── Dockerfile
 ├── .dockerignore
 ├── package.json

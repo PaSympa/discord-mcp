@@ -21,6 +21,7 @@ import screening from "./screening.js";
 import stats from "./stats.js";
 import forums from "./forums.js";
 import webhooks from "./webhooks.js";
+import scheduledEvents from "./scheduledEvents.js";
 
 const modules: ToolModule[] = [
   discovery,
@@ -34,6 +35,7 @@ const modules: ToolModule[] = [
   stats,
   forums,
   webhooks,
+  scheduledEvents,
 ];
 
 /**

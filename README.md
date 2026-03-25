@@ -381,6 +381,7 @@ discord-mcp/
 ├── src/
 │   ├── index.ts             ← Entry point (MCP server + transport)
 │   ├── client.ts            ← Discord client + shared helpers
+│   ├── constants.ts         ← Shared constants (limits, defaults)
 │   └── tools/
 │       ├── index.ts         ← Tool registry
 │       ├── types.ts         ← Shared TypeScript interfaces
@@ -397,10 +398,15 @@ discord-mcp/
 │       ├── webhooks.ts      ← Webhook management
 │       ├── scheduledEvents.ts ← Scheduled events
 │       └── invites.ts        ← Invite management
+├── .github/workflows/       ← CI/CD (build check + auto release)
 ├── Dockerfile
 ├── .dockerignore
+├── .env.example
 ├── package.json
 ├── tsconfig.json
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── SECURITY.md
 └── README.md
 ```
 

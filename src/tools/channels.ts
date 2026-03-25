@@ -33,7 +33,7 @@ export const definitions = [
   },
   {
     name: "discord_edit_channel",
-    description: "Edit a channel's name, topic (text only) or slowmode (text only).",
+    description: "Edit a channel's name, topic, slowmode, or NSFW flag.",
     inputSchema: {
       type: "object",
       properties: {
@@ -41,6 +41,7 @@ export const definitions = [
         name: { type: "string" },
         topic: { type: "string" },
         slowmode: { type: "number", description: "Slowmode in seconds (0 to disable)." },
+        nsfw: { type: "boolean", description: "Mark channel as NSFW." },
       },
       required: ["channel_id"],
     },
@@ -65,6 +66,41 @@ export const definitions = [
       properties: {
         channel_id: { type: "string" },
         new_name: { type: "string" },
+      },
+      required: ["channel_id"],
+    },
+  },
+  {
+    name: "discord_set_channel_position",
+    description: "Set the display position of a channel within its category.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+        position: { type: "number" },
+      },
+      required: ["channel_id", "position"],
+    },
+  },
+  {
+    name: "discord_follow_announcement_channel",
+    description: "Follow an announcement channel so its messages are published to a target channel.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        source_channel_id: { type: "string", description: "The announcement channel to follow." },
+        target_channel_id: { type: "string", description: "The channel that will receive published messages." },
+      },
+      required: ["source_channel_id", "target_channel_id"],
+    },
+  },
+  {
+    name: "discord_lock_channel_permissions",
+    description: "Sync a channel's permissions with its parent category.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
       },
       required: ["channel_id"],
     },
@@ -105,6 +141,7 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
       if (args.name !== undefined) editOptions.name = args.name as string;
       if (args.topic !== undefined && channel.type === ChannelType.GuildText) editOptions.topic = args.topic as string;
       if (args.slowmode !== undefined && channel.type === ChannelType.GuildText) editOptions.rateLimitPerUser = args.slowmode as number;
+      if (args.nsfw !== undefined) editOptions.nsfw = args.nsfw as boolean;
       await channel.edit(editOptions);
       return { content: [{ type: "text", text: `✅ Channel #${channel.name} updated.` }] };
     }
@@ -119,6 +156,25 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
       const channel = await getGuildChannel(args.channel_id as string);
       const cloned = await channel.clone({ name: args.new_name as string | undefined });
       return { content: [{ type: "text", text: `✅ Channel cloned as #${cloned.name} (id: ${cloned.id}).` }] };
+    }
+
+    case "discord_set_channel_position": {
+      const channel = await getGuildChannel(args.channel_id as string);
+      await channel.setPosition(args.position as number);
+      return { content: [{ type: "text", text: `✅ Channel #${channel.name} moved to position ${args.position}.` }] };
+    }
+
+    case "discord_follow_announcement_channel": {
+      const source = await discord.channels.fetch(validateId(args.source_channel_id, "source_channel_id"));
+      if (!source || !("addFollower" in source)) throw new Error("Source channel is not an announcement channel.");
+      await (source as any).addFollower(validateId(args.target_channel_id, "target_channel_id"));
+      return { content: [{ type: "text", text: `✅ Now following announcement channel in target channel.` }] };
+    }
+
+    case "discord_lock_channel_permissions": {
+      const channel = await getGuildChannel(args.channel_id as string);
+      await channel.lockPermissions();
+      return { content: [{ type: "text", text: `✅ Channel #${channel.name} permissions synced with parent category.` }] };
     }
 
     default:

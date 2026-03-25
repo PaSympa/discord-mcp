@@ -264,6 +264,70 @@ export const definitions = [
       required: ["channel_id", "keyword"],
     },
   },
+  {
+    name: "discord_crosspost_message",
+    description: "Publish a message in an announcement channel to all following channels.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+        message_id: { type: "string" },
+      },
+      required: ["channel_id", "message_id"],
+    },
+  },
+  {
+    name: "discord_remove_reactions",
+    description: "Remove reactions from a message. No emoji = remove all. Emoji only = remove that emoji. Emoji + user_id = remove that user's reaction.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+        message_id: { type: "string" },
+        emoji: { type: "string", description: "Unicode emoji or custom emoji 'name:id'. Omit to remove all reactions." },
+        user_id: { type: "string", description: "Remove only this user's reaction for the given emoji." },
+      },
+      required: ["channel_id", "message_id"],
+    },
+  },
+  {
+    name: "discord_get_reactions",
+    description: "List users who reacted with a specific emoji on a message.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+        message_id: { type: "string" },
+        emoji: { type: "string", description: "Unicode emoji or custom emoji 'name:id'." },
+        limit: { type: "number", description: "1–100, default 25." },
+      },
+      required: ["channel_id", "message_id", "emoji"],
+    },
+  },
+  {
+    name: "discord_fetch_pinned_messages",
+    description: "List all pinned messages in a channel.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+      },
+      required: ["channel_id"],
+    },
+  },
+  {
+    name: "discord_forward_message",
+    description: "Forward a message to another channel.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+        message_id: { type: "string" },
+        target_channel_id: { type: "string" },
+      },
+      required: ["channel_id", "message_id", "target_channel_id"],
+    },
+  },
 ];
 
 /** Builds an EmbedBuilder from a flat args object. */
@@ -414,6 +478,58 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((m) => ({ id: m.id, author: m.author.tag, content: m.content, timestamp: m.createdAt.toISOString() }));
       return { content: [{ type: "text", text: matches.length > 0 ? JSON.stringify(matches, null, 2) : `No messages found containing "${args.keyword}" in the last ${limit} messages.` }] };
+    }
+
+    case "discord_crosspost_message": {
+      const channel = await getTextChannel(args.channel_id as string);
+      const msg = await channel.messages.fetch(args.message_id as string);
+      await msg.crosspost();
+      return { content: [{ type: "text", text: `✅ Message ${msg.id} published to all followers of #${channel.name}.` }] };
+    }
+
+    case "discord_remove_reactions": {
+      const channel = await getTextChannel(args.channel_id as string);
+      const msg = await channel.messages.fetch(args.message_id as string);
+      if (!args.emoji) {
+        await msg.reactions.removeAll();
+        return { content: [{ type: "text", text: `✅ All reactions removed from message ${msg.id}.` }] };
+      }
+      const reaction = msg.reactions.cache.get(args.emoji as string);
+      if (!reaction) throw new Error(`No reaction found for emoji "${args.emoji}" on message ${msg.id}.`);
+      if (args.user_id) {
+        await reaction.users.remove(args.user_id as string);
+        return { content: [{ type: "text", text: `✅ Removed ${args.emoji} reaction from user ${args.user_id} on message ${msg.id}.` }] };
+      }
+      await reaction.remove();
+      return { content: [{ type: "text", text: `✅ All ${args.emoji} reactions removed from message ${msg.id}.` }] };
+    }
+
+    case "discord_get_reactions": {
+      const channel = await getTextChannel(args.channel_id as string);
+      const msg = await channel.messages.fetch(args.message_id as string);
+      const reaction = msg.reactions.cache.get(args.emoji as string);
+      if (!reaction) throw new Error(`No reaction found for emoji "${args.emoji}" on message ${msg.id}.`);
+      const limit = Math.min(Number(args.limit ?? 25), 100);
+      const users = await reaction.users.fetch({ limit });
+      const result = [...users.values()].map((u) => ({ id: u.id, username: u.username, bot: u.bot }));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+
+    case "discord_fetch_pinned_messages": {
+      const channel = await getTextChannel(args.channel_id as string);
+      const pinned = await channel.messages.fetchPinned();
+      const result = [...pinned.values()].map((m) => ({
+        id: m.id, author: m.author.tag, content: m.content, timestamp: m.createdAt.toISOString(),
+      }));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+
+    case "discord_forward_message": {
+      const channel = await getTextChannel(args.channel_id as string);
+      const msg = await channel.messages.fetch(args.message_id as string);
+      const targetChannel = await getTextChannel(args.target_channel_id as string);
+      await msg.forward(targetChannel);
+      return { content: [{ type: "text", text: `✅ Message ${msg.id} forwarded to #${targetChannel.name}.` }] };
     }
 
     default:

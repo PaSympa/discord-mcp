@@ -97,6 +97,59 @@ export const definitions = [
       },
     },
   },
+  {
+    name: "discord_edit_webhook_message",
+    description: "Edit a message previously sent by a webhook.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        webhook_id: { type: "string" },
+        webhook_token: { type: "string" },
+        message_id: { type: "string" },
+        content: { type: "string" },
+        embeds: {
+          type: "array",
+          description: "Optional array of embed objects.",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string" }, url: { type: "string" }, description: { type: "string" },
+              color: { type: "string", description: "Hex color e.g. #5865F2" },
+              fields: { type: "array", items: { type: "object", properties: { name: { type: "string" }, value: { type: "string" }, inline: { type: "boolean" } }, required: ["name", "value"] } },
+              footer: { type: "string" }, image_url: { type: "string" }, thumbnail_url: { type: "string" }, timestamp: { type: "boolean" },
+            },
+          },
+        },
+      },
+      required: ["webhook_id", "webhook_token", "message_id"],
+    },
+  },
+  {
+    name: "discord_delete_webhook_message",
+    description: "Delete a message sent by a webhook.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        webhook_id: { type: "string" },
+        webhook_token: { type: "string" },
+        message_id: { type: "string" },
+      },
+      required: ["webhook_id", "webhook_token", "message_id"],
+    },
+  },
+  {
+    name: "discord_fetch_webhook_message",
+    description: "Fetch a specific message sent by a webhook.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        webhook_id: { type: "string" },
+        webhook_token: { type: "string" },
+        message_id: { type: "string" },
+      },
+      required: ["webhook_id", "webhook_token", "message_id"],
+    },
+  },
 ];
 
 /** Builds an EmbedBuilder from a webhook embed arg object. */
@@ -208,6 +261,54 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } else {
         throw new Error("Either channel_id or guild_id is required.");
+      }
+    }
+
+    case "discord_edit_webhook_message": {
+      const webhookId = validateId(args.webhook_id, "webhook_id");
+      const token = args.webhook_token as string;
+      if (!token) throw new Error("webhook_token is required.");
+      const client = new WebhookClient({ id: webhookId, token });
+      try {
+        const editOptions: Record<string, unknown> = {};
+        if (args.content !== undefined) editOptions.content = args.content as string;
+        if (args.embeds) {
+          const embedArgs = args.embeds as Record<string, unknown>[];
+          editOptions.embeds = embedArgs.map((e) => buildWebhookEmbed(e));
+        }
+        await client.editMessage(args.message_id as string, editOptions);
+        return { content: [{ type: "text", text: `✅ Webhook message ${args.message_id} edited.` }] };
+      } finally {
+        client.destroy();
+      }
+    }
+
+    case "discord_delete_webhook_message": {
+      const webhookId = validateId(args.webhook_id, "webhook_id");
+      const token = args.webhook_token as string;
+      if (!token) throw new Error("webhook_token is required.");
+      const client = new WebhookClient({ id: webhookId, token });
+      try {
+        await client.deleteMessage(args.message_id as string);
+        return { content: [{ type: "text", text: `✅ Webhook message ${args.message_id} deleted.` }] };
+      } finally {
+        client.destroy();
+      }
+    }
+
+    case "discord_fetch_webhook_message": {
+      const webhookId = validateId(args.webhook_id, "webhook_id");
+      const token = args.webhook_token as string;
+      if (!token) throw new Error("webhook_token is required.");
+      const client = new WebhookClient({ id: webhookId, token });
+      try {
+        const msg = await client.fetchMessage(args.message_id as string);
+        return { content: [{ type: "text", text: JSON.stringify({
+          id: msg.id, content: msg.content, embeds: msg.embeds.length,
+          timestamp: msg.timestamp,
+        }, null, 2) }] };
+      } finally {
+        client.destroy();
       }
     }
 

@@ -1,5 +1,6 @@
 import { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel, GuildScheduledEventStatus, type GuildScheduledEventCreateOptions, type GuildScheduledEventEditOptions } from "discord.js";
 import { discord, validateId } from "../client.js";
+import { MAX_FETCH_LIMIT, DEFAULTS } from "../constants.js";
 import type { ToolModule, ToolResult } from "./types.js";
 
 /** Tool definitions for managing guild scheduled events. */
@@ -274,7 +275,7 @@ export async function handle(
       const eventId = validateId(args.event_id, "event_id");
       const guild = await discord.guilds.fetch(guildId);
       const event = await guild.scheduledEvents.fetch(eventId);
-      const limit = Math.min(Number(args.limit ?? 25), 100);
+      const limit = Math.min(Number(args.limit ?? DEFAULTS.LIMIT), MAX_FETCH_LIMIT);
       const subscribers = await event.fetchSubscribers({ limit });
       const list = [...subscribers.values()].map((sub) => ({
         user_id: sub.user.id,

@@ -2,7 +2,7 @@
 
 # Discord MCP Server
 
-**A lightweight, multi-guild Discord MCP server with 70+ tools**
+**A lightweight, multi-guild Discord MCP server with 90+ tools**
 
 [![npm](https://img.shields.io/npm/v/@pasympa/discord-mcp)](https://www.npmjs.com/package/@pasympa/discord-mcp)
 [![License](https://img.shields.io/github/license/PaSympa/discord-mcp)](LICENSE)
@@ -21,7 +21,7 @@ Messages, channels, roles, permissions, moderation, forums, webhooks — all thr
 
 ## Why this one?
 
-- **70+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, invites, embeds, and more
+- **90+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, invites, embeds, and more
 - **Multi-guild** — works across multiple servers, no `GUILD_ID` lock-in
 - **Lightweight** — TypeScript + Node.js, ~25kB package, ~73MB Docker image (vs 400MB+ for Java alternatives)
 - **Modular** — clean architecture, easy to extend with new tools
@@ -189,7 +189,7 @@ The server loads `.env` automatically via `dotenv`.
 
 ---
 
-## Available Tools (70)
+## Available Tools (90)
 
 ### Discovery & Navigation
 
@@ -200,7 +200,7 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_list_channels` | List all channels in a guild grouped by category |
 | `discord_find_channel_by_name` | Find a channel by name (partial match) |
 
-### Messages (13 tools)
+### Messages (18 tools)
 
 | Tool | Description |
 |---|---|
@@ -210,23 +210,31 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_edit_message` | Edit a message sent by the bot |
 | `discord_delete_message` | Delete a specific message |
 | `discord_add_reaction` | Add a reaction emoji to a message |
+| `discord_remove_reactions` | Remove reactions (all, by emoji, or by user) |
+| `discord_get_reactions` | List users who reacted with a specific emoji |
 | `discord_create_thread` | Create a thread from a message or standalone |
 | `discord_bulk_delete_messages` | Delete multiple messages at once (2-100) |
 | `discord_send_embed` | Send a rich embed with all options |
 | `discord_edit_embed` | Edit an embed previously sent by the bot |
 | `discord_send_multiple_embeds` | Send up to 10 embeds in a single message |
 | `discord_pin_message` | Pin or unpin a message |
+| `discord_fetch_pinned_messages` | List all pinned messages in a channel |
 | `discord_search_messages` | Search messages by keyword (last 100) |
+| `discord_crosspost_message` | Publish a message to announcement channel followers |
+| `discord_forward_message` | Forward a message to another channel |
 
-### Channels (5 tools)
+### Channels (8 tools)
 
 | Tool | Description |
 |---|---|
 | `discord_create_channel` | Create a text, voice channel or category |
 | `discord_delete_channel` | Delete a channel |
-| `discord_edit_channel` | Edit name, topic, slowmode |
+| `discord_edit_channel` | Edit name, topic, slowmode, NSFW flag |
 | `discord_move_channel` | Move a channel into/out of a category |
 | `discord_clone_channel` | Clone a channel with its permissions |
+| `discord_set_channel_position` | Set display position within a category |
+| `discord_follow_announcement_channel` | Follow an announcement channel |
+| `discord_lock_channel_permissions` | Sync permissions with parent category |
 
 ### Channel Permissions (6 tools)
 
@@ -239,18 +247,23 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_copy_permissions` | Copy overwrites from one channel to another |
 | `discord_audit_permissions` | Full permission audit for all channels |
 
-### Members (6 tools)
+### Members (11 tools)
 
 | Tool | Description |
 |---|---|
 | `discord_list_members` | List guild members with their roles |
 | `discord_get_member_info` | Detailed member info (roles, permissions, join date) |
+| `discord_search_members` | Search members by username or nickname |
+| `discord_set_nickname` | Set or clear a member's nickname |
 | `discord_kick_member` | Kick a member |
 | `discord_ban_member` | Ban a member (optionally delete recent messages) |
 | `discord_unban_member` | Unban a user |
+| `discord_bulk_ban` | Ban multiple users at once (raid mitigation) |
+| `discord_list_bans` | List all banned users |
 | `discord_timeout_member` | Timeout a member (0 to remove) |
+| `discord_prune_members` | Remove inactive members (with dry run) |
 
-### Roles (7 tools)
+### Roles (9 tools)
 
 | Tool | Description |
 |---|---|
@@ -261,6 +274,8 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_add_role` | Assign a role to a member |
 | `discord_remove_role` | Remove a role from a member |
 | `discord_get_role_members` | List all members with a specific role |
+| `discord_set_role_position` | Change a role's position in the hierarchy |
+| `discord_set_role_icon` | Set a custom icon or unicode emoji on a role |
 
 ### Forums (10 tools)
 
@@ -277,7 +292,7 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_set_forum_tags` | Set/update tags on a forum |
 | `discord_update_forum_post` | Update title, archived, locked, tags |
 
-### Webhooks (5 tools)
+### Webhooks (8 tools)
 
 | Tool | Description |
 |---|---|
@@ -286,8 +301,11 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_edit_webhook` | Edit a webhook's name, avatar, or channel |
 | `discord_delete_webhook` | Delete a webhook |
 | `discord_list_webhooks` | List webhooks for a channel or guild |
+| `discord_edit_webhook_message` | Edit a message sent by a webhook |
+| `discord_delete_webhook_message` | Delete a message sent by a webhook |
+| `discord_fetch_webhook_message` | Fetch a specific webhook message |
 
-### Scheduled Events (6 tools)
+### Scheduled Events (7 tools)
 
 | Tool | Description |
 |---|---|
@@ -297,12 +315,14 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_edit_scheduled_event` | Edit an existing scheduled event |
 | `discord_delete_scheduled_event` | Delete a scheduled event |
 | `discord_get_event_subscribers` | Get users who marked "Interested" |
+| `discord_create_event_invite` | Create an invite linked to an event |
 
-### Invites (4 tools)
+### Invites (5 tools)
 
 | Tool | Description |
 |---|---|
 | `discord_list_invites` | List all active invites in a guild |
+| `discord_list_channel_invites` | List invites for a specific channel |
 | `discord_get_invite` | Get details about an invite by its code |
 | `discord_create_invite` | Create an invite link for a channel |
 | `discord_delete_invite` | Revoke an invite |
@@ -337,6 +357,10 @@ The server loads `.env` automatically via `dotenv`.
 "List all upcoming events in the server"
 "Create a permanent invite for #general"
 "List all active invites and delete expired ones"
+"Search for members named 'john'"
+"List all banned users in the server"
+"Show all pinned messages in #general"
+"Forward that message to #announcements"
 ```
 
 ---

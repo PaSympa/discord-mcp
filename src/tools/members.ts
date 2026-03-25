@@ -244,9 +244,8 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
 
     case "discord_list_bans": {
       const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
-      const options: { limit?: number } = {};
-      if (args.limit) options.limit = Number(args.limit);
-      const bans = await guild.bans.fetch(options);
+      const limit = args.limit ? Number(args.limit) : undefined;
+      const bans = await guild.bans.fetch({ limit, cache: false });
       const result = [...bans.values()].map((ban) => ({
         user_id: ban.user.id, username: ban.user.tag, reason: ban.reason ?? null,
       }));

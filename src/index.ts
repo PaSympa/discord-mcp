@@ -13,13 +13,18 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import { readFileSync } from "fs";
+import { join } from "path";
 import { ensureConnected, discord } from "./client.js";
 import { getAllDefinitions, handleTool } from "./tools/index.js";
+
+const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
+const version: string = pkg.version;
 
 // ─── MCP Server ────────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "discord-mcp", version: "1.0.0" },
+  { name: "discord-mcp", version },
   { capabilities: { tools: {} } }
 );
 
@@ -48,7 +53,7 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("Discord MCP Server v1.0 running on stdio.");
+  console.error(`Discord MCP Server v${version} running on stdio.`);
 }
 
 function shutdown() {

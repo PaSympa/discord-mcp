@@ -1,4 +1,4 @@
-import { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel, GuildScheduledEventStatus } from "discord.js";
+import { GuildScheduledEventEntityType, GuildScheduledEventPrivacyLevel, GuildScheduledEventStatus, type GuildScheduledEventCreateOptions, type GuildScheduledEventEditOptions } from "discord.js";
 import { discord, validateId } from "../client.js";
 import type { ToolModule, ToolResult } from "./types.js";
 
@@ -225,7 +225,7 @@ export async function handle(
       if (args.location) options.entityMetadata = { location: String(args.location) };
       if (args.image) options.image = String(args.image);
 
-      const event = await guild.scheduledEvents.create(options as any);
+      const event = await guild.scheduledEvents.create(options as unknown as GuildScheduledEventCreateOptions);
       return {
         content: [{ type: "text", text: `✅ Scheduled event "${event.name}" created (id: ${event.id}).` }],
       };
@@ -252,7 +252,7 @@ export async function handle(
         options.status = status;
       }
 
-      const updated = await event.edit(options as any);
+      const updated = await event.edit(options as unknown as GuildScheduledEventEditOptions<any, any>);
       return {
         content: [{ type: "text", text: `✅ Scheduled event "${updated.name}" updated (id: ${updated.id}).` }],
       };

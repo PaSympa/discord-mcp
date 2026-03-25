@@ -1,4 +1,4 @@
-import { ChannelType } from "discord.js";
+import { ChannelType, NewsChannel } from "discord.js";
 import { discord, getGuildChannel, validateId } from "../client.js";
 import type { ToolModule, ToolResult } from "./types.js";
 
@@ -166,8 +166,8 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
 
     case "discord_follow_announcement_channel": {
       const source = await discord.channels.fetch(validateId(args.source_channel_id, "source_channel_id"));
-      if (!source || !("addFollower" in source)) throw new Error("Source channel is not an announcement channel.");
-      await (source as any).addFollower(validateId(args.target_channel_id, "target_channel_id"));
+      if (!source || !(source instanceof NewsChannel)) throw new Error("Source channel is not an announcement channel.");
+      await source.addFollower(validateId(args.target_channel_id, "target_channel_id"));
       return { content: [{ type: "text", text: `✅ Now following announcement channel in target channel.` }] };
     }
 

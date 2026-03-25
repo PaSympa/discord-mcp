@@ -110,6 +110,21 @@ export const definitions = [
       required: ["guild_id", "event_id"],
     },
   },
+  {
+    name: "discord_create_event_invite",
+    description: "Create an invite URL linked to a scheduled event.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        guild_id: { type: "string" },
+        event_id: { type: "string" },
+        channel_id: { type: "string", description: "Channel for the invite. Uses the first text channel if omitted." },
+        max_age: { type: "number", description: "Invite duration in seconds (0 = never). Default 86400." },
+        max_uses: { type: "number", description: "Max uses (0 = unlimited). Default 0." },
+      },
+      required: ["guild_id", "event_id"],
+    },
+  },
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -267,6 +282,19 @@ export async function handle(
         avatar: sub.user.displayAvatarURL(),
       }));
       return { content: [{ type: "text", text: JSON.stringify(list, null, 2) }] };
+    }
+
+    case "discord_create_event_invite": {
+      const guildId = validateId(args.guild_id, "guild_id");
+      const eventId = validateId(args.event_id, "event_id");
+      const guild = await discord.guilds.fetch(guildId);
+      const event = await guild.scheduledEvents.fetch(eventId);
+      const url = await event.createInviteURL({
+        channel: args.channel_id ? validateId(args.channel_id, "channel_id") : undefined,
+        maxAge: Number(args.max_age ?? 86400),
+        maxUses: Number(args.max_uses ?? 0),
+      });
+      return { content: [{ type: "text", text: `✅ Event invite created: ${url}` }] };
     }
 
     default:

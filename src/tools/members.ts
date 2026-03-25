@@ -1,5 +1,6 @@
 import { GuildMember } from "discord.js";
 import { discord, serializePermissions, validateId } from "../client.js";
+import { MAX_FETCH_LIMIT, DEFAULTS } from "../constants.js";
 import type { ToolModule, ToolResult } from "./types.js";
 
 /** Tool definitions for listing, inspecting, and moderating guild members. */
@@ -160,7 +161,7 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
   switch (name) {
     case "discord_list_members": {
       const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
-      const limit = Math.min(Number(args.limit ?? 50), 1000);
+      const limit = Math.min(Number(args.limit ?? DEFAULTS.MEMBERS), DEFAULTS.MEMBERS_MAX);
       const members = await guild.members.list({ limit });
       const result = [...members.values()].map((m: GuildMember) => ({
         id: m.id, username: m.user.tag, nickname: m.nickname,
@@ -225,7 +226,7 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
 
     case "discord_search_members": {
       const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
-      const limit = Math.min(Number(args.limit ?? 25), 100);
+      const limit = Math.min(Number(args.limit ?? DEFAULTS.LIMIT), MAX_FETCH_LIMIT);
       const members = await guild.members.search({ query: args.query as string, limit });
       const result = [...members.values()].map((m: GuildMember) => ({
         id: m.id, username: m.user.tag, nickname: m.nickname,

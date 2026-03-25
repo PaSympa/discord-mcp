@@ -1,5 +1,6 @@
 import { EmbedBuilder, ColorResolvable, ChannelType } from "discord.js";
 import { discord, getTextChannel } from "../client.js";
+import { MAX_FETCH_LIMIT, DEFAULTS } from "../constants.js";
 import type { ToolModule, ToolResult } from "./types.js";
 
 /** Tool definitions for reading, sending, replying, editing, reacting, threading, embedding, deleting, pinning, and searching messages. */
@@ -360,7 +361,7 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
   switch (name) {
     case "discord_read_messages": {
       const channel = await getTextChannel(args.channel_id as string);
-      const limit = Math.min(Number(args.limit ?? 20), 100);
+      const limit = Math.min(Number(args.limit ?? DEFAULTS.MESSAGES), MAX_FETCH_LIMIT);
       const messages = await channel.messages.fetch({ limit });
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
@@ -470,7 +471,7 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
 
     case "discord_search_messages": {
       const channel = await getTextChannel(args.channel_id as string);
-      const limit = Math.min(Math.max(Number(args.limit ?? 100), 1), 100);
+      const limit = Math.min(Math.max(Number(args.limit ?? MAX_FETCH_LIMIT), 1), MAX_FETCH_LIMIT);
       const messages = await channel.messages.fetch({ limit });
       const keyword = (args.keyword as string).toLowerCase();
       const matches = [...messages.values()]
@@ -509,7 +510,7 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
       const msg = await channel.messages.fetch(args.message_id as string);
       const reaction = msg.reactions.cache.get(args.emoji as string);
       if (!reaction) throw new Error(`No reaction found for emoji "${args.emoji}" on message ${msg.id}.`);
-      const limit = Math.min(Number(args.limit ?? 25), 100);
+      const limit = Math.min(Number(args.limit ?? DEFAULTS.LIMIT), MAX_FETCH_LIMIT);
       const users = await reaction.users.fetch({ limit });
       const result = [...users.values()].map((u) => ({ id: u.id, username: u.username, bot: u.bot }));
       return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };

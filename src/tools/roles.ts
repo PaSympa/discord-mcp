@@ -99,6 +99,33 @@ export const definitions = [
       required: ["guild_id", "role_id"],
     },
   },
+  {
+    name: "discord_set_role_position",
+    description: "Change a role's position in the hierarchy.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        guild_id: { type: "string" },
+        role_id: { type: "string" },
+        position: { type: "number" },
+      },
+      required: ["guild_id", "role_id", "position"],
+    },
+  },
+  {
+    name: "discord_set_role_icon",
+    description: "Set a custom icon or unicode emoji on a role (requires server boost level 2+).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        guild_id: { type: "string" },
+        role_id: { type: "string" },
+        icon: { type: "string", description: "Image URL for the role icon. Set to null to remove." },
+        unicode_emoji: { type: "string", description: "Unicode emoji for the role. Set to null to remove." },
+      },
+      required: ["guild_id", "role_id"],
+    },
+  },
 ];
 
 /**
@@ -189,6 +216,25 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
       const role = await guild.roles.fetch(args.role_id as string) as Role;
       const members = role.members.map((m) => ({ id: m.id, username: m.user.tag, nickname: m.nickname }));
       return { content: [{ type: "text", text: JSON.stringify(members, null, 2) }] };
+    }
+
+    case "discord_set_role_position": {
+      const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
+      const role = await guild.roles.fetch(args.role_id as string) as Role;
+      await role.setPosition(args.position as number);
+      return { content: [{ type: "text", text: `✅ Role "${role.name}" moved to position ${args.position}.` }] };
+    }
+
+    case "discord_set_role_icon": {
+      const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
+      const role = await guild.roles.fetch(args.role_id as string) as Role;
+      if (args.icon !== undefined) {
+        await role.setIcon(args.icon === "null" || args.icon === null ? null : args.icon as string);
+      }
+      if (args.unicode_emoji !== undefined) {
+        await role.setUnicodeEmoji(args.unicode_emoji === "null" || args.unicode_emoji === null ? null : args.unicode_emoji as string);
+      }
+      return { content: [{ type: "text", text: `✅ Role "${role.name}" icon updated.` }] };
     }
 
     default:

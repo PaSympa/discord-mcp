@@ -70,6 +70,17 @@ export const definitions = [
       required: ["invite_code"],
     },
   },
+  {
+    name: "discord_list_channel_invites",
+    description: "List all active invites for a specific channel.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        channel_id: { type: "string" },
+      },
+      required: ["channel_id"],
+    },
+  },
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -140,6 +151,17 @@ export async function handle(
       return {
         content: [{ type: "text", text: `✅ Invite "${code}" deleted.` }],
       };
+    }
+
+    case "discord_list_channel_invites": {
+      const channelId = validateId(args.channel_id, "channel_id");
+      const channel = await discord.channels.fetch(channelId);
+      if (!channel || !("fetchInvites" in channel)) {
+        throw new Error(`Channel ${channelId} does not support invites.`);
+      }
+      const invites = await (channel as any).fetchInvites();
+      const list = [...invites.values()].map(serializeInvite);
+      return { content: [{ type: "text", text: JSON.stringify(list, null, 2) }] };
     }
 
     default:

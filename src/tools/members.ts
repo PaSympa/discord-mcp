@@ -82,6 +82,74 @@ export const definitions = [
       required: ["guild_id", "user_id", "duration_minutes"],
     },
   },
+  {
+    name: "discord_search_members",
+    description: "Search guild members by username or nickname.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        guild_id: { type: "string" },
+        query: { type: "string", description: "Search query (matches username and nickname)." },
+        limit: { type: "number", description: "1–100, default 25." },
+      },
+      required: ["guild_id", "query"],
+    },
+  },
+  {
+    name: "discord_set_nickname",
+    description: "Set or clear a member's nickname.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        guild_id: { type: "string" },
+        user_id: { type: "string" },
+        nickname: { type: "string", description: "New nickname, or null to clear." },
+        reason: { type: "string" },
+      },
+      required: ["guild_id", "user_id", "nickname"],
+    },
+  },
+  {
+    name: "discord_list_bans",
+    description: "List all banned users in a guild.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        guild_id: { type: "string" },
+        limit: { type: "number", description: "Max bans to fetch." },
+      },
+      required: ["guild_id"],
+    },
+  },
+  {
+    name: "discord_bulk_ban",
+    description: "Ban multiple users at once (raid mitigation).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        guild_id: { type: "string" },
+        user_ids: { type: "array", items: { type: "string" }, description: "Array of user IDs to ban." },
+        delete_message_seconds: { type: "number", description: "Delete messages from last N seconds (0–604800)." },
+        reason: { type: "string" },
+      },
+      required: ["guild_id", "user_ids"],
+    },
+  },
+  {
+    name: "discord_prune_members",
+    description: "Remove inactive members. Use dry_run (default) to preview count first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        guild_id: { type: "string" },
+        days: { type: "number", description: "Number of days of inactivity (1–30)." },
+        roles: { type: "array", items: { type: "string" }, description: "Role IDs to include in the prune." },
+        dry_run: { type: "boolean", description: "If true (default), only returns count without pruning." },
+        reason: { type: "string" },
+      },
+      required: ["guild_id", "days"],
+    },
+  },
 ];
 
 /**
@@ -153,6 +221,61 @@ export async function handle(name: string, args: Record<string, unknown>): Promi
           text: duration > 0 ? `✅ ${member.user.tag} is in timeout for ${duration} minutes.` : `✅ Timeout removed from ${member.user.tag}.`,
         }],
       };
+    }
+
+    case "discord_search_members": {
+      const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
+      const limit = Math.min(Number(args.limit ?? 25), 100);
+      const members = await guild.members.search({ query: args.query as string, limit });
+      const result = [...members.values()].map((m: GuildMember) => ({
+        id: m.id, username: m.user.tag, nickname: m.nickname,
+        roles: m.roles.cache.filter((r) => r.name !== "@everyone").map((r) => ({ id: r.id, name: r.name })),
+      }));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+
+    case "discord_set_nickname": {
+      const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
+      const member = await guild.members.fetch(args.user_id as string);
+      const nick = args.nickname === null || args.nickname === "null" ? null : String(args.nickname);
+      await member.setNickname(nick, args.reason as string | undefined);
+      return { content: [{ type: "text", text: nick ? `✅ Nickname for ${member.user.tag} set to "${nick}".` : `✅ Nickname cleared for ${member.user.tag}.` }] };
+    }
+
+    case "discord_list_bans": {
+      const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
+      const options: { limit?: number } = {};
+      if (args.limit) options.limit = Number(args.limit);
+      const bans = await guild.bans.fetch(options);
+      const result = [...bans.values()].map((ban) => ({
+        user_id: ban.user.id, username: ban.user.tag, reason: ban.reason ?? null,
+      }));
+      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+    }
+
+    case "discord_bulk_ban": {
+      const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
+      const userIds = args.user_ids as string[];
+      if (!Array.isArray(userIds) || userIds.length === 0) throw new Error("user_ids must be a non-empty array.");
+      const result = await guild.members.bulkBan(userIds, {
+        deleteMessageSeconds: Number(args.delete_message_seconds ?? 0),
+        reason: args.reason as string | undefined,
+      });
+      return { content: [{ type: "text", text: `✅ Bulk ban complete: ${result.bannedUsers.length} banned, ${result.failedUsers.length} failed.` }] };
+    }
+
+    case "discord_prune_members": {
+      const guild = await discord.guilds.fetch(validateId(args.guild_id, "guild_id"));
+      const days = Number(args.days);
+      const dryRun = args.dry_run !== false;
+      const roles = args.roles as string[] | undefined;
+      const pruned = await guild.members.prune({
+        days,
+        dry: dryRun,
+        roles: roles ?? undefined,
+        reason: args.reason as string | undefined,
+      });
+      return { content: [{ type: "text", text: dryRun ? `🔍 Dry run: ${pruned} members would be pruned (${days} days inactive).` : `✅ ${pruned} members pruned (${days} days inactive).` }] };
     }
 
     default:

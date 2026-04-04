@@ -23,6 +23,7 @@ import forums from "./forums.js";
 import webhooks from "./webhooks.js";
 import scheduledEvents from "./scheduledEvents.js";
 import invites from "./invites.js";
+import dm from "./dm.js";
 
 const modules: ToolModule[] = [
   discovery,
@@ -38,6 +39,7 @@ const modules: ToolModule[] = [
   webhooks,
   scheduledEvents,
   invites,
+  dm,
 ];
 
 /**

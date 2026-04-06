@@ -1,4 +1,4 @@
-import { discord } from "../client.js";
+import { discord, validateId } from "../client.js";
 import type { ToolModule, ToolResult } from "./types.js";
 
 /** Tool definitions for sending direct messages to users. */
@@ -31,13 +31,15 @@ async function handle(
 ): Promise<ToolResult | null> {
   switch (name) {
     case "discord_send_dm": {
-      const user = await discord.users.fetch(args.user_id as string);
-      const sent = await user.send(args.content as string);
+      const userId = validateId(args.user_id, "user_id");
+      const content = args.content as string;
+      const user = await discord.users.fetch(userId);
+      const sent = await user.send(content);
       return {
         content: [
           {
             type: "text",
-            text: `✅ DM sent to ${user.tag} (message id: ${sent.id}).`,
+            text: `✅ DM sent to ${user.username} (message id: ${sent.id}).`,
           },
         ],
       };

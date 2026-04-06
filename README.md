@@ -21,7 +21,7 @@ Messages, channels, roles, permissions, moderation, forums, webhooks — all thr
 
 ## Why this one?
 
-- **90+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, invites, embeds, and more
+- **90+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, invites, DMs, embeds, and more
 - **Multi-guild** — works across multiple servers, no `GUILD_ID` lock-in
 - **Lightweight** — TypeScript + Node.js, ~25kB package, ~73MB Docker image (vs 400MB+ for Java alternatives)
 - **Modular** — clean architecture, easy to extend with new tools
@@ -189,7 +189,7 @@ The server loads `.env` automatically via `dotenv`.
 
 ---
 
-## Available Tools (90)
+## Available Tools (91)
 
 ### Discovery & Navigation
 
@@ -317,6 +317,12 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_get_event_subscribers` | Get users who marked "Interested" |
 | `discord_create_event_invite` | Create an invite linked to an event |
 
+### Direct Messages
+
+| Tool | Description |
+|---|---|
+| `discord_send_dm` | Send a direct message to a user by their user ID |
+
 ### Invites (5 tools)
 
 | Tool | Description |
@@ -357,6 +363,7 @@ The server loads `.env` automatically via `dotenv`.
 "List all upcoming events in the server"
 "Create a permanent invite for #general"
 "List all active invites and delete expired ones"
+"Send a DM to user 112233445566 saying 'Your build passed!'"
 "Search for members named 'john'"
 "List all banned users in the server"
 "Show all pinned messages in #general"
@@ -397,7 +404,8 @@ discord-mcp/
 │       ├── forums.ts        ← Forum channels, posts, tags
 │       ├── webhooks.ts      ← Webhook management
 │       ├── scheduledEvents.ts ← Scheduled events
-│       └── invites.ts        ← Invite management
+│       ├── invites.ts        ← Invite management
+│       └── dm.ts             ← Direct messages
 ├── .github/workflows/       ← CI/CD (build check + auto release)
 ├── Dockerfile
 ├── .dockerignore

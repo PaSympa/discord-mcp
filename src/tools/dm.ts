@@ -32,6 +32,7 @@ const embedProperties = {
   color: { type: "string", description: "Hex color e.g. #5865F2" },
   fields: {
     type: "array",
+    description: "Name/value blocks shown inside the embed (max 25). Set inline:true to render up to 3 side-by-side.",
     items: {
       type: "object",
       properties: {
@@ -84,7 +85,7 @@ export const definitions = [
   {
     name: "discord_send_dm_embed",
     description:
-      "Send a rich embed as a direct message to a user.",
+      "Send a rich embed as a direct message to a user. The bot must share at least one server with the user, and the user must allow DMs from server members.",
     inputSchema: {
       type: "object",
       properties: {
@@ -127,7 +128,7 @@ export const definitions = [
   {
     name: "discord_delete_dm",
     description:
-      "Delete a message sent by the bot in a DM.",
+      "Delete a message previously sent by the bot in a DM. The bot can only delete its own messages.",
     inputSchema: {
       type: "object",
       properties: {
@@ -153,7 +154,7 @@ export const definitions = [
   {
     name: "discord_reply_dm",
     description:
-      "Reply to a specific message in a DM conversation.",
+      "Reply to a specific message in a DM, creating a quoted reply. Works on any message in the DM (bot or user).",
     inputSchema: {
       type: "object",
       properties: {

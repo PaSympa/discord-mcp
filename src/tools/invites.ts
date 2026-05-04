@@ -72,7 +72,8 @@ export const definitions = [
   },
   {
     name: "discord_list_channel_invites",
-    description: "List all active invites for a specific channel.",
+    description:
+      "List all active invites for a specific channel. Unlike discord_list_invites which returns guild-wide invites, this scopes the result to a single channel.",
     inputSchema: {
       type: "object",
       properties: {

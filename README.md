@@ -2,7 +2,7 @@
 
 # Discord MCP Server
 
-**A lightweight, multi-guild Discord MCP server with 90+ tools**
+**A lightweight, multi-guild Discord MCP server with 95+ tools**
 
 [![npm](https://img.shields.io/npm/v/@pasympa/discord-mcp)](https://www.npmjs.com/package/@pasympa/discord-mcp)
 [![License](https://img.shields.io/github/license/PaSympa/discord-mcp)](LICENSE)
@@ -21,7 +21,7 @@ Messages, channels, roles, permissions, moderation, forums, webhooks — all thr
 
 ## Why this one?
 
-- **90+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, invites, DMs, embeds, and more
+- **95+ tools** — messages, channels, roles, permissions, moderation, forums, webhooks, scheduled events, invites, DMs, embeds, and more
 - **Multi-guild** — works across multiple servers, no `GUILD_ID` lock-in
 - **Lightweight** — TypeScript + Node.js, ~25kB package, ~73MB Docker image (vs 400MB+ for Java alternatives)
 - **Modular** — clean architecture, easy to extend with new tools
@@ -189,9 +189,9 @@ The server loads `.env` automatically via `dotenv`.
 
 ---
 
-## Available Tools (91)
+## Available Tools (97)
 
-### Discovery & Navigation
+### Discovery & Navigation (4 tools)
 
 | Tool | Description |
 |---|---|
@@ -317,11 +317,17 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_get_event_subscribers` | Get users who marked "Interested" |
 | `discord_create_event_invite` | Create an invite linked to an event |
 
-### Direct Messages
+### Direct Messages (7 tools)
 
 | Tool | Description |
 |---|---|
 | `discord_send_dm` | Send a direct message to a user by their user ID |
+| `discord_send_dm_embed` | Send an embed in a DM to a user |
+| `discord_read_dms` | Read message history from a DM conversation |
+| `discord_reply_dm` | Reply to a specific DM message |
+| `discord_edit_dm` | Edit a previously sent DM (text) |
+| `discord_edit_dm_embed` | Edit a previously sent DM embed |
+| `discord_delete_dm` | Delete a DM message |
 
 ### Invites (5 tools)
 
@@ -333,7 +339,7 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_create_invite` | Create an invite link for a channel |
 | `discord_delete_invite` | Revoke an invite |
 
-### Moderation & Screening
+### Moderation & Screening (3 tools)
 
 | Tool | Description |
 |---|---|
@@ -341,7 +347,7 @@ The server loads `.env` automatically via `dotenv`.
 | `discord_get_membership_screening` | Get the membership screening form |
 | `discord_update_membership_screening` | Update screening rules for new members |
 
-### Stats
+### Stats (1 tool)
 
 | Tool | Description |
 |---|---|

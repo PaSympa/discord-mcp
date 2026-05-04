@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.5.0] - 2026-05-04
+
+### Added
+- Full DM toolset (6 new tools, 97 total): `discord_send_dm_embed`, `discord_edit_dm`, `discord_edit_dm_embed`, `discord_delete_dm`, `discord_read_dms`, `discord_reply_dm`
+- All DM tools take `user_id` directly and are self-contained in `dm.ts`
+
+## [1.4.1] - 2026-04-06
+
+### Added
+- `discord_send_dm` tool for sending direct messages by user ID (auto-creates DM channel)
+- Input validation (`validateId`) on DM tool
+
+### Changed
+- README: DM tool section, tool count bumped to 91, project structure updated
+
+### Fixed
+- Removed `dist/` from git tracking (now in `.gitignore`)
+
 ## [1.4.0] - 2025-03-25
 
 ### Added

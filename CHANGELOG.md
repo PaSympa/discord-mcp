@@ -1,10 +1,11 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.0] - 2026-07-13
 
 ### Changed
 
 - Tool inputs reject unknown argument keys instead of silently stripping them, and every `inputSchema` advertises `additionalProperties: false`. Callers passing extra keys now get `Invalid arguments — Unrecognized key: "…"`
+- The Docker image runs on Node 26 (was Node 24)
 
 ### Added
 

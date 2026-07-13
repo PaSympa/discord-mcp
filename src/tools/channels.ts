@@ -42,9 +42,7 @@ const tools = [
       const created = await guild.channels.create({
         name,
         type: channelType as
-          | ChannelType.GuildText
-          | ChannelType.GuildVoice
-          | ChannelType.GuildCategory,
+          ChannelType.GuildText | ChannelType.GuildVoice | ChannelType.GuildCategory,
         topic: channelType === ChannelType.GuildText ? topic : undefined,
         parent: category_id,
       });

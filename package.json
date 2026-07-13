@@ -9,7 +9,9 @@
     "discord-mcp": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "SECURITY.md",
+    "Dockerfile"
   ],
   "scripts": {
     "build": "tsc",

@@ -116,6 +116,20 @@ test("non-conforming structuredContent becomes an isError result, never ships", 
   assert.equal(res.structuredContent, undefined);
 });
 
+test("unknown argument keys are rejected and advertised via additionalProperties: false", async () => {
+  const mod = defineModule([
+    defineTool({
+      name: "t_strict",
+      description: "x",
+      schema: z.object({ a: z.string() }),
+      handle: async () => ({ content: [{ type: "text" as const, text: "ok" }] }),
+    }),
+  ]);
+  const schema = mod.definitions[0].inputSchema as Record<string, unknown>;
+  assert.equal(schema.additionalProperties, false);
+  await assert.rejects(() => mod.handlers.get("t_strict")!({ a: "x", extra: 1 }), ZodError);
+});
+
 test("defineModule throws on duplicate tool names within a module", () => {
   const dup = () =>
     defineTool({

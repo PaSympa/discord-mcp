@@ -329,7 +329,7 @@ const tools = [
       forum_channel_id: snowflake.describe("ID (snowflake) of the forum channel to set tags on."),
       tags: z
         .array(
-          z.object({
+          z.strictObject({
             name: z.string().describe("Tag label (max 20 characters)."),
             emoji_name: z.string().optional().describe("Optional unicode emoji shown on the tag."),
             moderated: z

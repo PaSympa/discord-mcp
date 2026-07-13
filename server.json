@@ -24,6 +24,22 @@
           "format": "string"
         }
       ]
+    },
+    {
+      "registryType": "oci",
+      "identifier": "docker.io/pasympa/discord-mcp:2.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DISCORD_TOKEN",
+          "description": "Discord bot token",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
     }
   ]
 }

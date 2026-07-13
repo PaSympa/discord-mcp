@@ -69,7 +69,7 @@ const tools = [
         .describe("Welcome message shown at the top of the screening form."),
       form_fields: z
         .array(
-          z.object({
+          z.strictObject({
             label: z.string().describe("Title of this rules block."),
             values: z.array(z.string()).describe("Individual rule lines shown under the label."),
             required: z

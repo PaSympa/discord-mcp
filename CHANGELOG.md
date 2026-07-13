@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Tool inputs reject unknown argument keys instead of silently stripping them, and every `inputSchema` advertises `additionalProperties: false`. Callers passing extra keys now get `Invalid arguments — Unrecognized key: "…"`
+
+### Added
+
+- The Docker image is declared in the MCP Registry manifest (`server.json` OCI package) and carries the `io.modelcontextprotocol.server.name` label the registry requires; the registry publish job now waits for the Docker push
+- The npm tarball ships `SECURITY.md` and the `Dockerfile`, so tarball-based security scanners see the security policy and the container option
+
 ## [2.0.0] - 2026-06-21
 
 ### Breaking

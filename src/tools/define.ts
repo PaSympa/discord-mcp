@@ -78,9 +78,19 @@ interface RegisteredTool {
 }
 
 /**
+ * Rejects unknown argument keys instead of silently stripping them, and the
+ * derived JSON Schema advertises it (`additionalProperties: false`). `.strict()`
+ * preserves the shape and object-level checks, so the cast keeps S's inference.
+ */
+function strictInput<S extends z.ZodType>(schema: S): S {
+  return schema instanceof z.ZodObject ? (schema.strict() as unknown as S) : schema;
+}
+
+/**
  * Declares one tool from a single source of truth: the zod `schema` derives the
  * client-facing `inputSchema` and validates incoming args, so `handle` receives
  * values already typed and checked — no `as` casts, no schema/handler drift.
+ * Unknown argument keys are rejected (`additionalProperties: false`).
  * An optional `outputSchema` (a `z.object`) derives the advertised `outputSchema`
  * and checks the handler's `structuredContent` against it on the way out: a
  * conforming result is normalised (unknown keys dropped, text block regenerated to
@@ -97,14 +107,15 @@ export function defineTool<S extends z.ZodType>(tool: {
   handle(args: z.infer<S>): Promise<ToolResult>;
 }): RegisteredTool {
   const { outputSchema } = tool;
+  const schema = strictInput(tool.schema);
   return {
     name: tool.name,
     description: tool.description,
     annotations: tool.annotations,
-    inputSchema: toInputSchema(tool.schema),
+    inputSchema: toInputSchema(schema),
     outputSchema: outputSchema ? toOutputSchema(outputSchema) : undefined,
     run: async (args) => {
-      const result = await tool.handle(tool.schema.parse(args));
+      const result = await tool.handle(schema.parse(args));
       if (outputSchema && result.structuredContent !== undefined) {
         const parsed = outputSchema.safeParse(result.structuredContent);
         if (parsed.success) {

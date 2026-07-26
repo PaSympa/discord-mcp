@@ -12,7 +12,7 @@ import { getAllDefinitions, handleTool, hasTool } from "./tools/index.js";
 
 /**
  * Builds the MCP server with the tool list/call handlers wired in, leaving the
- * transport to the caller — stdio in production, in-memory in tests.
+ * transport to the caller: stdio in production, in-memory in tests.
  */
 export function createServer(version: string): Server {
   const server = new Server({ name: "discord-mcp", version }, { capabilities: { tools: {} } });

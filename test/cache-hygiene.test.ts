@@ -20,11 +20,11 @@ const intentBits = () => {
 
 const hasIntent = (bit: number) => (intentBits() & BigInt(bit)) !== 0n;
 
-test("GuildMessages is not requested — nothing consumes MessageCreate and it caches every author", () => {
+test("GuildMessages is not requested: nothing consumes MessageCreate and it caches every author", () => {
   assert.equal(hasIntent(GatewayIntentBits.GuildMessages), false);
 });
 
-test("Guilds stays requested — the guild/channel/role caches every tool reads depend on it", () => {
+test("Guilds stays requested: the guild/channel/role caches every tool reads depend on it", () => {
   assert.equal(hasIntent(GatewayIntentBits.Guilds), true);
 });
 
@@ -43,7 +43,7 @@ test("protected managers keep an unlimited Collection", () => {
   }
 });
 
-test("ReactionManager stays unlimited — findReaction resolves emoji through its cache", () => {
+test("ReactionManager stays unlimited: findReaction resolves emoji through its cache", () => {
   const cache = discord.options.makeCache(
     { name: "ReactionManager" } as never,
     undefined as never,

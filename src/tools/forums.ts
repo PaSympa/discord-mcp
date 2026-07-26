@@ -30,8 +30,7 @@ async function getForumChannel(channelId: string): Promise<ForumChannel> {
  * Fetches a channel by ID and guarantees it is a thread channel.
  */
 async function getThreadChannel(id: string): Promise<ThreadChannel> {
-  // Forced: messageCount is gateway bookkeeping, and GuildMessages is no longer requested.
-  const channel = await fetchChannelChecked(id, true);
+  const channel = await fetchChannelChecked(id, { force: true });
   if (!channel || !channel.isThread())
     throw new Error(`Channel ${id} is not a thread or doesn't exist.`);
   return channel as ThreadChannel;
@@ -167,7 +166,7 @@ const tools = [
     }),
     handle: async ({ thread_id, limit }) => {
       const thread = await getThreadChannel(thread_id);
-      const messages = await thread.messages.fetch({ limit });
+      const messages = await thread.messages.fetch({ limit, cache: false });
       const result = {
         id: thread.id,
         name: thread.name,

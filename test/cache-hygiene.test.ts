@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { GatewayIntentBits } from "discord.js";
@@ -20,11 +22,11 @@ const intentBits = () => {
 
 const hasIntent = (bit: number) => (intentBits() & BigInt(bit)) !== 0n;
 
-test("GuildMessages is not requested — nothing consumes MessageCreate and it caches every author", () => {
+test("GuildMessages is not requested: nothing consumes MessageCreate and it caches every author", () => {
   assert.equal(hasIntent(GatewayIntentBits.GuildMessages), false);
 });
 
-test("Guilds stays requested — the guild/channel/role caches every tool reads depend on it", () => {
+test("Guilds stays requested: the guild/channel/role caches every tool reads depend on it", () => {
   assert.equal(hasIntent(GatewayIntentBits.Guilds), true);
 });
 
@@ -43,7 +45,7 @@ test("protected managers keep an unlimited Collection", () => {
   }
 });
 
-test("ReactionManager stays unlimited — findReaction resolves emoji through its cache", () => {
+test("ReactionManager stays unlimited: findReaction resolves emoji through its cache", () => {
   const cache = discord.options.makeCache(
     { name: "ReactionManager" } as never,
     undefined as never,
@@ -151,5 +153,20 @@ test("concurrent callers share one login attempt", async () => {
     assert.equal(discord.listenerCount("clientReady"), 0);
   } finally {
     discord.login = original;
+  }
+});
+
+test("every message fetch declines the cache", () => {
+  // Single-message fetches are read-once: nothing in the repo reads messages.cache
+  // back, and a cached copy freezes the reaction snapshot until the sweeper runs.
+  for (const file of ["messages.ts", "dm.ts", "forums.ts"]) {
+    const src = readFileSync(join(__dirname, "..", "src", "tools", file), "utf8");
+    for (const hit of src.matchAll(/\.messages\.fetch\(/g)) {
+      const call = src.slice(hit.index, hit.index + 160);
+      assert.ok(
+        call.includes("cache: false"),
+        `${file}: ${call.split("\n")[0]} must pass cache: false`,
+      );
+    }
   }
 });

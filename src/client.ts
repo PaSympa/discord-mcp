@@ -37,7 +37,7 @@ const guildMembersEnabled = envEnabled("DISCORD_GUILD_MEMBERS");
 
 export const discord = new Client({
   // No GuildMessages: nothing consumes MessageCreate, yet it caches every message plus
-  // its author. GuildMembers must stay — GUILD_MEMBER_REMOVE is the only eviction event.
+  // its author. GuildMembers must stay: GUILD_MEMBER_REMOVE is the only eviction event.
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildScheduledEvents,
@@ -149,7 +149,7 @@ export function allowListActive(): boolean {
   return allowedGuilds().length > 0;
 }
 
-/** True if the guild is in DISCORD_ALLOWED_GUILDS — or when no allow-list is configured (empty list allows all guilds). */
+/** True if the guild is in DISCORD_ALLOWED_GUILDS, or when no allow-list is configured (empty list allows all guilds). */
 export function isGuildAllowed(guildId: string): boolean {
   const list = allowedGuilds();
   return list.length === 0 || list.includes(guildId);
@@ -165,7 +165,7 @@ export function assertAllowedGuild(guildId: string | null | undefined): void {
 }
 
 /** Fetches a channel and enforces the guild allow-list before returning it. */
-export async function fetchChannelChecked(channelId: string, force = false) {
+export async function fetchChannelChecked(channelId: string, { force = false } = {}) {
   const channel = await discord.channels.fetch(channelId, { force });
   if (channel && "guildId" in channel) assertAllowedGuild(channel.guildId);
   return channel;

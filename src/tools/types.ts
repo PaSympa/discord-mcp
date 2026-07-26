@@ -1,8 +1,8 @@
 /**
  * MCP tool behavioral hints (advisory, not guarantees). See the MCP spec
  * "tool annotations": readOnlyHint (only reads, never mutates), destructiveHint
- * (may perform irreversible updates — delete/ban/prune), idempotentHint (repeat
- * calls with same args add no effect), openWorldHint (talks to an external API —
+ * (may perform irreversible updates: delete/ban/prune), idempotentHint (repeat
+ * calls with same args add no effect), openWorldHint (talks to an external API,
  * always true here). title is a human-readable display name.
  */
 export interface ToolAnnotations {
@@ -27,7 +27,7 @@ export interface ToolDefinition {
 }
 
 /**
- * Standard response returned by every tool handler — a subset of the SDK's
+ * Standard response returned by every tool handler: a subset of the SDK's
  * `CallToolResult`. Handlers only ever emit text blocks; `structuredContent` is an
  * optional machine-readable mirror conforming to the tool's `outputSchema` when one
  * is declared. The index signature mirrors the SDK's passthrough `Result` (which

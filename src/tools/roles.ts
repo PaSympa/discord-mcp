@@ -248,7 +248,7 @@ const tools = [
       const guild = await discord.guilds.fetch(guild_id);
       const role = await fetchRole(guild, role_id);
       // No "members of a role" endpoint exists, so page the member list and filter
-      // (1000/page max), accumulating per page — a sweep can empty the cache mid-loop.
+      // (1000/page max), accumulating per page: a sweep can empty the cache mid-loop.
       const MAX_PAGES = 20;
       let after: string | undefined;
       let truncated = true;

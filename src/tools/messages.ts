@@ -27,8 +27,8 @@ const messageSummary = z.object({
 /**
  * Looks up a reaction on a message by emoji argument.
  * The reaction cache is keyed by the emoji id (snowflake) for custom emoji and
- * by the raw unicode char for standard emoji — NOT by the "name:id" / "<:name:id>"
- * form the tool schema accepts — so a custom emoji is normalized to its id first.
+ * by the raw unicode char for standard emoji, NOT by the "name:id" / "<:name:id>"
+ * form the tool schema accepts, so a custom emoji is normalized to its id first.
  */
 function findReaction(msg: Message, emoji: string): MessageReaction | undefined {
   const customId = emoji.match(/^<a?:[^:]+:(\d{17,20})>$|^[^:]+:(\d{17,20})$/);

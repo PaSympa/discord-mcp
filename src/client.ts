@@ -4,9 +4,11 @@ import {
   Events,
   GatewayIntentBits,
   GuildChannel,
+  Options,
   PermissionsBitField,
   type GuildTextBasedChannel,
 } from "discord.js";
+import { SWEEP } from "./constants.js";
 
 /**
  * Initializes the Discord.js client with the gateway intents (privileged ones
@@ -34,14 +36,30 @@ const messageContentEnabled = envEnabled("DISCORD_MESSAGE_CONTENT");
 const guildMembersEnabled = envEnabled("DISCORD_GUILD_MEMBERS");
 
 export const discord = new Client({
+  // No GuildMessages: nothing consumes MessageCreate, yet it caches every message plus
+  // its author. GuildMembers must stay — GUILD_MEMBER_REMOVE is the only eviction event.
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildScheduledEvents,
     ...(messageContentEnabled ? [GatewayIntentBits.MessageContent] : []),
     ...(guildMembersEnabled ? [GatewayIntentBits.GuildMembers] : []),
   ],
   rest: { retries: 3, timeout: 15_000 },
+  sweepers: {
+    ...Options.DefaultSweeperSettings,
+    messages: SWEEP.messages,
+    threads: SWEEP.threads,
+    users: {
+      interval: SWEEP.users.interval,
+      filter: () => (user) => user.id !== user.client.user?.id,
+    },
+    guildMembers: {
+      interval: SWEEP.guildMembers.interval,
+      filter: () => (member) => member.id !== member.client.user?.id,
+    },
+    // Nothing reads guild.invites.cache back, and fetch() never clears stale entries.
+    invites: { interval: SWEEP.invites.interval, filter: () => () => true },
+  },
 });
 
 let discordReady = false;
@@ -77,30 +95,41 @@ export async function ensureConnected(): Promise<void> {
     throw new Error("DISCORD_TOKEN is required. Set it in your MCP client config or a .env file.");
   }
 
+  // Cleared only once the attempt settles: a second login replays every guild into the caches.
   if (!loginPromise) {
-    loginPromise = new Promise<void>((resolve, reject) => {
-      const onReady = () => {
-        clearTimeout(timer);
-        discordReady = true;
-        console.error(`✅  Discord bot connected as ${discord.user?.tag}`);
-        resolve();
-      };
-      const timer = setTimeout(() => {
-        discord.off(Events.ClientReady, onReady);
-        loginPromise = null;
-        reject(
-          new Error(
-            `Discord did not reach READY within ${LOGIN_TIMEOUT_MS / 1000}s. Check the token and that the Server Members / Message Content privileged intents are enabled in the Developer Portal, or disable them via DISCORD_GUILD_MEMBERS=false / DISCORD_MESSAGE_CONTENT=false.`,
-          ),
-        );
-      }, LOGIN_TIMEOUT_MS);
-      discord.once(Events.ClientReady, onReady);
-      discord.login(DISCORD_TOKEN).catch((err) => {
-        clearTimeout(timer);
-        discord.off(Events.ClientReady, onReady);
-        loginPromise = null;
-        reject(new Error(`Discord login failed: ${err.message}`));
+    loginPromise = (async () => {
+      let timer: NodeJS.Timeout | undefined;
+      let onReady!: () => void;
+      const ready = new Promise<void>((resolve, reject) => {
+        onReady = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        timer = setTimeout(() => {
+          discord.off(Events.ClientReady, onReady);
+          reject(
+            new Error(
+              `Discord did not reach READY within ${LOGIN_TIMEOUT_MS / 1000}s. Check the token and that the Server Members / Message Content privileged intents are enabled in the Developer Portal, or disable them via DISCORD_GUILD_MEMBERS=false / DISCORD_MESSAGE_CONTENT=false.`,
+            ),
+          );
+        }, LOGIN_TIMEOUT_MS);
+        discord.once(Events.ClientReady, onReady);
       });
+      ready.catch(() => {});
+
+      try {
+        await discord.login(DISCORD_TOKEN);
+      } catch (err) {
+        clearTimeout(timer);
+        discord.off(Events.ClientReady, onReady);
+        throw new Error(`Discord login failed: ${(err as Error).message}`, { cause: err });
+      }
+      await ready;
+      discordReady = true;
+      console.error(`✅  Discord bot connected as ${discord.user?.tag}`);
+    })();
+    loginPromise.catch(() => {
+      loginPromise = null;
     });
   }
 
@@ -136,8 +165,8 @@ export function assertAllowedGuild(guildId: string | null | undefined): void {
 }
 
 /** Fetches a channel and enforces the guild allow-list before returning it. */
-export async function fetchChannelChecked(channelId: string) {
-  const channel = await discord.channels.fetch(channelId);
+export async function fetchChannelChecked(channelId: string, force = false) {
+  const channel = await discord.channels.fetch(channelId, { force });
   if (channel && "guildId" in channel) assertAllowedGuild(channel.guildId);
   return channel;
 }

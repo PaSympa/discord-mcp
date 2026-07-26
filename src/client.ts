@@ -1,12 +1,15 @@
 import "dotenv/config";
 import {
   Client,
+  Collection,
   Events,
   GatewayIntentBits,
   GuildChannel,
+  Options,
   PermissionsBitField,
   type GuildTextBasedChannel,
 } from "discord.js";
+import { CACHE_LIMITS } from "./constants.js";
 
 /**
  * Initializes the Discord.js client with the gateway intents (privileged ones
@@ -33,6 +36,51 @@ function envEnabled(name: string): boolean {
 const messageContentEnabled = envEnabled("DISCORD_MESSAGE_CONTENT");
 const guildMembersEnabled = envEnabled("DISCORD_GUILD_MEMBERS");
 
+/**
+ * Bounded cache configuration for the Discord.js client.
+ *
+ * discord.js defaults to near-unlimited caches (500K guilds, 10K messages/channel,
+ * unlimited channels/roles). For an MCP server that fetches data on-demand with
+ * `cache: false` on most reads, these bounds keep memory predictable while
+ * retaining hot data for repeated tool calls within a session.
+ *
+ * Uses Options.cacheWithLimits() for all cache types. The settings object includes
+ * non-configurable cache names (GuildManager, ChannelManager, RoleManager) which
+ * are commented out in discord.js's Caches interface but still use the makeCache
+ * factory at runtime — the `as any` cast lets us bound them too.
+ */
+const cacheSettings: Record<string, number> = {
+  // Non-configurable via CacheWithLimitsOptions (commented out in Caches interface)
+  GuildManager: CACHE_LIMITS.GuildManager,
+  ChannelManager: CACHE_LIMITS.ChannelManager,
+  RoleManager: CACHE_LIMITS.RoleManager,
+  // Configurable caches
+  MessageManager: CACHE_LIMITS.MessageManager,
+  GuildMessageManager: CACHE_LIMITS.GuildMessageManager,
+  GuildMemberManager: CACHE_LIMITS.GuildMemberManager,
+  PresenceManager: CACHE_LIMITS.PresenceManager,
+  GuildBanManager: CACHE_LIMITS.GuildBanManager,
+  GuildEmojiManager: CACHE_LIMITS.GuildEmojiManager,
+  GuildStickerManager: CACHE_LIMITS.GuildStickerManager,
+  GuildScheduledEventManager: CACHE_LIMITS.GuildScheduledEventManager,
+  ThreadManager: CACHE_LIMITS.ThreadManager,
+  ThreadMemberManager: CACHE_LIMITS.ThreadMemberManager,
+  ReactionManager: CACHE_LIMITS.ReactionManager,
+  ReactionUserManager: CACHE_LIMITS.ReactionUserManager,
+  StageInstanceManager: CACHE_LIMITS.StageInstanceManager,
+  VoiceStateManager: CACHE_LIMITS.VoiceStateManager,
+  UserManager: CACHE_LIMITS.UserManager,
+  EntitlementManager: CACHE_LIMITS.EntitlementManager,
+  AutoModerationRuleManager: CACHE_LIMITS.AutoModerationRuleManager,
+  ApplicationCommandManager: CACHE_LIMITS.ApplicationCommandManager,
+  ApplicationEmojiManager: CACHE_LIMITS.ApplicationEmojiManager,
+  BaseGuildEmojiManager: CACHE_LIMITS.BaseGuildEmojiManager,
+  GuildInviteManager: CACHE_LIMITS.GuildInviteManager,
+  DMMessageManager: CACHE_LIMITS.DMMessageManager,
+  GuildForumThreadManager: CACHE_LIMITS.GuildForumThreadManager,
+  GuildTextThreadManager: CACHE_LIMITS.GuildTextThreadManager,
+};
+
 export const discord = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -42,6 +90,7 @@ export const discord = new Client({
     ...(guildMembersEnabled ? [GatewayIntentBits.GuildMembers] : []),
   ],
   rest: { retries: 3, timeout: 15_000 },
+  makeCache: Options.cacheWithLimits(cacheSettings as any),
 });
 
 let discordReady = false;

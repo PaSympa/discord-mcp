@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Long-running servers no longer grow without bound. The `GuildMessages` intent is no longer requested (nothing subscribes to `MessageCreate`, yet it cached every message together with its author `User` and `GuildMember`), sweepers are configured for the caches tool calls fill (`users`, `guildMembers`, `messages`, `invites`, plus a tightened `threads`), and a login timeout can no longer start a second login that respawns the shard and replays every guild into the caches. Reported by [@Quentin-M](https://github.com/Quentin-M) in [#89](https://github.com/PaSympa/discord-mcp/pull/89), whose production data (~52 GB/day per container) made the diagnosis possible
+- `discord_list_roles` reports real member counts from the API instead of counting whatever happened to be cached, which was frequently zero (closes [#82](https://github.com/PaSympa/discord-mcp/issues/82))
+- `discord_audit_permissions` resolves member names from its own fetch results, so a cache sweep can no longer blank them mid-report
+- `discord_get_role_members` accumulates each page as it is fetched instead of re-reading a cache that a sweep can empty between pages
+- `discord_get_forum_post` reports a current message count instead of a stale one
+- Message fetches no longer populate the per-channel message cache, so `discord_get_reactions` and `discord_remove_reactions` read a fresh reaction snapshot instead of one frozen at first fetch. Contributed by [@Quentin-M](https://github.com/Quentin-M) in [#89](https://github.com/PaSympa/discord-mcp/pull/89)
+
 ## [2.1.0] - 2026-07-13
 
 ### Changed

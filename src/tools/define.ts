@@ -89,12 +89,12 @@ function strictInput<S extends z.ZodType>(schema: S): S {
 /**
  * Declares one tool from a single source of truth: the zod `schema` derives the
  * client-facing `inputSchema` and validates incoming args, so `handle` receives
- * values already typed and checked — no `as` casts, no schema/handler drift.
+ * values already typed and checked: no `as` casts, no schema/handler drift.
  * Unknown argument keys are rejected (`additionalProperties: false`).
  * An optional `outputSchema` (a `z.object`) derives the advertised `outputSchema`
  * and checks the handler's `structuredContent` against it on the way out: a
  * conforming result is normalised (unknown keys dropped, text block regenerated to
- * match); a non-conforming one is rejected — the call returns an `isError` result
+ * match); a non-conforming one is rejected: the call returns an `isError` result
  * and the mismatch is logged, because conformance is a spec MUST and SDK clients
  * reject non-conforming results anyway.
  */

@@ -46,7 +46,7 @@ test("bulk_ban advertises and enforces the 200-ID Discord cap", async () => {
   );
 });
 
-test("set_nickname requires the nickname field — omission no longer silently clears", async () => {
+test("set_nickname requires the nickname field: omission no longer silently clears", async () => {
   const d = def(members, "discord_set_nickname");
   assert.ok(d.inputSchema.required?.includes("nickname"));
   await assert.rejects(

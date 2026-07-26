@@ -3,7 +3,7 @@ import { z } from "zod";
 import { httpUrl } from "./tools/define.js";
 
 /**
- * Zod fields of a rich embed — spread into a tool's `z.object({...})` schema.
+ * Zod fields of a rich embed: spread into a tool's `z.object({...})` schema.
  * The single source of truth for embed input across the message, DM, and webhook tools.
  */
 export const embedFieldsShape = {
@@ -47,12 +47,12 @@ export const embedFieldsShape = {
 /** Schema for a single embed object (e.g. an item of `discord_send_multiple_embeds`). */
 export const embedObjectSchema = z.strictObject(embedFieldsShape);
 
-/** Up to 10 embeds — Discord's per-message cap, enforced at parse time and advertised as maxItems. */
+/** Up to 10 embeds: Discord's per-message cap, enforced at parse time and advertised as maxItems. */
 export const embedArraySchema = z
   .array(embedObjectSchema)
   .max(10, "Discord allows a maximum of 10 embeds per message.");
 
-/** Validated embed input — the typed shape `buildEmbed` consumes. */
+/** Validated embed input: the typed shape `buildEmbed` consumes. */
 export type EmbedInput = z.infer<typeof embedObjectSchema>;
 
 /**

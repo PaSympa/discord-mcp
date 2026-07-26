@@ -9,6 +9,7 @@
 - `discord_audit_permissions` resolves member names from its own fetch results, so a cache sweep can no longer blank them mid-report
 - `discord_get_role_members` accumulates each page as it is fetched instead of re-reading a cache that a sweep can empty between pages
 - `discord_get_forum_post` reports a current message count instead of a stale one
+- Message fetches no longer populate the per-channel message cache, so `discord_get_reactions` and `discord_remove_reactions` read a fresh reaction snapshot instead of one frozen at first fetch. Contributed by [@Quentin-M](https://github.com/Quentin-M) in [#89](https://github.com/PaSympa/discord-mcp/pull/89)
 
 ## [2.1.0] - 2026-07-13
 

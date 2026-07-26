@@ -85,7 +85,7 @@ const tools = [
     handle: async ({ user_id, message_id, content }) => {
       const user = await discord.users.fetch(user_id);
       const dm = await user.createDM();
-      const msg = await dm.messages.fetch(message_id);
+      const msg = await dm.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only edit messages sent by the bot.");
       await msg.edit(content);
@@ -116,7 +116,7 @@ const tools = [
     handle: async ({ user_id, message_id, content, ...embedArgs }) => {
       const user = await discord.users.fetch(user_id);
       const dm = await user.createDM();
-      const msg = await dm.messages.fetch(message_id);
+      const msg = await dm.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only edit embeds sent by the bot.");
       await msg.edit({
@@ -151,7 +151,7 @@ const tools = [
     handle: async ({ user_id, message_id }) => {
       const user = await discord.users.fetch(user_id);
       const dm = await user.createDM();
-      const msg = await dm.messages.fetch(message_id);
+      const msg = await dm.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only delete messages sent by the bot.");
       await msg.delete();
@@ -187,7 +187,7 @@ const tools = [
     handle: async ({ user_id, limit }) => {
       const user = await discord.users.fetch(user_id);
       const dm = await user.createDM();
-      const messages = await dm.messages.fetch({ limit });
+      const messages = await dm.messages.fetch({ limit, cache: false });
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((m) => ({
@@ -219,7 +219,7 @@ const tools = [
     handle: async ({ user_id, message_id, content }) => {
       const user = await discord.users.fetch(user_id);
       const dm = await user.createDM();
-      const target = await dm.messages.fetch(message_id);
+      const target = await dm.messages.fetch({ message: message_id, cache: false });
       const sent = await target.reply(content);
       return {
         content: [

@@ -218,9 +218,11 @@ const tools = [
           });
         }
       });
-      await Promise.all(
+      // From the fetch results, not the cache: a sweep can fire before the read-back.
+      const fetched = await Promise.all(
         [...memberIdsNeeded].map((id) => guild.members.fetch(id).catch(() => null)),
       );
+      const memberTags = new Map(fetched.filter((m) => m !== null).map((m) => [m.id, m.user.tag]));
       const report: Record<string, unknown>[] = [];
       guild.channels.cache
         .filter((c) => c instanceof GuildChannel)
@@ -230,7 +232,7 @@ const tools = [
             const isRole = ow.type === 0;
             const entity = isRole
               ? (guild.roles.cache.get(ow.id)?.name ?? ow.id)
-              : (guild.members.cache.get(ow.id)?.user.tag ?? ow.id);
+              : (memberTags.get(ow.id) ?? ow.id);
             return {
               entity,
               type: isRole ? "role" : "member",

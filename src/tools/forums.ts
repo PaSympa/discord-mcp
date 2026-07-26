@@ -166,7 +166,7 @@ const tools = [
     }),
     handle: async ({ thread_id, limit }) => {
       const thread = await getThreadChannel(thread_id);
-      const messages = await thread.messages.fetch({ limit });
+      const messages = await thread.messages.fetch({ limit, cache: false });
       const result = {
         id: thread.id,
         name: thread.name,

@@ -111,7 +111,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, content }) => {
       const channel = await getTextChannel(channel_id);
-      const target = await channel.messages.fetch(message_id);
+      const target = await channel.messages.fetch({ message: message_id, cache: false });
       const sent = await target.reply(content);
       return {
         content: [
@@ -149,7 +149,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, content }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only edit messages sent by the bot.");
       const edited = await msg.edit(content);
@@ -180,7 +180,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, emoji }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       await msg.react(emoji);
       return {
         content: [
@@ -224,7 +224,7 @@ const tools = [
       const channel = await getTextChannel(channel_id);
       const duration = auto_archive_duration;
       if (message_id) {
-        const msg = await channel.messages.fetch(message_id);
+        const msg = await channel.messages.fetch({ message: message_id, cache: false });
         const thread = await msg.startThread({ name, autoArchiveDuration: duration });
         return {
           content: [
@@ -341,7 +341,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only edit embeds sent by the bot.");
       await msg.edit({ embeds: [buildEmbed(embedArgs)] });
@@ -402,7 +402,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, reason }) => {
       const channel = await getTextChannel(channel_id);
-      await channel.messages.fetch(message_id);
+      await channel.messages.fetch({ message: message_id, cache: false });
       // msg.delete() cannot carry an audit-log reason; the raw REST call sets X-Audit-Log-Reason.
       await discord.rest.delete(Routes.channelMessage(channel.id, message_id), { reason });
       return { content: [{ type: "text", text: `✅ Message ${message_id} deleted.` }] };
@@ -428,7 +428,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, pin }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (pin) {
         await msg.pin();
       } else {
@@ -489,7 +489,7 @@ const tools = [
         throw new Error(
           "Channel is not an announcement channel — only announcement-channel messages can be published.",
         );
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       try {
         await msg.crosspost();
       } catch (err) {
@@ -541,7 +541,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, emoji, user_id }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (!emoji) {
         await msg.reactions.removeAll();
         return {
@@ -596,7 +596,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, emoji, limit }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       const reaction = findReaction(msg, emoji);
       if (!reaction)
         throw new Error(`No reaction found for emoji "${emoji}" on message ${msg.id}.`);
@@ -653,7 +653,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, target_channel_id }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       const targetChannel = await getTextChannel(target_channel_id);
       // ThreadChannel<boolean> is the abstract base for PublicThreadChannel / PrivateThreadChannel;
       // any runtime instance is one of them, but the type narrowing can't be expressed without a cast.

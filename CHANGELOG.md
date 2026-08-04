@@ -1,6 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [2.1.1] - 2026-08-04
+
+### Security
+
+- npm audit is clean for the first time: the two @hono/node-server moderates accepted since June are resolved by MCP SDK 1.30.0 widening its dependency range, and six freshly published transitive advisories (undici, ip-address, fast-uri, hono, @hono/node-server, brace-expansion) are fixed within semver
 
 ### Fixed
 

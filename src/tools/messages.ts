@@ -12,7 +12,7 @@ import { z } from "zod";
 import { discord, getTextChannel, fetchChannelChecked } from "../client.js";
 import { MAX_FETCH_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.js";
 import { buildEmbed, embedFieldsShape, embedArraySchema } from "../embeds.js";
-import { defineModule, defineTool, snowflake, intIn, structured } from "./define.js";
+import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
 
 const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
 const messageId = snowflake.describe("ID of the message.");
@@ -472,17 +472,11 @@ const tools = [
       "Search for messages across all channels in a guild using Discord's native search API. Returns messages matching the query with channel context. Requires READ_MESSAGE_HISTORY permission. Use discord_search_messages for channel-specific search.",
     annotations: { title: "Search guild messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
-      guild_id: snowflake.describe("ID (snowflake) of the guild to search across all channels."),
+      guild_id: guildId,
       query: z.string().describe("Search query (case-insensitive)."),
-      channel_id: snowflake
-        .optional()
-        .describe("Optional. Restrict search to this channel ID."),
-      author_id: snowflake
-        .optional()
-        .describe("Optional. Only show messages from this user ID."),
-      limit: intIn(1, 100)
-        .default(25)
-        .describe("Max messages to return (1–100). Default 25."),
+      channel_id: snowflake.optional().describe("Optional. Restrict search to this channel ID."),
+      author_id: snowflake.optional().describe("Optional. Only show messages from this user ID."),
+      limit: intIn(1, 100).default(25).describe("Max messages to return (1–100). Default 25."),
     }),
     outputSchema: z.object({
       matches: z.array(
@@ -525,22 +519,9 @@ const tools = [
         channel_name: "",
       }));
 
-      // Resolve channel names
-      const channelIds = [...new Set(matches.map((m) => m.channel_id))];
-      const channelNames = new Map<string, string>();
-      for (const id of channelIds) {
-        try {
-          const channel = await discord.channels.fetch(id);
-          if (channel && "name" in channel) {
-            channelNames.set(id, channel.name ?? "unknown");
-          }
-        } catch {
-          channelNames.set(id, "unknown");
-        }
-      }
-
+      const guild = await discord.guilds.fetch(guild_id);
       for (const match of matches) {
-        match.channel_name = channelNames.get(match.channel_id) ?? "unknown";
+        match.channel_name = guild.channels.cache.get(match.channel_id)?.name ?? "unknown";
       }
 
       return structured({ matches });

@@ -103,7 +103,7 @@ test("read_messages clamps a pre-epoch since instead of sending a negative id", 
 });
 
 test("read_messages rejects more than one cursor", async () => {
-  captureFetches();
+  const calls = captureFetches();
   for (const args of [
     { channel_id: CHANNEL, before: OLDEST, after: OLDEST },
     { channel_id: CHANNEL, before: OLDEST, around: OLDEST },
@@ -113,8 +113,21 @@ test("read_messages rejects more than one cursor", async () => {
     { channel_id: CHANNEL, around: OLDEST, since: "2026-08-01" },
     { channel_id: CHANNEL, before: OLDEST, after: OLDEST, around: OLDEST },
   ]) {
-    await assert.rejects(() => read()(args), ZodError, JSON.stringify(args));
+    await assert.rejects(
+      () => read()(args),
+      (error: unknown) => {
+        assert.ok(error instanceof ZodError);
+        assert.match(
+          error.issues.map((issue) => issue.message).join(" "),
+          /at most one/i,
+          "the rejection must name the constraint, not just fail",
+        );
+        return true;
+      },
+      JSON.stringify(args),
+    );
   }
+  assert.equal(calls.length, 0, "an invalid cursor combination must not reach the Discord API");
 });
 
 test("read_messages rejects a since that is not a parsable date", async () => {

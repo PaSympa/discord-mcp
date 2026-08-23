@@ -228,7 +228,7 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 
 | Tool                            | Description                                              |
 | ------------------------------- | -------------------------------------------------------- |
-| `discord_read_messages`         | Read the last N messages from a text channel             |
+| `discord_read_messages`         | Read messages, paging back through history               |
 | `discord_send_message`          | Send a plain text message                                |
 | `discord_reply_message`         | Reply to a specific message                              |
 | `discord_edit_message`          | Edit a message sent by the bot                           |

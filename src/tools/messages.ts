@@ -6,6 +6,7 @@ import {
   Message,
   MessageReaction,
   Routes,
+  SnowflakeUtil,
   DiscordAPIError,
 } from "discord.js";
 import { z } from "zod";
@@ -16,6 +17,45 @@ import { defineModule, defineTool, snowflake, guildId, intIn, structured } from 
 
 const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
 const messageId = snowflake.describe("ID of the message.");
+
+/**
+ * History paging cursors. Discord's `GET /channels/{id}/messages` accepts at most
+ * one of `before` / `after` / `around` per request, so tools exposing them reject
+ * combinations at parse time instead of letting the API answer 400.
+ */
+const beforeCursor = snowflake.describe(
+  "Return only messages older than this message ID (snowflake). Page backwards through history by passing the id of the oldest message from the previous call.",
+);
+const afterCursor = snowflake.describe(
+  "Return only messages newer than this message ID (snowflake). Page forwards by passing the id of the newest message from the previous call.",
+);
+const sinceInstant = z
+  .string()
+  .refine((value) => !Number.isNaN(Date.parse(value)), {
+    message: "Must be an ISO 8601 date or date-time.",
+  })
+  .describe(
+    'Return only messages posted after this instant, as an ISO 8601 date or date-time (e.g. "2026-08-01" or "2026-08-01T09:00:00Z"). Convenience form of `after` for callers that know a date but not a message id.',
+  );
+
+const SINGLE_CURSOR_MESSAGE =
+  "Pass at most one of before, after, or since: Discord's messages endpoint accepts a single cursor.";
+
+/** True when at most one paging cursor was supplied. */
+function hasSingleCursor(args: { before?: string; after?: string; since?: string }): boolean {
+  return [args.before, args.after, args.since].filter((value) => value !== undefined).length <= 1;
+}
+
+/**
+ * Converts an ISO 8601 instant into the snowflake an `after` cursor expects.
+ * Snowflakes embed a millisecond timestamp, so a synthetic id marks that instant
+ * exactly. Instants before the Discord epoch are clamped to it: `generate` returns
+ * a negative id for them, which the API rejects.
+ */
+function cursorForInstant(iso: string): string {
+  const timestamp = Math.max(Date.parse(iso), Number(SnowflakeUtil.epoch));
+  return SnowflakeUtil.generate({ timestamp }).toString();
+}
 
 const messageSummary = z.object({
   id: z.string(),
@@ -48,20 +88,31 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read the most recent messages from a text channel or thread, oldest-to-newest. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Without a cursor it returns the most recent messages; pass before, after, or since (at most one) to reach older history. Page backwards by re-calling with before set to the id of the oldest message you received, which lets you walk a channel past the 100-message per-call cap. Requires View Channel and Read Message History. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
-    schema: z.object({
-      channel_id: snowflake.describe("ID (snowflake) of the channel or thread to read from."),
-      limit: intIn(1, MAX_FETCH_LIMIT)
-        .default(DEFAULTS.MESSAGES)
-        .describe("How many recent messages to fetch (1–100). Default 20."),
-    }),
+    schema: z
+      .object({
+        channel_id: snowflake.describe("ID (snowflake) of the channel or thread to read from."),
+        limit: intIn(1, MAX_FETCH_LIMIT)
+          .default(DEFAULTS.MESSAGES)
+          .describe("How many messages to fetch per call (1–100). Default 20."),
+        before: beforeCursor.optional(),
+        after: afterCursor.optional(),
+        since: sinceInstant.optional(),
+      })
+      .refine(hasSingleCursor, { message: SINGLE_CURSOR_MESSAGE }),
     outputSchema: z.object({
       messages: z.array(messageSummary.extend({ attachments: z.number(), pinned: z.boolean() })),
     }),
-    handle: async ({ channel_id, limit }) => {
+    handle: async ({ channel_id, limit, before, after, since }) => {
       const channel = await getTextChannel(channel_id);
-      const messages = await channel.messages.fetch({ limit, cache: false });
+      const resolvedAfter = after ?? (since === undefined ? undefined : cursorForInstant(since));
+      const messages = await channel.messages.fetch({
+        limit,
+        cache: false,
+        ...(before === undefined ? {} : { before }),
+        ...(resolvedAfter === undefined ? {} : { after: resolvedAfter }),
+      });
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((m) => ({

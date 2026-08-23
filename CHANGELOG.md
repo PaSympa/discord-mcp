@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `discord_read_messages` accepts `before`, `after` and `since` cursors, so a channel can be read past the 100-message per-call cap. Page backwards by re-calling with `before` set to the id of the oldest message received; `since` takes an ISO 8601 date or date-time and is converted to the equivalent `after` snowflake. At most one cursor per call, matching Discord's endpoint, and instants before the Discord epoch clamp to it rather than sending a negative id
+
 ## [2.1.1] - 2026-08-04
 
 ### Security

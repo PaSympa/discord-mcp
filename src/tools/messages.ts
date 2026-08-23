@@ -36,10 +36,7 @@ function findReaction(msg: Message, emoji: string): MessageReaction | undefined 
   return msg.reactions.cache.get(key);
 }
 
-/**
- * Renders a raw API user the way discord.js `User#tag` does, so search results read
- * identically to the sibling tools. Both "0" and "0000" mean a migrated handle.
- */
+/** Mirrors discord.js `User#tag`, which raw API users lack. Both "0" and "0000" mean migrated. */
 function userTag(user: { username: string; discriminator: string }): string {
   return user.discriminator === "0" || user.discriminator === "0000"
     ? user.username

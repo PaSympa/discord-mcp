@@ -1,0 +1,54 @@
+name: Label PR
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: label-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    # Dependabot already labels its own pull requests.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      # pull_request_target runs with a writable token, so this job must never
+      # check out or execute the head branch: it only reads the PR title.
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const LABELS = {
+              feat: "enhancement",
+              fix: "bug",
+              docs: "documentation",
+              chore: "chore",
+              refactor: "chore",
+              style: "chore",
+              perf: "chore",
+              test: "chore",
+              build: "chore",
+              ci: "chore",
+            };
+            const pr = context.payload.pull_request;
+            const prefix = pr.title.match(/^([a-z]+)(\([^)]*\))?!?:/)?.[1];
+            const label = LABELS[prefix];
+            if (!label) {
+              core.info(`No label for title: ${pr.title}`);
+              return;
+            }
+            if (pr.labels.some((existing) => existing.name === label)) {
+              core.info(`Already labelled ${label}`);
+              return;
+            }
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: [label],
+            });
+            core.info(`Added ${label}`);

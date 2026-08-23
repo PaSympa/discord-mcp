@@ -185,6 +185,8 @@ The server loads `.env` automatically via `dotenv`.
 | `DISCORD_MCP_TOOLSETS`    | `all`   | Comma-separated list of toolsets to expose, to keep the tool list small. Unset or `all` exposes every tool.                                                                                   |
 | `DISCORD_ALLOWED_GUILDS`  | all     | Comma-separated guild IDs the server may act on. When set, tool calls targeting any other guild are rejected — whether addressed by guild ID, channel ID, thread ID, webhook, or invite code. |
 
+Since 2.1.1 the server no longer requests the `GuildMessages` intent at all: nothing here subscribes to message events, and every message this server returns is fetched over REST, which connection intents do not gate. That intent used to make discord.js cache every message flowing through every channel, together with its author, which grew unbounded on a long-running server. Cache sweepers now bound what remains. `DISCORD_MESSAGE_CONTENT` therefore only affects whether the Message Content intent is requested at connect time; it does not change what any tool returns.
+
 These flags only control which gateway intents the server requests when identifying. Requesting a privileged intent that is **not** enabled in the Developer Portal makes the connection fail at the first tool call (close code `4014`) — set the flag to `false` to connect anyway.
 
 Data access is governed by the **portal toggles**, not by these flags: this server reads everything over the REST API, which Discord gates on the portal setting alone. So with the portal toggles on, setting these flags to `false` loses nothing. With a portal toggle **off**, the corresponding data is restricted regardless of the flags: message bodies come back empty (`content`, `embeds`, `attachments` — except the bot's own messages, DMs, and messages that mention the bot) and member listing fails — enable the toggle in the portal to restore it.
@@ -211,7 +213,7 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 
 ---
 
-## Available Tools (97)
+## Available Tools (98)
 
 ### Discovery & Navigation (4 tools)
 
@@ -222,28 +224,29 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 | `discord_list_channels`        | List all channels in a guild grouped by category                 |
 | `discord_find_channel_by_name` | Find a channel by name (partial match)                           |
 
-### Messages (18 tools)
+### Messages (19 tools)
 
-| Tool                            | Description                                         |
-| ------------------------------- | --------------------------------------------------- |
-| `discord_read_messages`         | Read the last N messages from a text channel        |
-| `discord_send_message`          | Send a plain text message                           |
-| `discord_reply_message`         | Reply to a specific message                         |
-| `discord_edit_message`          | Edit a message sent by the bot                      |
-| `discord_delete_message`        | Delete a specific message                           |
-| `discord_add_reaction`          | Add a reaction emoji to a message                   |
-| `discord_remove_reactions`      | Remove reactions (all, by emoji, or by user)        |
-| `discord_get_reactions`         | List users who reacted with a specific emoji        |
-| `discord_create_thread`         | Create a thread from a message or standalone        |
-| `discord_bulk_delete_messages`  | Delete multiple messages at once (2-100)            |
-| `discord_send_embed`            | Send a rich embed with all options                  |
-| `discord_edit_embed`            | Edit an embed previously sent by the bot            |
-| `discord_send_multiple_embeds`  | Send up to 10 embeds in a single message            |
-| `discord_pin_message`           | Pin or unpin a message                              |
-| `discord_fetch_pinned_messages` | List all pinned messages in a channel               |
-| `discord_search_messages`       | Search messages by keyword (last 100)               |
-| `discord_crosspost_message`     | Publish a message to announcement channel followers |
-| `discord_forward_message`       | Forward a message to another channel                |
+| Tool                            | Description                                              |
+| ------------------------------- | -------------------------------------------------------- |
+| `discord_read_messages`         | Read the last N messages from a text channel             |
+| `discord_send_message`          | Send a plain text message                                |
+| `discord_reply_message`         | Reply to a specific message                              |
+| `discord_edit_message`          | Edit a message sent by the bot                           |
+| `discord_delete_message`        | Delete a specific message                                |
+| `discord_add_reaction`          | Add a reaction emoji to a message                        |
+| `discord_remove_reactions`      | Remove reactions (all, by emoji, or by user)             |
+| `discord_get_reactions`         | List users who reacted with a specific emoji             |
+| `discord_create_thread`         | Create a thread from a message or standalone             |
+| `discord_bulk_delete_messages`  | Delete multiple messages at once (2-100)                 |
+| `discord_send_embed`            | Send a rich embed with all options                       |
+| `discord_edit_embed`            | Edit an embed previously sent by the bot                 |
+| `discord_send_multiple_embeds`  | Send up to 10 embeds in a single message                 |
+| `discord_pin_message`           | Pin or unpin a message                                   |
+| `discord_fetch_pinned_messages` | List all pinned messages in a channel                    |
+| `discord_search_messages`       | Search messages by keyword (last 100)                    |
+| `discord_search_guild_messages` | Search across every channel using Discord's search index |
+| `discord_crosspost_message`     | Publish a message to announcement channel followers      |
+| `discord_forward_message`       | Forward a message to another channel                     |
 
 ### Channels (8 tools)
 

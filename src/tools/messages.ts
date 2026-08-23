@@ -36,6 +36,16 @@ function findReaction(msg: Message, emoji: string): MessageReaction | undefined 
   return msg.reactions.cache.get(key);
 }
 
+/**
+ * Renders a raw API user the way discord.js `User#tag` does, so search results read
+ * identically to the sibling tools. Both "0" and "0000" mean a migrated handle.
+ */
+function userTag(user: { username: string; discriminator: string }): string {
+  return user.discriminator === "0" || user.discriminator === "0000"
+    ? user.username
+    : `${user.username}#${user.discriminator}`;
+}
+
 /** Tool definitions for channel and thread messages. */
 const tools = [
   defineTool({
@@ -476,7 +486,7 @@ const tools = [
       query: z.string().describe("Search query (case-insensitive)."),
       channel_id: snowflake.optional().describe("Optional. Restrict search to this channel ID."),
       author_id: snowflake.optional().describe("Optional. Only show messages from this user ID."),
-      limit: intIn(1, 100).default(25).describe("Max messages to return (1–100). Default 25."),
+      limit: intIn(1, 25).default(25).describe("Max messages to return (1–25). Default 25."),
     }),
     outputSchema: z.object({
       matches: z.array(
@@ -497,7 +507,7 @@ const tools = [
       });
 
       const data = result as {
-        messages: Array<
+        messages?: Array<
           Array<{
             id: string;
             content: string;
@@ -506,13 +516,17 @@ const tools = [
             author: { username: string; discriminator: string };
           }>
         >;
+        retry_after?: number;
       };
+      // Discord answers 202 with an index-not-ready body that carries no `messages`
+      // key while it builds the guild's search index.
+      if (!data.messages)
+        throw new Error(
+          `Discord is still building this server's message search index. Retry in ${Math.ceil(data.retry_after ?? 5)}s.`,
+        );
       const matches = data.messages.flat().map((m) => ({
         id: m.id,
-        author:
-          m.author.discriminator === "0"
-            ? m.author.username
-            : `${m.author.username}#${m.author.discriminator}`,
+        author: userTag(m.author),
         content: m.content,
         timestamp: m.timestamp,
         channel_id: m.channel_id,

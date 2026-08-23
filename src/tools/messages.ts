@@ -29,6 +29,9 @@ const beforeCursor = snowflake.describe(
 const afterCursor = snowflake.describe(
   "Return only messages newer than this message ID (snowflake). Page forwards by passing the id of the newest message from the previous call.",
 );
+const aroundCursor = snowflake.describe(
+  "Return messages centred on this message ID (snowflake): Discord splits `limit` either side of it. Use it to pull the conversation surrounding one message, such as a discord_search_messages hit.",
+);
 const sinceInstant = z
   .string()
   .refine((value) => !Number.isNaN(Date.parse(value)), {
@@ -39,11 +42,19 @@ const sinceInstant = z
   );
 
 const SINGLE_CURSOR_MESSAGE =
-  "Pass at most one of before, after, or since: Discord's messages endpoint accepts a single cursor.";
+  "Pass at most one of before, after, around, or since: Discord treats before/after/around as mutually exclusive, and since is a form of after.";
 
 /** True when at most one paging cursor was supplied. */
-function hasSingleCursor(args: { before?: string; after?: string; since?: string }): boolean {
-  return [args.before, args.after, args.since].filter((value) => value !== undefined).length <= 1;
+function hasSingleCursor(args: {
+  before?: string;
+  after?: string;
+  around?: string;
+  since?: string;
+}): boolean {
+  return (
+    [args.before, args.after, args.around, args.since].filter((value) => value !== undefined)
+      .length <= 1
+  );
 }
 
 /**
@@ -88,7 +99,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Without a cursor it returns the most recent messages; pass before, after, or since (at most one) to reach older history. Page backwards by re-calling with before set to the id of the oldest message you received, which lets you walk a channel past the 100-message per-call cap. Requires View Channel and Read Message History. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Without a cursor it returns the most recent messages; pass before, after, around, or since (at most one) to reach older history or the context surrounding a known message. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires View Channel and Read Message History. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({
@@ -98,19 +109,21 @@ const tools = [
           .describe("How many messages to fetch per call (1–100). Default 20."),
         before: beforeCursor.optional(),
         after: afterCursor.optional(),
+        around: aroundCursor.optional(),
         since: sinceInstant.optional(),
       })
       .refine(hasSingleCursor, { message: SINGLE_CURSOR_MESSAGE }),
     outputSchema: z.object({
       messages: z.array(messageSummary.extend({ attachments: z.number(), pinned: z.boolean() })),
     }),
-    handle: async ({ channel_id, limit, before, after, since }) => {
+    handle: async ({ channel_id, limit, before, after, around, since }) => {
       const channel = await getTextChannel(channel_id);
       const resolvedAfter = after ?? (since === undefined ? undefined : cursorForInstant(since));
       const messages = await channel.messages.fetch({
         limit,
         cache: false,
         ...(before === undefined ? {} : { before }),
+        ...(around === undefined ? {} : { around }),
         ...(resolvedAfter === undefined ? {} : { after: resolvedAfter }),
       });
       const result = [...messages.values()]

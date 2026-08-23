@@ -42,7 +42,7 @@ test("read_messages advertises the paging cursors as optional additions", () => 
   };
   assert.deepEqual(schema.required, ["channel_id"], "cursors must not become required");
   assert.equal(schema.additionalProperties, false);
-  for (const field of ["before", "after", "since"]) {
+  for (const field of ["before", "after", "around", "since"]) {
     assert.ok(schema.properties[field], `${field} must be advertised`);
     assert.ok(
       (schema.properties[field].description ?? "").length > 0,
@@ -57,6 +57,7 @@ test("read_messages sends no cursor when none was requested", async () => {
   assert.equal(calls.length, 1);
   assert.ok(!("before" in calls[0]), "an absent cursor must not be sent as an undefined key");
   assert.ok(!("after" in calls[0]), "an absent cursor must not be sent as an undefined key");
+  assert.ok(!("around" in calls[0]), "an absent cursor must not be sent as an undefined key");
 });
 
 test("read_messages passes before through untouched", async () => {
@@ -66,6 +67,14 @@ test("read_messages passes before through untouched", async () => {
   assert.ok(!("after" in calls[0]));
   assert.equal(calls[0].limit, 100);
   assert.equal(calls[0].cache, false, "history reads must not fill the message cache");
+});
+
+test("read_messages passes around through untouched", async () => {
+  const calls = captureFetches();
+  await read()({ channel_id: CHANNEL, around: OLDEST });
+  assert.equal(calls[0].around, OLDEST);
+  assert.ok(!("before" in calls[0]));
+  assert.ok(!("after" in calls[0]));
 });
 
 test("read_messages converts since into an after snowflake", async () => {
@@ -97,8 +106,12 @@ test("read_messages rejects more than one cursor", async () => {
   captureFetches();
   for (const args of [
     { channel_id: CHANNEL, before: OLDEST, after: OLDEST },
+    { channel_id: CHANNEL, before: OLDEST, around: OLDEST },
     { channel_id: CHANNEL, before: OLDEST, since: "2026-08-01" },
+    { channel_id: CHANNEL, after: OLDEST, around: OLDEST },
     { channel_id: CHANNEL, after: OLDEST, since: "2026-08-01" },
+    { channel_id: CHANNEL, around: OLDEST, since: "2026-08-01" },
+    { channel_id: CHANNEL, before: OLDEST, after: OLDEST, around: OLDEST },
   ]) {
     await assert.rejects(() => read()(args), ZodError, JSON.stringify(args));
   }

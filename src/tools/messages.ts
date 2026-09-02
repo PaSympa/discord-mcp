@@ -30,7 +30,7 @@ const afterCursor = snowflake.describe(
   "Return only messages newer than this message ID (snowflake). Page forwards by passing the id of the newest message from the previous call.",
 );
 const aroundCursor = snowflake.describe(
-  "Return messages centred on this message ID (snowflake): Discord splits `limit` either side of it. Use it to pull the conversation surrounding one message, such as a discord_search_messages hit.",
+  "Return messages centred on this message ID (snowflake): Discord splits `limit` either side of it, and an even `limit` puts the extra message on the newer side. Use it to read outward from a known message, such as a discord_search_guild_messages hit.",
 );
 const sinceInstant = z
   .union([z.iso.date(), z.iso.datetime({ offset: true })], {
@@ -101,7 +101,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Without a cursor it returns the most recent messages; pass before, after, around, or since (at most one) to reach older history or the context surrounding a known message. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires View Channel and Read Message History. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires View Channel and Read Message History. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({

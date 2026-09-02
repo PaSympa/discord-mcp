@@ -55,17 +55,17 @@ test("read_messages sends no cursor when none was requested", async () => {
   const calls = captureFetches();
   await read()({ channel_id: CHANNEL });
   assert.equal(calls.length, 1);
-  assert.ok(!("before" in calls[0]), "an absent cursor must not be sent as an undefined key");
-  assert.ok(!("after" in calls[0]), "an absent cursor must not be sent as an undefined key");
-  assert.ok(!("around" in calls[0]), "an absent cursor must not be sent as an undefined key");
+  assert.equal(calls[0].before, undefined);
+  assert.equal(calls[0].after, undefined);
+  assert.equal(calls[0].around, undefined);
 });
 
 test("read_messages passes before through untouched", async () => {
   const calls = captureFetches();
   await read()({ channel_id: CHANNEL, before: OLDEST, limit: 100 });
   assert.equal(calls[0].before, OLDEST);
-  assert.ok(!("after" in calls[0]));
-  assert.ok(!("around" in calls[0]));
+  assert.equal(calls[0].after, undefined);
+  assert.equal(calls[0].around, undefined);
   assert.equal(calls[0].limit, 100);
   assert.equal(calls[0].cache, false, "history reads must not fill the message cache");
 });
@@ -74,16 +74,16 @@ test("read_messages passes after through untouched", async () => {
   const calls = captureFetches();
   await read()({ channel_id: CHANNEL, after: OLDEST });
   assert.equal(calls[0].after, OLDEST, "a caller-supplied after must not be dropped or rewritten");
-  assert.ok(!("before" in calls[0]));
-  assert.ok(!("around" in calls[0]));
+  assert.equal(calls[0].before, undefined);
+  assert.equal(calls[0].around, undefined);
 });
 
 test("read_messages passes around through untouched", async () => {
   const calls = captureFetches();
   await read()({ channel_id: CHANNEL, around: OLDEST });
   assert.equal(calls[0].around, OLDEST);
-  assert.ok(!("before" in calls[0]));
-  assert.ok(!("after" in calls[0]));
+  assert.equal(calls[0].before, undefined);
+  assert.equal(calls[0].after, undefined);
 });
 
 test("read_messages converts since into an after snowflake", async () => {
@@ -96,7 +96,7 @@ test("read_messages converts since into an after snowflake", async () => {
     "2026-08-01T00:00:00.000Z",
     "the synthetic cursor must carry the requested instant",
   );
-  assert.ok(!("before" in calls[0]));
+  assert.equal(calls[0].before, undefined);
 });
 
 test("read_messages clamps a pre-epoch since instead of sending a negative id", async () => {
@@ -109,6 +109,16 @@ test("read_messages clamps a pre-epoch since instead of sending a negative id", 
     Number(SnowflakeUtil.epoch),
     "instants before the Discord epoch clamp to it",
   );
+});
+
+test("read_messages clamps a future since to now instead of overflowing the id", async () => {
+  const calls = captureFetches();
+  const before = Date.now();
+  await read()({ channel_id: CHANNEL, since: "2200-01-01" });
+  const after = calls[0].after as string;
+  assert.ok(BigInt(after) < 1n << 64n, `snowflakes are 64-bit, got ${after}`);
+  const stamped = Number(SnowflakeUtil.timestampFrom(after));
+  assert.ok(stamped >= before && stamped <= Date.now(), "a future instant clamps to now");
 });
 
 test("read_messages rejects more than one cursor", async () => {

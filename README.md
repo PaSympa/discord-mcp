@@ -213,7 +213,7 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 
 ---
 
-## Available Tools (98)
+## Available Tools (99)
 
 ### Discovery & Navigation (4 tools)
 
@@ -224,29 +224,30 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 | `discord_list_channels`        | List all channels in a guild grouped by category                 |
 | `discord_find_channel_by_name` | Find a channel by name (partial match)                           |
 
-### Messages (19 tools)
+### Messages (20 tools)
 
-| Tool                            | Description                                              |
-| ------------------------------- | -------------------------------------------------------- |
-| `discord_read_messages`         | Read messages, paging back through history               |
-| `discord_send_message`          | Send a plain text message                                |
-| `discord_reply_message`         | Reply to a specific message                              |
-| `discord_edit_message`          | Edit a message sent by the bot                           |
-| `discord_delete_message`        | Delete a specific message                                |
-| `discord_add_reaction`          | Add a reaction emoji to a message                        |
-| `discord_remove_reactions`      | Remove reactions (all, by emoji, or by user)             |
-| `discord_get_reactions`         | List users who reacted with a specific emoji             |
-| `discord_create_thread`         | Create a thread from a message or standalone             |
-| `discord_bulk_delete_messages`  | Delete multiple messages at once (2-100)                 |
-| `discord_send_embed`            | Send a rich embed with all options                       |
-| `discord_edit_embed`            | Edit an embed previously sent by the bot                 |
-| `discord_send_multiple_embeds`  | Send up to 10 embeds in a single message                 |
-| `discord_pin_message`           | Pin or unpin a message                                   |
-| `discord_fetch_pinned_messages` | List all pinned messages in a channel                    |
-| `discord_search_messages`       | Search messages by keyword (last 100)                    |
-| `discord_search_guild_messages` | Search across every channel using Discord's search index |
-| `discord_crosspost_message`     | Publish a message to announcement channel followers      |
-| `discord_forward_message`       | Forward a message to another channel                     |
+| Tool                              | Description                                              |
+| --------------------------------- | -------------------------------------------------------- |
+| `discord_read_messages`           | Read messages, paging back through history               |
+| `discord_send_message`            | Send a plain text message                                |
+| `discord_reply_message`           | Reply to a specific message                              |
+| `discord_edit_message`            | Edit a message sent by the bot                           |
+| `discord_delete_message`          | Delete a specific message                                |
+| `discord_add_reaction`            | Add a reaction emoji to a message                        |
+| `discord_remove_reactions`        | Remove reactions (all, by emoji, or by user)             |
+| `discord_get_reactions`           | List users who reacted with a specific emoji             |
+| `discord_create_thread`           | Create a thread from a message or standalone             |
+| `discord_bulk_delete_messages`    | Delete multiple messages at once (2-100)                 |
+| `discord_send_embed`              | Send a rich embed with all options                       |
+| `discord_edit_embed`              | Edit an embed previously sent by the bot                 |
+| `discord_send_multiple_embeds`    | Send up to 10 embeds in a single message                 |
+| `discord_pin_message`             | Pin or unpin a message                                   |
+| `discord_get_message_attachments` | List a message's attachments with download urls          |
+| `discord_fetch_pinned_messages`   | List all pinned messages in a channel                    |
+| `discord_search_messages`         | Search messages by keyword (last 100)                    |
+| `discord_search_guild_messages`   | Search across every channel using Discord's search index |
+| `discord_crosspost_message`       | Publish a message to announcement channel followers      |
+| `discord_forward_message`         | Forward a message to another channel                     |
 
 ### Channels (8 tools)
 

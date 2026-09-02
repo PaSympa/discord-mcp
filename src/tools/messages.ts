@@ -33,12 +33,12 @@ const aroundCursor = snowflake.describe(
   "Return messages centred on this message ID (snowflake): Discord splits `limit` either side of it. Use it to pull the conversation surrounding one message, such as a discord_search_messages hit.",
 );
 const sinceInstant = z
-  .string()
-  .refine((value) => !Number.isNaN(Date.parse(value)), {
-    message: "Must be an ISO 8601 date or date-time.",
+  .union([z.iso.date(), z.iso.datetime({ offset: true })], {
+    error:
+      "Must be an ISO 8601 date (2026-08-01) or a date-time with an explicit offset (2026-08-01T09:00:00Z).",
   })
   .describe(
-    'Return only messages posted after this instant, as an ISO 8601 date or date-time (e.g. "2026-08-01" or "2026-08-01T09:00:00Z"). Convenience form of `after` for callers that know a date but not a message id.',
+    'Return only messages posted after this instant, as an ISO 8601 date or a date-time with an explicit offset (e.g. "2026-08-01" or "2026-08-01T09:00:00Z"). Convenience form of `after` for callers that know a date but not a message id.',
   );
 
 const SINGLE_CURSOR_MESSAGE =
@@ -61,7 +61,9 @@ function hasSingleCursor(args: {
  * Converts an ISO 8601 instant into the snowflake an `after` cursor expects.
  * Snowflakes embed a millisecond timestamp, so a synthetic id marks that instant
  * exactly. Instants before the Discord epoch are clamped to it: `generate` returns
- * a negative id for them, which the API rejects.
+ * a negative id for them, which the API rejects. The schema only admits a date or
+ * an offset-bearing date-time, both of which `Date.parse` reads as UTC or the given
+ * offset, so the result does not depend on the server's timezone.
  */
 function cursorForInstant(iso: string): string {
   const timestamp = Math.max(Date.parse(iso), Number(SnowflakeUtil.epoch));

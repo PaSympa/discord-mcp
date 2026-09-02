@@ -130,7 +130,52 @@ test("read_messages rejects more than one cursor", async () => {
   assert.equal(calls.length, 0, "an invalid cursor combination must not reach the Discord API");
 });
 
-test("read_messages rejects a since that is not a parsable date", async () => {
-  captureFetches();
-  await assert.rejects(() => read()({ channel_id: CHANNEL, since: "last tuesday" }), ZodError);
+test("read_messages accepts only timezone-stable since forms", async () => {
+  const calls = captureFetches();
+  // Each accepted form names one instant regardless of the server's TZ; the
+  // assertion pins that instant so a regression to local-time parsing fails here.
+  const accepted: [string, string][] = [
+    ["2026-08-01", "2026-08-01T00:00:00.000Z"],
+    ["2026-08-01T09:00:00Z", "2026-08-01T09:00:00.000Z"],
+    ["2026-08-01T09:00:00.250Z", "2026-08-01T09:00:00.250Z"],
+    ["2026-08-01T09:00:00+02:00", "2026-08-01T07:00:00.000Z"],
+    ["2026-08-01T09:00:00-07:00", "2026-08-01T16:00:00.000Z"],
+  ];
+  for (const [since, instant] of accepted) {
+    await read()({ channel_id: CHANNEL, since });
+    const after = calls.at(-1)!.after as string;
+    assert.equal(
+      new Date(Number(SnowflakeUtil.timestampFrom(after))).toISOString(),
+      instant,
+      since,
+    );
+  }
+  assert.equal(calls.length, accepted.length);
+
+  // An offset-less date-time would be read in the server's local timezone, so it
+  // is rejected along with everything that is not ISO 8601.
+  for (const since of [
+    "2026-08-01T09:00:00",
+    "2026-08-01 09:00:00Z",
+    "2026",
+    "2026-08",
+    "08/01/2026",
+    "1754038800000",
+    "last tuesday",
+  ]) {
+    await assert.rejects(
+      () => read()({ channel_id: CHANNEL, since }),
+      (error: unknown) => {
+        assert.ok(error instanceof ZodError);
+        assert.match(
+          error.issues.map((issue) => issue.message).join(" "),
+          /explicit offset/,
+          "the rejection must say what an acceptable since looks like",
+        );
+        return true;
+      },
+      since,
+    );
+  }
+  assert.equal(calls.length, accepted.length, "a rejected since must not reach the Discord API");
 });

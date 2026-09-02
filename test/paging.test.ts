@@ -65,8 +65,17 @@ test("read_messages passes before through untouched", async () => {
   await read()({ channel_id: CHANNEL, before: OLDEST, limit: 100 });
   assert.equal(calls[0].before, OLDEST);
   assert.ok(!("after" in calls[0]));
+  assert.ok(!("around" in calls[0]));
   assert.equal(calls[0].limit, 100);
   assert.equal(calls[0].cache, false, "history reads must not fill the message cache");
+});
+
+test("read_messages passes after through untouched", async () => {
+  const calls = captureFetches();
+  await read()({ channel_id: CHANNEL, after: OLDEST });
+  assert.equal(calls[0].after, OLDEST, "a caller-supplied after must not be dropped or rewritten");
+  assert.ok(!("before" in calls[0]));
+  assert.ok(!("around" in calls[0]));
 });
 
 test("read_messages passes around through untouched", async () => {

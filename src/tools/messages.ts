@@ -30,7 +30,7 @@ const afterCursor = snowflake.describe(
   "Return only messages newer than this message ID (snowflake). Page forwards by passing the id of the newest message from the previous call.",
 );
 const aroundCursor = snowflake.describe(
-  "Return messages centred on this message ID (snowflake): Discord splits `limit` either side of it, and an even `limit` puts the extra message on the newer side. Use it to read outward from a known message, such as a discord_search_guild_messages hit.",
+  "Return messages centered on this message ID (snowflake): Discord splits `limit` either side of it, and an even `limit` puts the extra message on the newer side. Use it to read outward from a known message, such as a discord_search_guild_messages hit.",
 );
 const sinceInstant = z
   .union([z.iso.date(), z.iso.datetime({ offset: true })], {
@@ -38,13 +38,9 @@ const sinceInstant = z
       "Must be an ISO 8601 date (2026-08-01) or a date-time with an explicit offset (2026-08-01T09:00:00Z).",
   })
   .describe(
-    'Return only messages posted after this instant, as an ISO 8601 date or a date-time with an explicit offset (e.g. "2026-08-01" or "2026-08-01T09:00:00Z"). Convenience form of `after` for callers that know a date but not a message id.',
+    'Return only messages posted after this instant, as an ISO 8601 date or a date-time with an explicit offset (e.g. "2026-08-01" or "2026-08-01T09:00:00Z"). Convenience form of `after`: the call yields the oldest `limit` messages after that instant, so page forwards with `after` set to the newest id received.',
   );
 
-const SINGLE_CURSOR_MESSAGE =
-  "Pass at most one of before, after, around, or since: Discord treats before/after/around as mutually exclusive, and since is a form of after.";
-
-/** True when at most one paging cursor was supplied. */
 function hasSingleCursor(args: {
   before?: string;
   after?: string;
@@ -60,13 +56,14 @@ function hasSingleCursor(args: {
 /**
  * Converts an ISO 8601 instant into the snowflake an `after` cursor expects.
  * Snowflakes embed a millisecond timestamp, so a synthetic id marks that instant
- * exactly. Instants before the Discord epoch are clamped to it: `generate` returns
- * a negative id for them, which the API rejects. The schema only admits a date or
- * an offset-bearing date-time, both of which `Date.parse` reads as UTC or the given
- * offset, so the result does not depend on the server's timezone.
+ * exactly. The instant is clamped to the Discord epoch on one side (`generate`
+ * returns a negative id before it) and to now on the other (ids overflow 64 bits
+ * past 2154, and nothing can be posted in the future). The schema only admits a
+ * date or an offset-bearing date-time, both of which `Date.parse` reads as UTC or
+ * the given offset, so the result does not depend on the server's timezone.
  */
 function cursorForInstant(iso: string): string {
-  const timestamp = Math.max(Date.parse(iso), Number(SnowflakeUtil.epoch));
+  const timestamp = Math.min(Math.max(Date.parse(iso), Number(SnowflakeUtil.epoch)), Date.now());
   return SnowflakeUtil.generate({ timestamp }).toString();
 }
 
@@ -101,7 +98,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires View Channel and Read Message History. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({
@@ -114,7 +111,10 @@ const tools = [
         around: aroundCursor.optional(),
         since: sinceInstant.optional(),
       })
-      .refine(hasSingleCursor, { message: SINGLE_CURSOR_MESSAGE }),
+      .refine(
+        hasSingleCursor,
+        "Pass at most one of before, after, around, or since: Discord treats before/after/around as mutually exclusive, and since is a form of after.",
+      ),
     outputSchema: z.object({
       messages: z.array(messageSummary.extend({ attachments: z.number(), pinned: z.boolean() })),
     }),
@@ -124,9 +124,9 @@ const tools = [
       const messages = await channel.messages.fetch({
         limit,
         cache: false,
-        ...(before === undefined ? {} : { before }),
-        ...(around === undefined ? {} : { around }),
-        ...(resolvedAfter === undefined ? {} : { after: resolvedAfter }),
+        before,
+        after: resolvedAfter,
+        around,
       });
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)

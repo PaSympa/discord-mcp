@@ -216,7 +216,7 @@ const tools = [
   defineTool({
     name: "discord_edit_scheduled_event",
     description:
-      "Update a scheduled event; only provided fields change. Use the status field to start ('ACTIVE'), end ('COMPLETED'), or cancel ('CANCELED') an event — note Discord only allows certain status transitions. Requires the Manage Events permission.",
+      "Update a scheduled event; only provided fields change. Use the status field to start ('ACTIVE'), end ('COMPLETED'), or cancel ('CANCELED') an event; Discord only allows certain status transitions. Requires the Manage Events permission.",
     annotations: {
       title: "Edit scheduled event",
       readOnlyHint: false,
@@ -388,7 +388,7 @@ const tools = [
         );
       if (event.entityType !== GuildScheduledEventEntityType.External && channel_id)
         throw new Error(
-          "channel_id is only honored for EXTERNAL events — VOICE/STAGE invites always point at the event's own channel; omit channel_id.",
+          "channel_id is only honored for EXTERNAL events; VOICE/STAGE invites always point at the event's own channel; omit channel_id.",
         );
       const url = await event.createInviteURL({
         channel: channel_id,

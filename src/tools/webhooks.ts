@@ -21,7 +21,7 @@ const tools = [
   defineTool({
     name: "discord_create_webhook",
     description:
-      "Create a webhook on a channel and return its ID and token. SECURITY: the returned token grants anyone the ability to post as this webhook without authentication — treat it as a secret. Requires the Manage Webhooks permission. Use the returned id+token with discord_send_webhook_message.",
+      "Create a webhook on a channel and return its ID and token. SECURITY: the returned token grants anyone the ability to post as this webhook without authentication; treat it as a secret. Requires the Manage Webhooks permission. Use the returned id+token with discord_send_webhook_message.",
     annotations: {
       title: "Create webhook",
       readOnlyHint: false,
@@ -53,7 +53,7 @@ const tools = [
   defineTool({
     name: "discord_send_webhook_message",
     description:
-      "Send a message through a webhook using its ID and token (no bot permissions needed — the token authorizes the send). Supports per-message username/avatar overrides and up to 10 embeds. At least one of content or embeds is required. Returns the new message ID.",
+      "Send a message through a webhook using its ID and token (no bot permissions needed; the token authorizes the send). Supports per-message username/avatar overrides and up to 10 embeds. At least one of content or embeds is required. Returns the new message ID.",
     annotations: {
       title: "Send webhook message",
       readOnlyHint: false,
@@ -89,7 +89,7 @@ const tools = [
         const guildOfWebhook = (await discord.fetchWebhook(webhook_id, webhook_token)).guildId;
         if (!guildOfWebhook)
           throw new Error(
-            "Webhook has no resolvable guild — refused while DISCORD_ALLOWED_GUILDS is active.",
+            "Webhook has no resolvable guild; refused while DISCORD_ALLOWED_GUILDS is active.",
           );
         assertAllowedGuild(guildOfWebhook);
       }
@@ -149,7 +149,7 @@ const tools = [
   defineTool({
     name: "discord_delete_webhook",
     description:
-      "Permanently delete a webhook by its ID, invalidating its token. IRREVERSIBLE — any integrations using the old token will stop working. Requires the Manage Webhooks permission.",
+      "Permanently delete a webhook by its ID, invalidating its token. IRREVERSIBLE: any integrations using the old token will stop working. Requires the Manage Webhooks permission.",
     annotations: {
       title: "Delete webhook",
       readOnlyHint: false,
@@ -251,7 +251,7 @@ const tools = [
         const guildOfWebhook = (await discord.fetchWebhook(webhook_id, webhook_token)).guildId;
         if (!guildOfWebhook)
           throw new Error(
-            "Webhook has no resolvable guild — refused while DISCORD_ALLOWED_GUILDS is active.",
+            "Webhook has no resolvable guild; refused while DISCORD_ALLOWED_GUILDS is active.",
           );
         assertAllowedGuild(guildOfWebhook);
       }
@@ -290,7 +290,7 @@ const tools = [
         const guildOfWebhook = (await discord.fetchWebhook(webhook_id, webhook_token)).guildId;
         if (!guildOfWebhook)
           throw new Error(
-            "Webhook has no resolvable guild — refused while DISCORD_ALLOWED_GUILDS is active.",
+            "Webhook has no resolvable guild; refused while DISCORD_ALLOWED_GUILDS is active.",
           );
         assertAllowedGuild(guildOfWebhook);
       }
@@ -326,7 +326,7 @@ const tools = [
         const guildOfWebhook = (await discord.fetchWebhook(webhook_id, webhook_token)).guildId;
         if (!guildOfWebhook)
           throw new Error(
-            "Webhook has no resolvable guild — refused while DISCORD_ALLOWED_GUILDS is active.",
+            "Webhook has no resolvable guild; refused while DISCORD_ALLOWED_GUILDS is active.",
           );
         assertAllowedGuild(guildOfWebhook);
       }

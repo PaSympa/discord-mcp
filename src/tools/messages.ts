@@ -74,6 +74,22 @@ const messageSummary = z.object({
   timestamp: z.string(),
 });
 
+const attachmentSummary = z.object({
+  id: z.string(),
+  filename: z.string(),
+  contentType: z.string().nullable(),
+  size: z.number(),
+  url: z.string(),
+  proxyUrl: z.string(),
+  width: z.number().nullable(),
+  height: z.number().nullable(),
+  description: z.string().nullable(),
+  title: z.string().nullable(),
+  duration: z.number().nullable(),
+  waveform: z.string().nullable(),
+  spoiler: z.boolean(),
+});
+
 /**
  * Looks up a reaction on a message by emoji argument.
  * The reaction cache is keyed by the emoji id (snowflake) for custom emoji and
@@ -745,6 +761,39 @@ const tools = [
         bot: u.bot,
       }));
       return structured({ reactions: result });
+    },
+  }),
+  defineTool({
+    name: "discord_get_message_attachments",
+    description:
+      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Read-only. Use discord_read_messages to find messages with attachments.",
+    annotations: { title: "Get message attachments", readOnlyHint: true, openWorldHint: true },
+    schema: z.object({
+      channel_id: channelId.describe(
+        "ID (snowflake) of the channel or thread containing the message.",
+      ),
+      message_id: messageId.describe("ID of the message whose attachments to list."),
+    }),
+    outputSchema: z.object({ attachments: z.array(attachmentSummary) }),
+    handle: async ({ channel_id, message_id }) => {
+      const channel = await getTextChannel(channel_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
+      const attachments = [...msg.attachments.values()].map((a) => ({
+        id: a.id,
+        filename: a.name,
+        contentType: a.contentType,
+        size: a.size,
+        url: a.url,
+        proxyUrl: a.proxyURL,
+        width: a.width,
+        height: a.height,
+        description: a.description,
+        title: a.title,
+        duration: a.duration,
+        waveform: a.waveform,
+        spoiler: a.spoiler,
+      }));
+      return structured({ attachments });
     },
   }),
   defineTool({

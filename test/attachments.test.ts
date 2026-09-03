@@ -125,6 +125,7 @@ test("get_message_attachments maps every attachment field including nullable one
   });
   assert.equal(structured.attachments[1].spoiler, true);
   assert.equal(structured.attachments[1].width, 800);
+  assert.equal(structured.attachments[1].height, 600);
   assert.equal(structured.attachments[1].filename, "c953b519a8c28c42.png");
   assert.equal(structured.attachments[1].title, "전시부스 안내");
   assert.equal(structured.attachments[2].duration, 3.2);

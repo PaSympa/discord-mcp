@@ -74,7 +74,7 @@ const messageSummary = z.object({
   timestamp: z.string(),
 });
 
-const attachmentInfo = z.object({
+const attachmentSummary = z.object({
   id: z.string(),
   filename: z.string(),
   contentType: z.string().nullable(),
@@ -766,7 +766,7 @@ const tools = [
   defineTool({
     name: "discord_get_message_attachments",
     description:
-      "List the file attachments of a message: filename, title (original name when Discord strips non-ASCII from filename), url, content type, size in bytes, image dimensions, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires View Channel and Read Message History. Read-only. Use discord_read_messages to find messages with attachments.",
+      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Read-only. Use discord_read_messages to find messages with attachments.",
     annotations: { title: "Get message attachments", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(
@@ -774,7 +774,7 @@ const tools = [
       ),
       message_id: messageId.describe("ID of the message whose attachments to list."),
     }),
-    outputSchema: z.object({ attachments: z.array(attachmentInfo) }),
+    outputSchema: z.object({ attachments: z.array(attachmentSummary) }),
     handle: async ({ channel_id, message_id }) => {
       const channel = await getTextChannel(channel_id);
       const msg = await channel.messages.fetch({ message: message_id, cache: false });

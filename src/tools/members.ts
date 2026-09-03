@@ -328,7 +328,7 @@ const tools = [
         .array(snowflake)
         .min(1)
         .max(200)
-        .describe("Array of user IDs (snowflakes) to ban (max 200 per call — Discord API limit)."),
+        .describe("Array of user IDs (snowflakes) to ban (max 200 per call, a Discord API limit)."),
       delete_message_seconds: intIn(0, 604800)
         .default(0)
         .describe(

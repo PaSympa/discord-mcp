@@ -233,7 +233,7 @@ const tools = [
   defineTool({
     name: "discord_get_role_members",
     description:
-      "List members who currently hold a specific role, scanning up to 20,000 members. Returns { members: [...], truncated } — check `truncated` on very large servers. Read-only. Use discord_list_roles to discover role IDs first.",
+      "List members who currently hold a specific role, scanning up to 20,000 members. Returns { members: [...], truncated }; check `truncated` on very large servers. Read-only. Use discord_list_roles to discover role IDs first.",
     annotations: { title: "Get role members", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -301,7 +301,7 @@ const tools = [
       const maxPosition = guild.roles.cache.size - 1;
       if (position > maxPosition)
         throw new Error(
-          `position ${position} is out of range — this server's highest role position is ${maxPosition}.`,
+          `position ${position} is out of range; this server's highest role position is ${maxPosition}.`,
         );
       await role.setPosition(position);
       return {
@@ -312,7 +312,7 @@ const tools = [
   defineTool({
     name: "discord_set_role_icon",
     description:
-      "Set or clear a role's icon — either a custom image or a unicode emoji. Requires the server to be Boost Level 2+ (the ROLE_ICONS feature) and the Manage Roles permission. Pass null to either field to remove that icon. Returns a confirmation.",
+      "Set or clear a role's icon, either a custom image or a unicode emoji. Requires the server to be Boost Level 2+ (the ROLE_ICONS feature) and the Manage Roles permission. Pass null to either field to remove that icon. Returns a confirmation.",
     annotations: {
       title: "Set role icon",
       readOnlyHint: false,

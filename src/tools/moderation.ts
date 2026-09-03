@@ -17,7 +17,7 @@ const tools = [
   defineTool({
     name: "discord_get_audit_log",
     description:
-      "Fetch the server's audit log — a record of administrative actions (bans, kicks, role/channel changes, etc.) with who performed them and when. Requires the View Audit Log permission. Returns { entries: [...] } with id, action, executor, target, reason, createdAt. Read-only.",
+      "Fetch the server's audit log, the record of administrative actions (bans, kicks, role/channel changes, etc.) with who performed them and when. Requires the View Audit Log permission. Returns { entries: [...] } with id, action, executor, target, reason, createdAt. Read-only.",
     annotations: { title: "Get audit log", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

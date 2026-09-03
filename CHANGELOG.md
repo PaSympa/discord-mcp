@@ -4,8 +4,14 @@
 
 ### Added
 
-- `discord_read_messages` accepts the `before`, `after` and `around` cursors Discord's messages endpoint supports, plus a `since` convenience, so a channel can be read past the 100-message per-call cap. Page backwards by re-calling with `before` set to the id of the oldest message received; `since` takes an ISO 8601 date or a date-time with an explicit offset and is converted to the equivalent `after` snowflake. At most one cursor per call, matching Discord's endpoint, and instants before the Discord epoch clamp to it rather than sending a negative id
+- `discord_read_messages` accepts the `before`, `after` and `around` cursors Discord's messages endpoint supports, plus a `since` convenience, so a channel can be read past the 100-message per-call cap. Page backwards by re-calling with `before` set to the id of the oldest message received; `since` takes an ISO 8601 date or a date-time with an explicit offset and is converted to the equivalent `after` snowflake. At most one cursor per call, matching Discord's endpoint, and instants before the Discord epoch or in the future clamp to those bounds rather than sending an invalid id
 - `discord_get_message_attachments` lists a message's file attachments: filename, original title (Discord strips non-ASCII characters from the filename), download url, content type, size, image dimensions, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs attachment CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call the tool if a stored url has expired
+
+### Changed
+
+- `discord_set_role_permission` warns in its description that denying View Channel to @everyone also locks the bot out unless it holds an allow overwrite of its own
+- `discord_get_server_stats` describes `botsInCache` as a lower bound and `humans` as an upper bound, since both come from a member cache that is swept
+- Error messages no longer contain an em dash: validation failures read `Invalid arguments. field: reason` (the separator was an em dash) and Discord API hints follow the code and status after a period. The eleven tool descriptions that carried one are reworded the same way
 
 ## [2.1.1] - 2026-08-04
 

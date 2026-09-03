@@ -529,7 +529,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages — it does not search full history. Returns { matches: [...] } with id, author, content, timestamp. Use discord_read_messages to fetch recent messages without filtering.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp. Use discord_read_messages to fetch recent messages without filtering.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -641,7 +641,7 @@ const tools = [
       const channel = await fetchChannelChecked(channel_id);
       if (!channel || channel.type !== ChannelType.GuildAnnouncement)
         throw new Error(
-          "Channel is not an announcement channel — only announcement-channel messages can be published.",
+          "Channel is not an announcement channel; only announcement-channel messages can be published.",
         );
       const msg = await channel.messages.fetch({ message: message_id, cache: false });
       try {

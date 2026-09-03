@@ -70,7 +70,7 @@ discord.on(Events.Error, (err) => console.error("Discord client error:", err.mes
 discord.on(Events.ShardError, (err) => console.error("Discord shard error:", err.message));
 discord.on(Events.Invalidated, () => {
   console.error(
-    "Discord session invalidated — connection is dead; the next tool call will re-login.",
+    "Discord session invalidated: the connection is dead and the next tool call will re-login.",
   );
   discordReady = false;
   loginPromise = null;

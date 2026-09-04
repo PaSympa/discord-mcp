@@ -4,8 +4,8 @@
 
 ### Fixed
 
-- `discord_fetch_pinned_messages` pages through every pin instead of silently stopping at the first 50. It called `fetchPins()` with no options while promising "all pinned messages", so a channel with more pins than one page returned a truncated list with nothing to say so. It now takes `limit` (1-50) and a `before` cursor and returns `hasMore` and `nextBefore`, matching `discord_list_forum_threads`. The `before` cursor is compared against when a message was pinned, not when it was sent. The call also declines the message cache, which the repo requires of every other message fetch
-- `discord_pin_message` reports the current per-channel pin cap of 250, not the old 50. Discord raised it when pins were reworked, and the API states it: the 251st pin answers `400` with `Maximum number of pins reached (250)`
+- `discord_fetch_pinned_messages` pages through every pin instead of silently stopping at the first 50. It called `fetchPins()` with no options while promising "all pinned messages", so a channel with more pins than one page returned a truncated list with nothing to say so. It now takes `limit` (1-50) and a `before` cursor and returns `hasMore` and `nextBefore`, matching `discord_list_forum_threads`. The `before` cursor is compared against when a message was pinned, not when it was sent. The call also declines the message cache, which the repo requires of every other message fetch. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)
+- `discord_pin_message` reports the current per-channel pin cap of 250, not the old 50. Discord raised it when pins were reworked, and the API states it: the 251st pin answers `400` with `Maximum number of pins reached (250)`. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)
 
 ## [2.2.0] - 2026-09-03
 

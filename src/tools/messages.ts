@@ -11,7 +11,7 @@ import {
 } from "discord.js";
 import { z } from "zod";
 import { discord, getTextChannel, fetchChannelChecked } from "../client.js";
-import { MAX_FETCH_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.js";
+import { MAX_FETCH_LIMIT, MAX_PINS_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.js";
 import { buildEmbed, embedFieldsShape, embedArraySchema } from "../embeds.js";
 import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
 
@@ -500,7 +500,7 @@ const tools = [
   defineTool({
     name: "discord_pin_message",
     description:
-      "Pin or unpin a message in a channel, controlled by the pin flag. Requires the Pin Messages permission (a dedicated permission since early 2026, separate from Manage Messages). A channel holds at most 50 pins. Idempotent: pinning an already-pinned message (or unpinning an unpinned one) has no additional effect.",
+      "Pin or unpin a message in a channel, controlled by the pin flag. Requires the Pin Messages permission (a dedicated permission since early 2026, separate from Manage Messages). A channel holds at most 250 pins. Idempotent: pinning an already-pinned message (or unpinning an unpinned one) has no additional effect.",
     annotations: {
       title: "Pin or unpin message",
       readOnlyHint: false,
@@ -799,25 +799,45 @@ const tools = [
   defineTool({
     name: "discord_fetch_pinned_messages",
     description:
-      "List all pinned messages in a channel. Returns { messages: [...] } with id, author, content, timestamp, pinnedAt. Read-only. Use discord_pin_message to change which messages are pinned.",
+      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires View Channel and Read Message History. Read-only. Use discord_pin_message to change which messages are pinned.",
     annotations: { title: "Fetch pinned messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to list pins from."),
+      limit: intIn(1, MAX_PINS_LIMIT)
+        .default(MAX_PINS_LIMIT)
+        .describe("Max pins per page (1–50). Default 50."),
+      before: z.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe(
+          "Pagination cursor: an ISO timestamp compared against when a message was pinned, not when it was sent. Pass the previous response's nextBefore to fetch older pins.",
+        ),
     }),
     outputSchema: z.object({
       messages: z.array(messageSummary.extend({ pinnedAt: z.string() })),
+      hasMore: z.boolean(),
+      nextBefore: z.string().nullable(),
     }),
-    handle: async ({ channel_id }) => {
+    handle: async ({ channel_id, limit, before }) => {
       const channel = await getTextChannel(channel_id);
-      const pinned = await channel.messages.fetchPins();
-      const result = pinned.items.map(({ message: m, pinnedAt }) => ({
+      const pinned = await channel.messages.fetchPins({
+        limit,
+        cache: false,
+        ...(before === undefined ? {} : { before: new Date(before) }),
+      });
+      const messages = pinned.items.map(({ message: m, pinnedAt }) => ({
         id: m.id,
         author: m.author.tag,
         content: m.content,
         timestamp: m.createdAt.toISOString(),
         pinnedAt: pinnedAt.toISOString(),
       }));
-      return structured({ messages: result });
+      // Pins come back newest-pinned first, so the last item carries the oldest
+      // pinnedAt: that is the cursor for the next page.
+      const nextBefore = pinned.hasMore
+        ? (pinned.items.at(-1)?.pinnedAt.toISOString() ?? null)
+        : null;
+      return structured({ messages, hasMore: pinned.hasMore, nextBefore });
     },
   }),
   defineTool({

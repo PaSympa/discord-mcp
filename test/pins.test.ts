@@ -134,6 +134,23 @@ test("fetch_pinned_messages cursors on pinnedAt, not on when the message was sen
   );
 });
 
+test("fetch_pinned_messages handles a channel with no pins", async () => {
+  capturePinFetches(false, []);
+  const empty = payload(await fetchPinned()({ channel_id: CHANNEL }));
+  assert.deepEqual(empty.messages, []);
+  assert.equal(empty.hasMore, false);
+  assert.equal(empty.nextBefore, null);
+});
+
+test("fetch_pinned_messages never reports hasMore without a cursor to follow", async () => {
+  // Discord should not answer has_more over an empty page, but a caller looping on
+  // hasMore would spin forever if it ever did.
+  capturePinFetches(true, []);
+  const result = payload(await fetchPinned()({ channel_id: CHANNEL }));
+  assert.equal(result.nextBefore, null);
+  assert.equal(result.hasMore, false, "hasMore must imply a usable nextBefore");
+});
+
 test("fetch_pinned_messages rejects an offset-less before and an over-large limit", async () => {
   const calls = capturePinFetches(false, PAGE);
   for (const args of [

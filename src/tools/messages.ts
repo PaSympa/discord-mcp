@@ -833,11 +833,12 @@ const tools = [
         pinnedAt: pinnedAt.toISOString(),
       }));
       // Pins come back newest-pinned first, so the last item carries the oldest
-      // pinnedAt: that is the cursor for the next page.
-      const nextBefore = pinned.hasMore
-        ? (pinned.items.at(-1)?.pinnedAt.toISOString() ?? null)
-        : null;
-      return structured({ messages, hasMore: pinned.hasMore, nextBefore });
+      // pinnedAt: that is the cursor for the next page. Reporting hasMore from the
+      // cursor keeps the pair from disagreeing, so a caller looping while hasMore is
+      // true always has something to send.
+      const oldest = pinned.items.at(-1);
+      const nextBefore = pinned.hasMore && oldest ? oldest.pinnedAt.toISOString() : null;
+      return structured({ messages, hasMore: nextBefore !== null, nextBefore });
     },
   }),
   defineTool({

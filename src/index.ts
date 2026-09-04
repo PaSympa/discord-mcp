@@ -18,19 +18,31 @@ async function main() {
   console.error(`Discord MCP Server v${version} running on stdio.`);
 }
 
-function shutdown() {
+let shuttingDown = false;
+
+function shutdown(code = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.error("Shutting down Discord MCP Server...");
   discord.destroy();
-  process.exit(0);
+  process.exit(code);
 }
 
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+process.on("SIGINT", () => shutdown());
+process.on("SIGTERM", () => shutdown());
+
+// A stdio server must not outlive its client: stdin EOF means the session is over.
+// StdioServerTransport only subscribes to stdin's 'data'/'error', so EOF never
+// surfaces, and the Discord gateway socket keeps the event loop alive — leaving
+// the process running long after its client has gone. ('end' is followed by
+// 'close'; shutdown() is guarded so the pair is harmless.)
+process.stdin.on("end", () => shutdown());
+process.stdin.on("close", () => shutdown());
+
 process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
 process.on("uncaughtException", (err) => console.error("Uncaught exception:", err));
 
 main().catch((err) => {
   console.error("Fatal:", err);
-  discord.destroy();
-  process.exit(1);
+  shutdown(1);
 });

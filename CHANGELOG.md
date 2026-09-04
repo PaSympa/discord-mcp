@@ -4,11 +4,11 @@
 
 ### Added
 
-- `discord_list_channel_threads` lists the threads in a text or announcement channel: every active thread plus paginated archived ones, public or private, each flagged with whether it is private. `discord_create_thread` could already start a thread there, but only `discord_list_forum_threads` could enumerate any, and it covers forums alone, so a thread created outside a forum could not be found again without already knowing its id. The result uses the same `hasMore` and `nextBefore` shape as `discord_list_forum_threads`
+- `discord_list_channel_threads` lists the threads in a text or announcement channel: every active thread plus paginated archived ones, public or private, each flagged with whether it is private. `discord_create_thread` could already start a thread there, but only `discord_list_forum_threads` could enumerate any, and it covers forums alone, so a thread created outside a forum could not be found again without already knowing its id. The result uses the same `hasMore` and `nextBefore` shape as `discord_list_forum_threads`. Contributed by [@nobel6018](https://github.com/nobel6018) in [#123](https://github.com/PaSympa/discord-mcp/pull/123)
 
 ### Fixed
 
-- The archived-threads `limit` floor is 2, not 1. Discord answers `limit: 1` with `400 limit[NUMBER_TYPE_MIN]: int value should be greater than or equal to 2`, and the floor is absent from the endpoint's documented query parameters, so `discord_list_forum_threads` advertised a value the API rejects
+- The archived-threads `limit` floor is 2, not 1. Discord answers `limit: 1` with `400 limit[NUMBER_TYPE_MIN]: int value should be greater than or equal to 2`, and the floor is absent from the endpoint's documented query parameters, so `discord_list_forum_threads` advertised a value the API rejects. Contributed by [@nobel6018](https://github.com/nobel6018) in [#123](https://github.com/PaSympa/discord-mcp/pull/123)
 
 ## [2.2.0] - 2026-09-03
 

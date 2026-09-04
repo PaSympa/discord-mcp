@@ -1,6 +1,8 @@
 import {
+  AnyThreadChannel,
   ChannelType,
   TextChannel,
+  NewsChannel,
   PublicThreadChannel,
   PrivateThreadChannel,
   Message,
@@ -10,8 +12,13 @@ import {
   DiscordAPIError,
 } from "discord.js";
 import { z } from "zod";
-import { discord, getTextChannel, fetchChannelChecked } from "../client.js";
-import { MAX_FETCH_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.js";
+import { discord, getTextChannel, fetchChannelChecked, validateId } from "../client.js";
+import {
+  MAX_FETCH_LIMIT,
+  MIN_ARCHIVED_THREAD_LIMIT,
+  DEFAULTS,
+  AUTO_ARCHIVE_DURATIONS,
+} from "../constants.js";
 import { buildEmbed, embedFieldsShape, embedArraySchema } from "../embeds.js";
 import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
 
@@ -107,6 +114,40 @@ function userTag(user: { username: string; discriminator: string }): string {
   return user.discriminator === "0" || user.discriminator === "0000"
     ? user.username
     : `${user.username}#${user.discriminator}`;
+}
+
+/** Shape of a thread summary returned by the channel thread lister. */
+const channelThreadSummary = z.object({
+  id: z.string(),
+  name: z.string(),
+  private: z.boolean(),
+  archived: z.boolean().nullable(),
+  locked: z.boolean().nullable(),
+  messageCount: z.number().nullable(),
+  createdAt: z.string().nullable(),
+});
+
+/**
+ * Fetches a channel by ID and guarantees it can hold threads of its own. Forums are
+ * already excluded by getTextChannel, which rejects them as not message-capable;
+ * this rules out threads themselves and voice or stage channels, none of which carry
+ * a thread manager.
+ */
+async function getThreadParent(channelId: string): Promise<TextChannel | NewsChannel> {
+  // Not getTextChannel: a forum is not text-based, so it would be rejected there as
+  // "not message-capable" and the caller would never be pointed at the forum tool.
+  const channel = await fetchChannelChecked(validateId(channelId, "channel_id"));
+  // Discriminate on `type` rather than instanceof, matching getForumChannel: a
+  // second copy of discord.js in the tree would break instanceof silently.
+  if (channel?.type === ChannelType.GuildForum || channel?.type === ChannelType.GuildMedia)
+    throw new Error(
+      `Channel ${channelId} is a forum. Use discord_list_forum_threads to list its posts.`,
+    );
+  if (channel?.type !== ChannelType.GuildText && channel?.type !== ChannelType.GuildAnnouncement)
+    throw new Error(
+      `Channel ${channelId} holds no threads of its own or doesn't exist. Pass a text or announcement channel.`,
+    );
+  return channel;
 }
 
 /** Tool definitions for channel and thread messages. */
@@ -279,6 +320,68 @@ const tools = [
           },
         ],
       };
+    },
+  }),
+  defineTool({
+    name: "discord_list_channel_threads",
+    description:
+      "List the threads in a text or announcement channel. Returns { threads: [...], hasMore, nextBefore }. The first call includes active threads plus the first page of archived ones; while hasMore is true pass nextBefore back as `before`. hasMore means that page came back full, so the last call can return nothing. Requires View Channel and Read Message History. Read-only. Use discord_list_forum_threads for a forum's posts.",
+    annotations: { title: "List channel threads", readOnlyHint: true, openWorldHint: true },
+    schema: z.object({
+      channel_id: snowflake.describe(
+        "ID (snowflake) of the text or announcement channel to list threads from.",
+      ),
+      limit: intIn(MIN_ARCHIVED_THREAD_LIMIT, MAX_FETCH_LIMIT)
+        .default(MAX_FETCH_LIMIT)
+        .describe("Max archived threads per page (2–100). Discord rejects 1. Default 100."),
+      type: z
+        .enum(["public", "private"])
+        .default("public")
+        .describe(
+          "Which archived threads to page through. Private requires the Manage Threads permission. Active threads are returned either way. Default public.",
+        ),
+      before: z.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe(
+          "Pagination cursor: an ISO timestamp compared against when a thread was archived. Pass the previous response's nextBefore to fetch older archived threads. When set, active threads are omitted.",
+        ),
+    }),
+    outputSchema: z.object({
+      threads: z.array(channelThreadSummary),
+      hasMore: z.boolean(),
+      nextBefore: z.string().nullable(),
+    }),
+    handle: async ({ channel_id, limit, type, before }) => {
+      const channel = await getThreadParent(channel_id);
+      const collected: AnyThreadChannel[] = [];
+      // A cursor means the caller is already walking archived pages, so re-sending
+      // the active ones would duplicate what it read on the first call.
+      if (before === undefined) {
+        const active = await channel.threads.fetchActive();
+        collected.push(...active.threads.values());
+      }
+      const archived = await channel.threads.fetchArchived({
+        type,
+        limit,
+        ...(before === undefined ? {} : { before: new Date(before) }),
+      });
+      collected.push(...archived.threads.values());
+      const threads = collected.map((t) => ({
+        id: t.id,
+        name: t.name,
+        private: t.type === ChannelType.PrivateThread,
+        archived: t.archived,
+        locked: t.locked,
+        messageCount: t.messageCount,
+        createdAt: t.createdAt?.toISOString() ?? null,
+      }));
+      // Reporting hasMore from the cursor keeps the pair from disagreeing, so a
+      // caller looping while hasMore is true always has something to send.
+      const oldest = archived.threads.last();
+      const nextBefore =
+        archived.hasMore && oldest?.archivedAt ? oldest.archivedAt.toISOString() : null;
+      return structured({ threads, hasMore: nextBefore !== null, nextBefore });
     },
   }),
   defineTool({

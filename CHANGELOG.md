@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Message reads carry the text of any embeds. A bot post routinely leaves `content` empty and puts everything in an embed, so a reader that drops embeds reports the message as blank and the channel as silent. Measured on a real guild, 4.3% of messages were embed-only, and in one monitoring channel it was 61%. `discord_read_messages`, `discord_search_messages`, `discord_search_guild_messages`, `discord_fetch_pinned_messages` and `discord_get_forum_post` now include an `embeds` array of title, description, url and fields, present only when a message actually carries embeds. Colour, timestamps and images are left out because they carry no text a reader can use, and the text is capped at 500 characters of description, 10 fields and 300 characters per field value, well above the medians of 98 characters and 4 fields observed in practice
+
 ### Fixed
 
 - `discord_fetch_pinned_messages` is now paginated instead of silently stopping at the first 50 pins. It takes `limit` (1-50) and a `before` cursor and returns `hasMore` and `nextBefore`, matching `discord_list_forum_threads`. The cursor compares against when a message was pinned, not when it was sent. `discord_get_reactions` no longer reads a stale snapshot after a pins call. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)

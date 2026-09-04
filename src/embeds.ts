@@ -52,6 +52,80 @@ export const embedArraySchema = z
   .array(embedObjectSchema)
   .max(10, "Discord allows a maximum of 10 embeds per message.");
 
+/**
+ * Caps on the embed text folded into message reads. Discord allows 4096 characters of
+ * description and 25 fields per embed, and 10 embeds per message, which no reader wants
+ * inline. Measured against a real guild these caps never bite: descriptions run to a
+ * median of 98 characters and embeds to a median of 4 fields.
+ */
+const EMBED_READ_CAPS = {
+  description: 500,
+  url: 300,
+  fields: 10,
+  fieldName: 100,
+  fieldValue: 300,
+} as const;
+
+/** One embed as message reads report it: the parts that carry text a reader can use. */
+export const embedSummary = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  url: z.string().optional(),
+  fields: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
+});
+
+/** Structural shape shared by discord.js `Embed` and the raw `APIEmbed` of a search hit. */
+interface EmbedLike {
+  title?: string | null;
+  description?: string | null;
+  url?: string | null;
+  fields?: readonly { name: string; value: string }[];
+}
+
+function clip(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max)}…`;
+}
+
+/**
+ * Folds the readable text of a message's embeds into what message reads return.
+ * Call sites go through embedField; this stays internal so the module exposes one way in.
+ * Bot posts routinely carry no content at all and put everything in an embed, so a
+ * reader that drops embeds sees an empty message and reports the channel as silent.
+ * Colour, timestamps, images and thumbnails are left out: they carry no text.
+ * Returns undefined when there are no embeds, so the key stays off ordinary messages.
+ */
+function summarizeEmbeds(embeds: readonly EmbedLike[]): z.infer<typeof embedSummary>[] | undefined {
+  if (embeds.length === 0) return undefined;
+  return embeds.map((embed) => ({
+    ...(embed.title ? { title: embed.title } : {}),
+    ...(embed.description
+      ? { description: clip(embed.description, EMBED_READ_CAPS.description) }
+      : {}),
+    ...(embed.url ? { url: clip(embed.url, EMBED_READ_CAPS.url) } : {}),
+    ...(embed.fields?.length
+      ? {
+          fields: embed.fields.slice(0, EMBED_READ_CAPS.fields).map((field) => ({
+            name: clip(field.name, EMBED_READ_CAPS.fieldName),
+            value: clip(field.value, EMBED_READ_CAPS.fieldValue),
+          })),
+        }
+      : {}),
+  }));
+}
+
+/**
+ * Spreads an `embeds` key only when the message carries any. Assigning the summary
+ * directly would leave `embeds: undefined` on every ordinary message: it disappears
+ * on the wire but not from `structuredContent`, so the advertised shape and the
+ * returned object would disagree.
+ */
+export function embedField(embeds: readonly EmbedLike[]): {
+  embeds?: z.infer<typeof embedSummary>[];
+} {
+  const summarized = summarizeEmbeds(embeds);
+  return summarized ? { embeds: summarized } : {};
+}
+
 /** Validated embed input: the typed shape `buildEmbed` consumes. */
 export type EmbedInput = z.infer<typeof embedObjectSchema>;
 

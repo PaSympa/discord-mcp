@@ -28,7 +28,7 @@ test("unknown tool is a JSON-RPC InvalidParams protocol error, not a tool result
 test("tools/list serves every definition and rejects unexpected cursors", async () => {
   const client = await connectedClient();
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 99, "update this pin when adding/removing tools");
+  assert.equal(tools.length, 100, "update this pin when adding/removing tools");
   await assert.rejects(
     () => client.listTools({ cursor: "bogus" }),
     (err: unknown) => err instanceof McpError && err.code === ErrorCode.InvalidParams,

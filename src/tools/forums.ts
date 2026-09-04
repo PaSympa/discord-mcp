@@ -1,5 +1,6 @@
 import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
 import { z } from "zod";
+import { embedSummary, embedField } from "../embeds.js";
 import { discord, fetchChannelChecked } from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
 
@@ -161,6 +162,7 @@ const tools = [
           author: z.string(),
           content: z.string(),
           timestamp: z.string(),
+          embeds: z.array(embedSummary).optional(),
         }),
       ),
     }),
@@ -182,6 +184,7 @@ const tools = [
             author: m.author.tag,
             content: m.content,
             timestamp: m.createdAt.toISOString(),
+            ...embedField(m.embeds),
           })),
       };
       return structured(result);

@@ -159,9 +159,11 @@ test("concurrent callers share one login attempt", async () => {
 test("every message fetch declines the cache", () => {
   // Single-message fetches are read-once: nothing in the repo reads messages.cache
   // back, and a cached copy freezes the reaction snapshot until the sweeper runs.
+  // fetchPins is covered too: `fetch(` alone let it through while it filled the
+  // same cache.
   for (const file of ["messages.ts", "dm.ts", "forums.ts"]) {
     const src = readFileSync(join(__dirname, "..", "src", "tools", file), "utf8");
-    for (const hit of src.matchAll(/\.messages\.fetch\(/g)) {
+    for (const hit of src.matchAll(/\.messages\.fetch(?:Pins)?\(/g)) {
       const call = src.slice(hit.index, hit.index + 160);
       assert.ok(
         call.includes("cache: false"),

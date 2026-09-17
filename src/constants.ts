@@ -3,6 +3,9 @@
 /** Per-fetch cap for most Discord list endpoints (messages, reactions, events); members/bans use DEFAULTS.MEMBERS_MAX. */
 export const MAX_FETCH_LIMIT = 100;
 
+/** Per-fetch cap for the channel pins endpoint, which is half the usual list cap. */
+export const MAX_PINS_LIMIT = 50;
+
 /** Default and maximum fetch limits by context. */
 export const DEFAULTS = {
   MESSAGES: 20,

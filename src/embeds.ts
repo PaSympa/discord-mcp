@@ -3,7 +3,7 @@ import { z } from "zod";
 import { httpUrl } from "./tools/define.js";
 
 /**
- * Zod fields of a rich embed — spread into a tool's `z.object({...})` schema.
+ * Zod fields of a rich embed: spread into a tool's `z.object({...})` schema.
  * The single source of truth for embed input across the message, DM, and webhook tools.
  */
 export const embedFieldsShape = {
@@ -17,7 +17,7 @@ export const embedFieldsShape = {
     .describe("Side-bar color as a hex string, e.g. '#5865F2'."),
   fields: z
     .array(
-      z.object({
+      z.strictObject({
         name: z.string().describe("Field heading."),
         value: z.string().describe("Field body text."),
         inline: z
@@ -31,7 +31,7 @@ export const embedFieldsShape = {
       "Up to 25 name/value field blocks. Set inline:true on a field to render it side-by-side with adjacent inline fields (up to 3 per row).",
     ),
   author: z
-    .object({
+    .strictObject({
       name: z.string().describe("Author display name."),
       icon_url: httpUrl.optional().describe("Small icon shown next to the author name."),
       url: httpUrl.optional().describe("URL the author name links to."),
@@ -45,14 +45,14 @@ export const embedFieldsShape = {
 } as const;
 
 /** Schema for a single embed object (e.g. an item of `discord_send_multiple_embeds`). */
-export const embedObjectSchema = z.object(embedFieldsShape);
+export const embedObjectSchema = z.strictObject(embedFieldsShape);
 
-/** Up to 10 embeds — Discord's per-message cap, enforced at parse time and advertised as maxItems. */
+/** Up to 10 embeds: Discord's per-message cap, enforced at parse time and advertised as maxItems. */
 export const embedArraySchema = z
   .array(embedObjectSchema)
   .max(10, "Discord allows a maximum of 10 embeds per message.");
 
-/** Validated embed input — the typed shape `buildEmbed` consumes. */
+/** Validated embed input: the typed shape `buildEmbed` consumes. */
 export type EmbedInput = z.infer<typeof embedObjectSchema>;
 
 /**

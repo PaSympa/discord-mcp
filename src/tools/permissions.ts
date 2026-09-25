@@ -47,7 +47,7 @@ const tools = [
   defineTool({
     name: "discord_set_role_permission",
     description:
-      "Add or update a per-channel permission overwrite for a role, allowing and/or denying specific permissions. Merges with the role's existing overwrite (does not reset it). Requires the Manage Roles permission. Use discord_set_member_permission to target a single member instead.",
+      "Add or update a per-channel permission overwrite for a role, allowing and/or denying specific permissions. Merges with the role's existing overwrite (does not reset it). Denying View Channel to @everyone also locks the bot out unless it holds an allow overwrite of its own; grant that with discord_set_member_permission before the deny. Requires the Manage Roles permission. Use discord_set_member_permission to target a single member instead.",
     annotations: {
       title: "Set role channel permission",
       readOnlyHint: false,
@@ -128,7 +128,7 @@ const tools = [
   defineTool({
     name: "discord_reset_channel_permissions",
     description:
-      "Remove ALL permission overwrites on a channel, so only role/server-level permissions apply. Does NOT re-sync with the category — use discord_lock_channel_permissions for that. IRREVERSIBLE — the cleared overwrites cannot be recovered. Requires the Manage Roles permission.",
+      "Remove ALL permission overwrites on a channel, so only role/server-level permissions apply. Does NOT re-sync with the category; use discord_lock_channel_permissions for that. IRREVERSIBLE: the cleared overwrites cannot be recovered. Requires the Manage Roles permission.",
     annotations: {
       title: "Reset channel permissions",
       readOnlyHint: false,
@@ -218,9 +218,11 @@ const tools = [
           });
         }
       });
-      await Promise.all(
+      // From the fetch results, not the cache: a sweep can fire before the read-back.
+      const fetched = await Promise.all(
         [...memberIdsNeeded].map((id) => guild.members.fetch(id).catch(() => null)),
       );
+      const memberTags = new Map(fetched.filter((m) => m !== null).map((m) => [m.id, m.user.tag]));
       const report: Record<string, unknown>[] = [];
       guild.channels.cache
         .filter((c) => c instanceof GuildChannel)
@@ -230,7 +232,7 @@ const tools = [
             const isRole = ow.type === 0;
             const entity = isRole
               ? (guild.roles.cache.get(ow.id)?.name ?? ow.id)
-              : (guild.members.cache.get(ow.id)?.user.tag ?? ow.id);
+              : (memberTags.get(ow.id) ?? ow.id);
             return {
               entity,
               type: isRole ? "role" : "member",

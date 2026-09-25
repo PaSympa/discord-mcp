@@ -1,5 +1,5 @@
 /**
- * Tool registry — aggregates all tool modules and provides a unified interface
+ * Tool registry: aggregates all tool modules and provides a unified interface
  * for listing definitions and routing tool calls to the correct handler.
  *
  * To add a new tool module:
@@ -46,7 +46,7 @@ const allToolsets: Record<string, ToolModule> = {
 /**
  * Selects which toolsets to expose from `DISCORD_MCP_TOOLSETS` (comma-separated,
  * case-insensitive). Unset, empty, or `all` exposes everything; unknown names throw
- * at startup — a typo must not silently expose the full destructive surface.
+ * at startup: a typo must not silently expose the full destructive surface.
  */
 export function selectModules(): ToolModule[] {
   const raw = process.env.DISCORD_MCP_TOOLSETS?.trim();

@@ -36,7 +36,7 @@ async function getForumChannel(channelId: string): Promise<ForumChannel> {
  * Fetches a channel by ID and guarantees it is a thread channel.
  */
 async function getThreadChannel(id: string): Promise<ThreadChannel> {
-  const channel = await fetchChannelChecked(id);
+  const channel = await fetchChannelChecked(id, { force: true });
   if (!channel || !channel.isThread())
     throw new Error(`Channel ${id} is not a thread or doesn't exist.`);
   return channel as ThreadChannel;
@@ -175,7 +175,7 @@ const tools = [
     }),
     handle: async ({ thread_id, limit }) => {
       const thread = await getThreadChannel(thread_id);
-      const messages = await thread.messages.fetch({ limit });
+      const messages = await thread.messages.fetch({ limit, cache: false });
       const result = {
         id: thread.id,
         name: thread.name,
@@ -348,7 +348,7 @@ const tools = [
       forum_channel_id: snowflake.describe("ID (snowflake) of the forum channel to set tags on."),
       tags: z
         .array(
-          z.object({
+          z.strictObject({
             name: z.string().describe("Tag label (max 20 characters)."),
             emoji_name: z.string().optional().describe("Optional unicode emoji shown on the tag."),
             moderated: z

@@ -48,6 +48,7 @@ const tools = [
     handle: async ({ guild_id }) => {
       const guild = await discord.guilds.fetch(guild_id);
       const roles = await guild.roles.fetch();
+      const counts = await guild.roles.fetchMemberCounts();
       const result = [...roles.values()]
         .filter((r) => r.name !== "@everyone")
         .sort((a, b) => b.position - a.position)
@@ -56,7 +57,7 @@ const tools = [
           name: r.name,
           color: r.hexColor,
           position: r.position,
-          memberCount: r.members.size,
+          memberCount: counts.get(r.id) ?? 0,
           permissions: serializePermissions(r.permissions),
           hoist: r.hoist,
           mentionable: r.mentionable,
@@ -232,7 +233,7 @@ const tools = [
   defineTool({
     name: "discord_get_role_members",
     description:
-      "List members who currently hold a specific role, scanning up to 20,000 members. Returns { members: [...], truncated } — check `truncated` on very large servers. Read-only. Use discord_list_roles to discover role IDs first.",
+      "List members who currently hold a specific role, scanning up to 20,000 members. Returns { members: [...], truncated }; check `truncated` on very large servers. Read-only. Use discord_list_roles to discover role IDs first.",
     annotations: { title: "Get role members", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -246,23 +247,24 @@ const tools = [
     handle: async ({ guild_id, role_id }) => {
       const guild = await discord.guilds.fetch(guild_id);
       const role = await fetchRole(guild, role_id);
-      // No "members of a role" endpoint exists, so populate the cache then filter (1000/page max).
+      // No "members of a role" endpoint exists, so page the member list and filter
+      // (1000/page max), accumulating per page: a sweep can empty the cache mid-loop.
       const MAX_PAGES = 20;
       let after: string | undefined;
       let truncated = true;
+      const members: { id: string; username: string; nickname: string | null }[] = [];
       for (let i = 0; i < MAX_PAGES; i++) {
         const page = await guild.members.list({ limit: 1000, after });
+        for (const m of page.values()) {
+          if (m.roles.cache.has(role.id))
+            members.push({ id: m.id, username: m.user.tag, nickname: m.nickname });
+        }
         if (page.size < 1000) {
           truncated = false;
           break;
         }
         after = page.lastKey();
       }
-      const members = role.members.map((m) => ({
-        id: m.id,
-        username: m.user.tag,
-        nickname: m.nickname,
-      }));
       return structured({
         members,
         truncated,
@@ -299,7 +301,7 @@ const tools = [
       const maxPosition = guild.roles.cache.size - 1;
       if (position > maxPosition)
         throw new Error(
-          `position ${position} is out of range — this server's highest role position is ${maxPosition}.`,
+          `position ${position} is out of range; this server's highest role position is ${maxPosition}.`,
         );
       await role.setPosition(position);
       return {
@@ -310,7 +312,7 @@ const tools = [
   defineTool({
     name: "discord_set_role_icon",
     description:
-      "Set or clear a role's icon — either a custom image or a unicode emoji. Requires the server to be Boost Level 2+ (the ROLE_ICONS feature) and the Manage Roles permission. Pass null to either field to remove that icon. Returns a confirmation.",
+      "Set or clear a role's icon, either a custom image or a unicode emoji. Requires the server to be Boost Level 2+ (the ROLE_ICONS feature) and the Manage Roles permission. Pass null to either field to remove that icon. Returns a confirmation.",
     annotations: {
       title: "Set role icon",
       readOnlyHint: false,

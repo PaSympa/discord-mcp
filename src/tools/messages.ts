@@ -6,8 +6,10 @@ import {
   Message,
   MessageReaction,
   Routes,
+  SnowflakeUtil,
   DiscordAPIError,
 } from "discord.js";
+import type { APIAttachment } from "discord.js";
 import { z } from "zod";
 import { discord, getTextChannel, fetchChannelChecked } from "../client.js";
 import { MAX_FETCH_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.js";
@@ -16,12 +18,62 @@ import {
   attachmentsSchema,
   buildAttachments,
   formatAttachments,
+  formatApiAttachments,
   attachmentSummarySchema,
 } from "../attachments.js";
-import { defineModule, defineTool, snowflake, intIn, structured } from "./define.js";
+import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
 
 const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
 const messageId = snowflake.describe("ID of the message.");
+
+/**
+ * History paging cursors. Discord's `GET /channels/{id}/messages` accepts at most
+ * one of `before` / `after` / `around` per request, so tools exposing them reject
+ * combinations at parse time instead of letting the API answer 400.
+ */
+const beforeCursor = snowflake.describe(
+  "Return only messages older than this message ID (snowflake). Page backwards through history by passing the id of the oldest message from the previous call.",
+);
+const afterCursor = snowflake.describe(
+  "Return only messages newer than this message ID (snowflake). Page forwards by passing the id of the newest message from the previous call.",
+);
+const aroundCursor = snowflake.describe(
+  "Return messages centered on this message ID (snowflake): Discord splits `limit` either side of it, and an even `limit` puts the extra message on the newer side. Use it to read outward from a known message, such as a discord_search_guild_messages hit.",
+);
+const sinceInstant = z
+  .union([z.iso.date(), z.iso.datetime({ offset: true })], {
+    error:
+      "Must be an ISO 8601 date (2026-08-01) or a date-time with an explicit offset (2026-08-01T09:00:00Z).",
+  })
+  .describe(
+    'Return only messages posted after this instant, as an ISO 8601 date or a date-time with an explicit offset (e.g. "2026-08-01" or "2026-08-01T09:00:00Z"). Convenience form of `after`: the call yields the oldest `limit` messages after that instant, so page forwards with `after` set to the newest id received.',
+  );
+
+function hasSingleCursor(args: {
+  before?: string;
+  after?: string;
+  around?: string;
+  since?: string;
+}): boolean {
+  return (
+    [args.before, args.after, args.around, args.since].filter((value) => value !== undefined)
+      .length <= 1
+  );
+}
+
+/**
+ * Converts an ISO 8601 instant into the snowflake an `after` cursor expects.
+ * Snowflakes embed a millisecond timestamp, so a synthetic id marks that instant
+ * exactly. The instant is clamped to the Discord epoch on one side (`generate`
+ * returns a negative id before it) and to now on the other (ids overflow 64 bits
+ * past 2154, and nothing can be posted in the future). The schema only admits a
+ * date or an offset-bearing date-time, both of which `Date.parse` reads as UTC or
+ * the given offset, so the result does not depend on the server's timezone.
+ */
+function cursorForInstant(iso: string): string {
+  const timestamp = Math.min(Math.max(Date.parse(iso), Number(SnowflakeUtil.epoch)), Date.now());
+  return SnowflakeUtil.generate({ timestamp }).toString();
+}
 
 const messageSummary = z.object({
   id: z.string(),
@@ -31,11 +83,27 @@ const messageSummary = z.object({
   attachments: z.array(attachmentSummarySchema),
 });
 
+const attachmentSummary = z.object({
+  id: z.string(),
+  filename: z.string(),
+  contentType: z.string().nullable(),
+  size: z.number(),
+  url: z.string(),
+  proxyUrl: z.string(),
+  width: z.number().nullable(),
+  height: z.number().nullable(),
+  description: z.string().nullable(),
+  title: z.string().nullable(),
+  duration: z.number().nullable(),
+  waveform: z.string().nullable(),
+  spoiler: z.boolean(),
+});
+
 /**
  * Looks up a reaction on a message by emoji argument.
  * The reaction cache is keyed by the emoji id (snowflake) for custom emoji and
- * by the raw unicode char for standard emoji — NOT by the "name:id" / "<:name:id>"
- * form the tool schema accepts — so a custom emoji is normalized to its id first.
+ * by the raw unicode char for standard emoji, NOT by the "name:id" / "<:name:id>"
+ * form the tool schema accepts, so a custom emoji is normalized to its id first.
  */
 function findReaction(msg: Message, emoji: string): MessageReaction | undefined {
   const customId = emoji.match(/^<a?:[^:]+:(\d{17,20})>$|^[^:]+:(\d{17,20})$/);
@@ -43,25 +111,48 @@ function findReaction(msg: Message, emoji: string): MessageReaction | undefined 
   return msg.reactions.cache.get(key);
 }
 
+/** Mirrors discord.js `User#tag`, which raw API users lack. Both "0" and "0000" mean migrated. */
+function userTag(user: { username: string; discriminator: string }): string {
+  return user.discriminator === "0" || user.discriminator === "0000"
+    ? user.username
+    : `${user.username}#${user.discriminator}`;
+}
+
 /** Tool definitions for channel and thread messages. */
 const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read the most recent messages from a text channel or thread, oldest-to-newest. Returns { messages: [...] } with id, author, content, timestamp, attachments, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions. Returns { messages: [...] } with id, author, content, timestamp, attachments (id, filename, url, size, content type, alt text), pinned flag. Use discord_get_message_attachments for full attachment metadata, discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
-    schema: z.object({
-      channel_id: snowflake.describe("ID (snowflake) of the channel or thread to read from."),
-      limit: intIn(1, MAX_FETCH_LIMIT)
-        .default(DEFAULTS.MESSAGES)
-        .describe("How many recent messages to fetch (1–100). Default 20."),
-    }),
+    schema: z
+      .object({
+        channel_id: snowflake.describe("ID (snowflake) of the channel or thread to read from."),
+        limit: intIn(1, MAX_FETCH_LIMIT)
+          .default(DEFAULTS.MESSAGES)
+          .describe("How many messages to fetch per call (1–100). Default 20."),
+        before: beforeCursor.optional(),
+        after: afterCursor.optional(),
+        around: aroundCursor.optional(),
+        since: sinceInstant.optional(),
+      })
+      .refine(
+        hasSingleCursor,
+        "Pass at most one of before, after, around, or since: Discord treats before/after/around as mutually exclusive, and since is a form of after.",
+      ),
     outputSchema: z.object({
       messages: z.array(messageSummary.extend({ pinned: z.boolean() })),
     }),
-    handle: async ({ channel_id, limit }) => {
+    handle: async ({ channel_id, limit, before, after, around, since }) => {
       const channel = await getTextChannel(channel_id);
-      const messages = await channel.messages.fetch({ limit, cache: false });
+      const resolvedAfter = after ?? (since === undefined ? undefined : cursorForInstant(since));
+      const messages = await channel.messages.fetch({
+        limit,
+        cache: false,
+        before,
+        after: resolvedAfter,
+        around,
+      });
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((m) => ({
@@ -133,7 +224,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, content, attachments }) => {
       const channel = await getTextChannel(channel_id);
-      const target = await channel.messages.fetch(message_id);
+      const target = await channel.messages.fetch({ message: message_id, cache: false });
       const files = attachments ? buildAttachments(attachments) : undefined;
       if (!content && !files?.length)
         throw new Error("At least one of content or attachments is required.");
@@ -174,7 +265,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, content }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only edit messages sent by the bot.");
       const edited = await msg.edit(content);
@@ -205,7 +296,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, emoji }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       await msg.react(emoji);
       return {
         content: [
@@ -249,7 +340,7 @@ const tools = [
       const channel = await getTextChannel(channel_id);
       const duration = auto_archive_duration;
       if (message_id) {
-        const msg = await channel.messages.fetch(message_id);
+        const msg = await channel.messages.fetch({ message: message_id, cache: false });
         const thread = await msg.startThread({ name, autoArchiveDuration: duration });
         return {
           content: [
@@ -368,7 +459,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only edit embeds sent by the bot.");
       await msg.edit({ embeds: [buildEmbed(embedArgs)] });
@@ -431,7 +522,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, reason }) => {
       const channel = await getTextChannel(channel_id);
-      await channel.messages.fetch(message_id);
+      await channel.messages.fetch({ message: message_id, cache: false });
       // msg.delete() cannot carry an audit-log reason; the raw REST call sets X-Audit-Log-Reason.
       await discord.rest.delete(Routes.channelMessage(channel.id, message_id), { reason });
       return { content: [{ type: "text", text: `✅ Message ${message_id} deleted.` }] };
@@ -457,7 +548,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, pin }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (pin) {
         await msg.pin();
       } else {
@@ -469,7 +560,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages — it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, attachments. Use discord_read_messages to fetch recent messages without filtering.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, attachments. Use discord_read_messages to fetch recent messages without filtering.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -497,6 +588,73 @@ const tools = [
     },
   }),
   defineTool({
+    name: "discord_search_guild_messages",
+    description:
+      "Search for messages across all channels in a guild using Discord's native search API. Returns messages matching the query with channel context. Requires READ_MESSAGE_HISTORY permission. Use discord_search_messages for channel-specific search.",
+    annotations: { title: "Search guild messages", readOnlyHint: true, openWorldHint: true },
+    schema: z.object({
+      guild_id: guildId,
+      query: z.string().describe("Search query (case-insensitive)."),
+      channel_id: snowflake.optional().describe("Optional. Restrict search to this channel ID."),
+      author_id: snowflake.optional().describe("Optional. Only show messages from this user ID."),
+      limit: intIn(1, 25).default(25).describe("Max messages to return (1–25). Default 25."),
+    }),
+    outputSchema: z.object({
+      matches: z.array(
+        messageSummary.extend({
+          channel_id: z.string(),
+          channel_name: z.string(),
+        }),
+      ),
+    }),
+    handle: async ({ guild_id, query, channel_id, author_id, limit }) => {
+      const searchParams: Record<string, string> = { content: query, limit: String(limit) };
+      if (channel_id) searchParams.channel_id = channel_id;
+      if (author_id) searchParams.author_id = author_id;
+
+      const searchUrlParams = new URLSearchParams(searchParams);
+      const result = await discord.rest.get(Routes.guildMessagesSearch(guild_id), {
+        query: searchUrlParams,
+      });
+
+      const data = result as {
+        messages?: Array<
+          Array<{
+            id: string;
+            content: string;
+            timestamp: string;
+            channel_id: string;
+            author: { username: string; discriminator: string };
+            attachments?: APIAttachment[];
+          }>
+        >;
+        retry_after?: number;
+      };
+      // Discord answers 202 with an index-not-ready body that carries no `messages`
+      // key while it builds the guild's search index.
+      if (!data.messages)
+        throw new Error(
+          `Discord is still building this server's message search index. Retry in ${Math.ceil(data.retry_after ?? 5)}s.`,
+        );
+      const matches = data.messages.flat().map((m) => ({
+        id: m.id,
+        author: userTag(m.author),
+        content: m.content,
+        timestamp: m.timestamp,
+        attachments: formatApiAttachments(m.attachments),
+        channel_id: m.channel_id,
+        channel_name: "",
+      }));
+
+      const guild = await discord.guilds.fetch(guild_id);
+      for (const match of matches) {
+        match.channel_name = guild.channels.cache.get(match.channel_id)?.name ?? "unknown";
+      }
+
+      return structured({ matches });
+    },
+  }),
+  defineTool({
     name: "discord_crosspost_message",
     description:
       "Publish (crosspost) a message from an Announcement channel to every server that follows it. Only works in announcement channels on a message that has not already been published. Requires the Send Messages permission (and Manage Messages for messages authored by others). Returns a confirmation.",
@@ -517,9 +675,9 @@ const tools = [
       const channel = await fetchChannelChecked(channel_id);
       if (!channel || channel.type !== ChannelType.GuildAnnouncement)
         throw new Error(
-          "Channel is not an announcement channel — only announcement-channel messages can be published.",
+          "Channel is not an announcement channel; only announcement-channel messages can be published.",
         );
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       try {
         await msg.crosspost();
       } catch (err) {
@@ -571,7 +729,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, emoji, user_id }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (!emoji) {
         await msg.reactions.removeAll();
         return {
@@ -626,7 +784,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, emoji, limit }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       const reaction = findReaction(msg, emoji);
       if (!reaction)
         throw new Error(`No reaction found for emoji "${emoji}" on message ${msg.id}.`);
@@ -637,6 +795,39 @@ const tools = [
         bot: u.bot,
       }));
       return structured({ reactions: result });
+    },
+  }),
+  defineTool({
+    name: "discord_get_message_attachments",
+    description:
+      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Read-only. Use discord_read_messages to find messages with attachments.",
+    annotations: { title: "Get message attachments", readOnlyHint: true, openWorldHint: true },
+    schema: z.object({
+      channel_id: channelId.describe(
+        "ID (snowflake) of the channel or thread containing the message.",
+      ),
+      message_id: messageId.describe("ID of the message whose attachments to list."),
+    }),
+    outputSchema: z.object({ attachments: z.array(attachmentSummary) }),
+    handle: async ({ channel_id, message_id }) => {
+      const channel = await getTextChannel(channel_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
+      const attachments = [...msg.attachments.values()].map((a) => ({
+        id: a.id,
+        filename: a.name,
+        contentType: a.contentType,
+        size: a.size,
+        url: a.url,
+        proxyUrl: a.proxyURL,
+        width: a.width,
+        height: a.height,
+        description: a.description,
+        title: a.title,
+        duration: a.duration,
+        waveform: a.waveform,
+        spoiler: a.spoiler,
+      }));
+      return structured({ attachments });
     },
   }),
   defineTool({
@@ -684,7 +875,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, target_channel_id }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch(message_id);
+      const msg = await channel.messages.fetch({ message: message_id, cache: false });
       const targetChannel = await getTextChannel(target_channel_id);
       // ThreadChannel<boolean> is the abstract base for PublicThreadChannel / PrivateThreadChannel;
       // any runtime instance is one of them, but the type narrowing can't be expressed without a cast.

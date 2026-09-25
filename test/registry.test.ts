@@ -36,6 +36,39 @@ test("selectModules fails fast on unknown or empty selections", () => {
   }
 });
 
+function assertStrictObjectSchemas(node: unknown, tool: string, path: string): void {
+  if (Array.isArray(node)) {
+    node.forEach((v, i) => assertStrictObjectSchemas(v, tool, `${path}[${i}]`));
+    return;
+  }
+  if (typeof node !== "object" || node === null) return;
+  const schema = node as Record<string, unknown>;
+  if (schema.type === "object" && schema.properties !== undefined) {
+    assert.equal(
+      schema.additionalProperties,
+      false,
+      `${tool} at ${path}: object schema must advertise additionalProperties: false`,
+    );
+  }
+  for (const [key, value] of Object.entries(schema)) {
+    assertStrictObjectSchemas(value, tool, `${path}.${key}`);
+  }
+}
+
+test("every tool's inputSchema forbids unknown keys at every nesting level", () => {
+  delete process.env.DISCORD_MCP_TOOLSETS;
+  for (const mod of selectModules()) {
+    for (const def of mod.definitions) {
+      assert.equal(
+        (def.inputSchema as Record<string, unknown>).additionalProperties,
+        false,
+        `${def.name} root must advertise additionalProperties: false`,
+      );
+      assertStrictObjectSchemas(def.inputSchema, def.name, "inputSchema");
+    }
+  }
+});
+
 test("hasTool reflects the registry", () => {
   assert.ok(hasTool("discord_list_guilds"));
   assert.ok(!hasTool("discord_nonexistent"));

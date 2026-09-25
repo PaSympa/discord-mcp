@@ -1,15 +1,17 @@
 import { AttachmentBuilder } from "discord.js";
-import type { Message } from "discord.js";
+import type { APIAttachment, Message } from "discord.js";
 import { z } from "zod";
 
 /**
  * Zod field for file attachments, spread/added into the message, forum, and webhook
  * send tools. Each item must supply exactly one source: url, file_path, or data.
  * The 10-attachment cap is Discord's per-message limit, enforced at parse time.
+ * Items are strict objects, matching the registry rule that every nesting level
+ * rejects unknown keys (`additionalProperties: false`).
  */
 export const attachmentsSchema = z
   .array(
-    z.object({
+    z.strictObject({
       url: z.string().optional().describe("Public URL of the file to upload."),
       file_path: z.string().optional().describe("Absolute path to a local file."),
       data: z.string().optional().describe("Base64-encoded file content."),
@@ -27,7 +29,7 @@ export const attachmentsSchema = z
     "Files to attach (max 10, 25MB each). Provide exactly one of url, file_path, or data for each.",
   );
 
-/** Validated single-attachment input — the typed shape `buildAttachments` consumes. */
+/** Validated single-attachment input: the typed shape `buildAttachments` consumes. */
 export type AttachmentInput = NonNullable<z.infer<typeof attachmentsSchema>>[number];
 
 /**
@@ -71,6 +73,23 @@ export function formatAttachments(msg: Message): z.infer<typeof attachmentSummar
     url: a.url,
     size: a.size,
     content_type: a.contentType ?? null,
+    description: a.description ?? null,
+  }));
+}
+
+/**
+ * Same summary for raw API attachments (webhook fetches, guild message search),
+ * which carry snake_case fields and no discord.js Attachment wrapper.
+ */
+export function formatApiAttachments(
+  attachments: readonly APIAttachment[] | undefined,
+): z.infer<typeof attachmentSummarySchema>[] {
+  return (attachments ?? []).map((a) => ({
+    id: a.id,
+    filename: a.filename,
+    url: a.url,
+    size: a.size,
+    content_type: a.content_type ?? null,
     description: a.description ?? null,
   }));
 }

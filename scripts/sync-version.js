@@ -10,7 +10,12 @@ const serverJsonPath = path.join(__dirname, "..", "server.json");
 const server = JSON.parse(fs.readFileSync(serverJsonPath, "utf8"));
 server.version = version;
 for (const pkg of server.packages ?? []) {
-  pkg.version = version;
+  // The registry rejects a `version` field on OCI packages; the identifier's tag carries it.
+  if (pkg.registryType === "oci") {
+    pkg.identifier = pkg.identifier.slice(0, pkg.identifier.lastIndexOf(":") + 1) + version;
+  } else {
+    pkg.version = version;
+  }
 }
 fs.writeFileSync(serverJsonPath, JSON.stringify(server, null, 2) + "\n");
 console.log(`server.json synced to ${version}`);

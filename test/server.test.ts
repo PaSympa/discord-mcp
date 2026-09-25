@@ -28,7 +28,7 @@ test("unknown tool is a JSON-RPC InvalidParams protocol error, not a tool result
 test("tools/list serves every definition and rejects unexpected cursors", async () => {
   const client = await connectedClient();
   const { tools } = await client.listTools();
-  assert.equal(tools.length, 97, "update this pin when adding/removing tools");
+  assert.equal(tools.length, 99, "update this pin when adding/removing tools");
   await assert.rejects(
     () => client.listTools({ cursor: "bogus" }),
     (err: unknown) => err instanceof McpError && err.code === ErrorCode.InvalidParams,
@@ -58,7 +58,7 @@ test("formatToolError flattens ZodError paths and surfaces Discord hints", () =>
   const zerr = z.object({ channel_id: z.string() }).safeParse({ channel_id: 1 });
   assert.ok(!zerr.success);
   const msg = formatToolError(zerr.error as ZodError);
-  assert.match(msg, /^Invalid arguments — channel_id: /);
+  assert.match(msg, /^Invalid arguments\. channel_id: /);
 
   const derr = new DiscordAPIError(
     { code: 50013, message: "Missing Permissions" },
@@ -70,7 +70,7 @@ test("formatToolError flattens ZodError paths and surfaces Discord hints", () =>
   );
   const dmsg = formatToolError(derr);
   assert.match(dmsg, /50013/);
-  assert.match(dmsg, /Missing permissions — the bot lacks/);
+  assert.match(dmsg, /Missing permissions; the bot lacks/);
 
   assert.equal(formatToolError(new Error("boom")), "boom");
 });

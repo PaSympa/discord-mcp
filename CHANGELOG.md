@@ -1,5 +1,50 @@
 # Changelog
 
+## [2.2.0] - 2026-09-03
+
+### Added
+
+- `discord_read_messages` accepts the `before`, `after` and `around` cursors Discord's messages endpoint supports, plus a `since` convenience, so a channel can be read past the 100-message per-call cap. Page backwards by re-calling with `before` set to the id of the oldest message received; `since` takes an ISO 8601 date or a date-time with an explicit offset and is converted to the equivalent `after` snowflake. At most one cursor per call, matching Discord's endpoint, and instants before the Discord epoch or in the future clamp to those bounds rather than sending an invalid id. Contributed by [@nobel6018](https://github.com/nobel6018) in [#110](https://github.com/PaSympa/discord-mcp/pull/110)
+- `discord_get_message_attachments` lists a message's file attachments: filename, original title (Discord strips non-ASCII characters from the filename), download url, content type, size, image dimensions, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs attachment CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call the tool if a stored url has expired. Contributed by [@nobel6018](https://github.com/nobel6018) in [#117](https://github.com/PaSympa/discord-mcp/pull/117)
+- `discord_search_guild_messages` searches every channel of a guild through Discord's search index and returns the matches with their channel; `discord_search_messages` stays the channel-scoped scan. Contributed by [@tavurth](https://github.com/tavurth) in [#100](https://github.com/PaSympa/discord-mcp/pull/100), with the allow-list check and cached channel names from [#103](https://github.com/PaSympa/discord-mcp/pull/103)
+
+### Changed
+
+- `discord_set_role_permission` warns in its description that denying View Channel to @everyone also locks the bot out unless it holds an allow overwrite of its own
+- `discord_get_server_stats` describes `botsInCache` as a lower bound and `humans` as an upper bound, since both come from a member cache that is swept
+- Error messages no longer contain an em dash: validation failures read `Invalid arguments. field: reason` (the separator was an em dash) and Discord API hints follow the code and status after a period. The eleven tool descriptions that carried one are reworded the same way
+
+### Security
+
+- npm audit is clean again: fast-uri 3.1.7 (four high advisories) and qs 6.16.0 (two moderate), both transitive through the MCP SDK, resolve within semver
+
+## [2.1.1] - 2026-08-04
+
+### Security
+
+- npm audit is clean for the first time: the two @hono/node-server moderates accepted since June are resolved by MCP SDK 1.30.0 widening its dependency range, and six freshly published transitive advisories (undici, ip-address, fast-uri, hono, @hono/node-server, brace-expansion) are fixed within semver
+
+### Fixed
+
+- Long-running servers no longer grow without bound. The `GuildMessages` intent is no longer requested (nothing subscribes to `MessageCreate`, yet it cached every message together with its author `User` and `GuildMember`), sweepers are configured for the caches tool calls fill (`users`, `guildMembers`, `messages`, `invites`, plus a tightened `threads`), and a login timeout can no longer start a second login that respawns the shard and replays every guild into the caches. Reported by [@Quentin-M](https://github.com/Quentin-M) in [#89](https://github.com/PaSympa/discord-mcp/pull/89), whose production data (~52 GB/day per container) made the diagnosis possible
+- `discord_list_roles` reports real member counts from the API instead of counting whatever happened to be cached, which was frequently zero (closes [#82](https://github.com/PaSympa/discord-mcp/issues/82))
+- `discord_audit_permissions` resolves member names from its own fetch results, so a cache sweep can no longer blank them mid-report
+- `discord_get_role_members` accumulates each page as it is fetched instead of re-reading a cache that a sweep can empty between pages
+- `discord_get_forum_post` reports a current message count instead of a stale one
+- Message fetches no longer populate the per-channel message cache, so `discord_get_reactions` and `discord_remove_reactions` read a fresh reaction snapshot instead of one frozen at first fetch. Contributed by [@Quentin-M](https://github.com/Quentin-M) in [#89](https://github.com/PaSympa/discord-mcp/pull/89)
+
+## [2.1.0] - 2026-07-13
+
+### Changed
+
+- Tool inputs reject unknown argument keys instead of silently stripping them, and every `inputSchema` advertises `additionalProperties: false`. Callers passing extra keys now get `Invalid arguments — Unrecognized key: "…"`
+- The Docker image runs on Node 26 (was Node 24)
+
+### Added
+
+- The Docker image is declared in the MCP Registry manifest (`server.json` OCI package) and carries the `io.modelcontextprotocol.server.name` label the registry requires; the registry publish job now waits for the Docker push
+- The npm tarball ships `SECURITY.md` and the `Dockerfile`, so tarball-based security scanners see the security policy and the container option
+
 ## [2.0.0] - 2026-06-21
 
 ### Breaking

@@ -70,11 +70,11 @@ test("no tool module bypasses the checked channel fetch", () => {
     const src = readFileSync(join(dir, file), "utf-8");
     assert.ok(
       !/discord\.channels\.fetch/.test(src),
-      `${file} calls discord.channels.fetch directly — use fetchChannelChecked/getTextChannel/getGuildChannel`,
+      `${file} calls discord.channels.fetch directly; use fetchChannelChecked/getTextChannel/getGuildChannel`,
     );
     assert.ok(
       !/guild_id:\s*snowflake\b/.test(src),
-      `${file} declares a raw guild_id: snowflake input — use the allow-list-enforcing guildId fragment`,
+      `${file} declares a raw guild_id: snowflake input; use the allow-list-enforcing guildId fragment`,
     );
   }
 });

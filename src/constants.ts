@@ -13,3 +13,16 @@ export const DEFAULTS = {
 
 /** Valid auto-archive durations in minutes. */
 export const AUTO_ARCHIVE_DURATIONS = [60, 1440, 4320, 10080] as const;
+
+/**
+ * Sweep intervals and lifetimes, in seconds. Sweepers rather than `makeCache` limits:
+ * bounding GuildManager, ChannelManager, GuildChannelManager, RoleManager or
+ * PermissionOverwriteManager breaks them (UnsupportedCacheOverwriteWarning).
+ */
+export const SWEEP = {
+  messages: { interval: 300, lifetime: 900 },
+  users: { interval: 600 },
+  guildMembers: { interval: 900 },
+  threads: { interval: 600, lifetime: 3600 },
+  invites: { interval: 900 },
+} as const;

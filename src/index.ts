@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Discord MCP Server — stdio entry point. Server construction lives in
+ * Discord MCP Server: stdio entry point. Server construction lives in
  * `server.ts` (testable via in-memory transport); the Discord client in `client.ts`.
  */
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";

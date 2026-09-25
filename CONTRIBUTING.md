@@ -113,7 +113,8 @@ The tag triggers `.github/workflows/release.yml`, which does everything else aut
 
 1. Fails fast if the tag does not match `package.json` / `server.json`
 2. Lints, builds, tests, then publishes to npm (`NPM_TOKEN` secret)
-3. Publishes to the official MCP Registry via GitHub OIDC (no secret needed) — the [GitHub MCP Registry](https://github.com/mcp) picks it up automatically
-4. Pushes the Docker images and creates the GitHub Release
+3. Pushes the Docker images
+4. Publishes to the official MCP Registry via GitHub OIDC (no secret needed) — the registry pulls the tagged Docker image to validate the `server.json` OCI entry, and the [GitHub MCP Registry](https://github.com/mcp) picks it up automatically
+5. Creates the GitHub Release
 
 No manual `npm publish` — local publishes are blocked by npm's 2FA policy anyway.

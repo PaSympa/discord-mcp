@@ -6,7 +6,6 @@ import {
   PrivateThreadChannel,
   Message,
   MessageReaction,
-  MessageReferenceType,
   MessageType,
   Routes,
   SnowflakeUtil,
@@ -16,6 +15,12 @@ import { z } from "zod";
 import { discord, getTextChannel, fetchChannelChecked } from "../client.js";
 import { MAX_FETCH_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.js";
 import { buildEmbed, embedFieldsShape, embedArraySchema } from "../embeds.js";
+import {
+  rawReferenceFields,
+  referenceFields,
+  referenceShape,
+  type RawReferences,
+} from "../messageReferences.js";
 import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
 
 const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
@@ -78,6 +83,7 @@ const messageSummary = z.object({
   content: z.string(),
   timestamp: z.string(),
   editedAt: z.string().optional(),
+  ...referenceShape,
 });
 
 const attachmentSummary = z.object({
@@ -112,26 +118,6 @@ function findReaction(msg: Message, emoji: string): MessageReaction | undefined 
 /** A reaction emoji in the form the reaction tools accept: the unicode char, or `name:id` when custom. */
 function reactionEmoji(emoji: { id: string | null; name: string | null }): string {
   return emoji.id ? `${emoji.name}:${emoji.id}` : (emoji.name ?? "");
-}
-
-/** Id of the message `m` replies to; forwards and crossposts also carry a reference, but are not replies. */
-function repliedMessageId(m: Message): string | null {
-  const ref = m.reference;
-  const isReply = ref?.type === MessageReferenceType.Default && ref.channelId === m.channelId;
-  return isReply ? (ref.messageId ?? null) : null;
-}
-
-/** What a forward carries: Discord snapshots the original into the forward, whose own content stays empty. */
-function forwardedContent(m: Message) {
-  const ref = m.reference;
-  if (ref?.type !== MessageReferenceType.Forward) return undefined;
-  const snapshot = m.messageSnapshots.first();
-  return {
-    channelId: ref.channelId,
-    messageId: ref.messageId ?? null,
-    content: snapshot?.content ?? "",
-    attachments: snapshot?.attachments.size ?? 0,
-  };
 }
 
 /** A poll message has no text of its own: report the question, the answers and their votes instead. */
@@ -224,15 +210,6 @@ const tools = [
               finalized: z.boolean(),
             })
             .optional(),
-          forwarded: z
-            .object({
-              channelId: z.string(),
-              messageId: z.string().nullable(),
-              content: z.string(),
-              attachments: z.number(),
-            })
-            .optional(),
-          replyTo: z.string().optional(),
           reactions: z.array(z.object({ emoji: z.string(), count: z.number() })).optional(),
         }),
       ),
@@ -250,8 +227,6 @@ const tools = [
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((m) => {
-          const replyTo = repliedMessageId(m);
-          const forwarded = forwardedContent(m);
           const poll = summarizePoll(m);
           const reactions = [...m.reactions.cache.values()].map((r) => ({
             emoji: reactionEmoji(r.emoji),
@@ -268,8 +243,7 @@ const tools = [
             pinned: m.pinned,
             ...(m.system ? { type: MessageType[m.type] } : {}),
             ...(poll ? { poll } : {}),
-            ...(forwarded ? { forwarded } : {}),
-            ...(replyTo ? { replyTo } : {}),
+            ...referenceFields(m),
             ...(reactions.length > 0 ? { reactions } : {}),
           };
         });
@@ -648,7 +622,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, authorId, content, timestamp (plus bot and editedAt when they apply). Use discord_read_messages to fetch recent messages without filtering.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, authorId, content, timestamp (plus bot, editedAt, replyTo and forwarded when they apply). Use discord_read_messages to fetch recent messages without filtering.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -672,6 +646,7 @@ const tools = [
           content: m.content,
           timestamp: m.createdAt.toISOString(),
           ...editedField(m.editedAt?.toISOString()),
+          ...referenceFields(m),
         }));
       return structured({ matches });
     },
@@ -679,7 +654,7 @@ const tools = [
   defineTool({
     name: "discord_search_guild_messages",
     description:
-      "Search for messages across all channels in a guild using Discord's native search API. Returns messages matching the query with channel context. Requires READ_MESSAGE_HISTORY permission. Use discord_search_messages for channel-specific search.",
+      "Search for messages across all channels in a guild using Discord's native search API. Returns messages matching the query with channel context, and replyTo and forwarded when they apply. Requires READ_MESSAGE_HISTORY permission. Use discord_search_messages for channel-specific search.",
     annotations: { title: "Search guild messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -708,14 +683,16 @@ const tools = [
 
       const data = result as {
         messages?: Array<
-          Array<{
-            id: string;
-            content: string;
-            timestamp: string;
-            edited_timestamp: string | null;
-            channel_id: string;
-            author: { id: string; username: string; discriminator: string; bot?: boolean };
-          }>
+          Array<
+            {
+              id: string;
+              content: string;
+              timestamp: string;
+              edited_timestamp: string | null;
+              channel_id: string;
+              author: { id: string; username: string; discriminator: string; bot?: boolean };
+            } & RawReferences
+          >
         >;
         retry_after?: number;
       };
@@ -732,6 +709,7 @@ const tools = [
         content: m.content,
         timestamp: m.timestamp,
         ...editedField(m.edited_timestamp),
+        ...rawReferenceFields(m),
         channel_id: m.channel_id,
         channel_name: "",
       }));
@@ -916,7 +894,7 @@ const tools = [
   defineTool({
     name: "discord_fetch_pinned_messages",
     description:
-      "List all pinned messages in a channel. Returns { messages: [...] } with id, author, authorId, content, timestamp, pinnedAt (plus bot and editedAt when they apply). Read-only. Use discord_pin_message to change which messages are pinned.",
+      "List all pinned messages in a channel. Returns { messages: [...] } with id, author, authorId, content, timestamp, pinnedAt (plus bot, editedAt, replyTo and forwarded when they apply). Read-only. Use discord_pin_message to change which messages are pinned.",
     annotations: { title: "Fetch pinned messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to list pins from."),
@@ -934,6 +912,7 @@ const tools = [
         content: m.content,
         timestamp: m.createdAt.toISOString(),
         ...editedField(m.editedAt?.toISOString()),
+        ...referenceFields(m),
         pinnedAt: pinnedAt.toISOString(),
       }));
       return structured({ messages: result });

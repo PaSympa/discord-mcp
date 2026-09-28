@@ -243,7 +243,7 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 | `discord_send_multiple_embeds`    | Send up to 10 embeds in a single message                 |
 | `discord_pin_message`             | Pin or unpin a message                                   |
 | `discord_get_message_attachments` | List a message's attachments with download urls          |
-| `discord_fetch_pinned_messages`   | List all pinned messages in a channel                    |
+| `discord_fetch_pinned_messages`   | List a channel's pinned messages, paged                  |
 | `discord_search_messages`         | Search messages by keyword (last 100)                    |
 | `discord_search_guild_messages`   | Search across every channel using Discord's search index |
 | `discord_crosspost_message`       | Publish a message to announcement channel followers      |

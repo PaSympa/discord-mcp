@@ -177,13 +177,16 @@ The server loads `.env` automatically via `dotenv`.
 
 ### Environment variables
 
-| Variable                  | Default | Description                                                                                                                                                                                  |
-| ------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DISCORD_TOKEN`           | none    | **Required.** Bot token.                                                                                                                                                                     |
-| `DISCORD_MESSAGE_CONTENT` | `true`  | Set to `false` to stop requesting the Message Content privileged gateway intent at connect time.                                                                                             |
-| `DISCORD_GUILD_MEMBERS`   | `true`  | Set to `false` to stop requesting the Server Members privileged gateway intent at connect time.                                                                                              |
-| `DISCORD_MCP_TOOLSETS`    | `all`   | Comma-separated list of toolsets to expose, to keep the tool list small. Unset or `all` exposes every tool.                                                                                  |
-| `DISCORD_ALLOWED_GUILDS`  | all     | Comma-separated guild IDs the server may act on. When set, tool calls targeting any other guild are rejected, whether addressed by guild ID, channel ID, thread ID, webhook, or invite code. |
+| Variable                  | Default | Description                                                                                                                                                                                                                                               |
+| ------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCORD_TOKEN`           | none    | **Required.** Bot token.                                                                                                                                                                                                                                  |
+| `DISCORD_MESSAGE_CONTENT` | `true`  | Set to `false` to stop requesting the Message Content privileged gateway intent at connect time.                                                                                                                                                          |
+| `DISCORD_GUILD_MEMBERS`   | `true`  | Set to `false` to stop requesting the Server Members privileged gateway intent at connect time.                                                                                                                                                           |
+| `DISCORD_MCP_TOOLSETS`    | `all`   | Comma-separated list of toolsets to expose, to keep the tool list small. Unset or `all` exposes every tool.                                                                                                                                               |
+| `DISCORD_UPLOAD_DIRS`     | none    | Comma-separated absolute directories the server may attach files from (`files` on `discord_send_message` / `discord_reply_message`). Unset disables uploads, so a tool call cannot publish arbitrary local files. Symlinks are resolved before the check. |
+| `DISCORD_ALLOWED_GUILDS`  | all     | Comma-separated guild IDs the server may act on. When set, tool calls targeting any other guild are rejected, whether addressed by guild ID, channel ID, thread ID, webhook, or invite code.                                                              |
+
+Attached files are uploaded as-is and Discord infers their type itself: a declared `Content-Type` is ignored, and for plain-text files it may guess a non-UTF-8 charset (e.g. `ISO-8859-9`), so accents can look garbled in some viewers.
 
 Since 2.1.1 the server no longer requests the `GuildMessages` intent at all: nothing here subscribes to message events, and every message this server returns is fetched over REST, which connection intents do not gate. That intent used to make discord.js cache every message flowing through every channel, together with its author, which grew unbounded on a long-running server. Cache sweepers now bound what remains. `DISCORD_MESSAGE_CONTENT` therefore only affects whether the Message Content intent is requested at connect time; it does not change what any tool returns.
 
@@ -229,8 +232,8 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 | Tool                              | Description                                              |
 | --------------------------------- | -------------------------------------------------------- |
 | `discord_read_messages`           | Read messages, paging back through history               |
-| `discord_send_message`            | Send a plain text message                                |
-| `discord_reply_message`           | Reply to a specific message                              |
+| `discord_send_message`            | Send a plain text message, optionally with files         |
+| `discord_reply_message`           | Reply to a specific message, optionally with files       |
 | `discord_edit_message`            | Edit a message sent by the bot                           |
 | `discord_delete_message`          | Delete a specific message                                |
 | `discord_add_reaction`            | Add a reaction emoji to a message                        |
@@ -422,6 +425,7 @@ discord-mcp/
 │   ├── client.ts            ← Discord client + shared helpers
 │   ├── constants.ts         ← Shared constants (limits, defaults)
 │   ├── embeds.ts            ← Shared embed schema + builder
+│   ├── uploads.ts           ← File-attachment schema + allow-listed path resolution
 │   └── tools/
 │       ├── index.ts         ← Tool registry (toolset gating, dispatch)
 │       ├── define.ts        ← defineTool/defineModule + shared zod fields

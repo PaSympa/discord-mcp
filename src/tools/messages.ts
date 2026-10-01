@@ -13,6 +13,7 @@ import { z } from "zod";
 import { discord, getTextChannel, fetchChannelChecked } from "../client.js";
 import { MAX_FETCH_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.js";
 import { buildEmbed, embedFieldsShape, embedArraySchema } from "../embeds.js";
+import { uploadFieldsShape, resolveUploads } from "../uploads.js";
 import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
 
 const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
@@ -109,6 +110,11 @@ function userTag(user: { username: string; discriminator: string }): string {
     : `${user.username}#${user.discriminator}`;
 }
 
+/** Suffix for success messages: names the attachments that went out with the message. */
+function attachedSuffix(files: readonly string[] | undefined): string {
+  return files ? ` with ${files.length} file${files.length === 1 ? "" : "s"}` : "";
+}
+
 /** Tool definitions for channel and thread messages. */
 const tools = [
   defineTool({
@@ -160,7 +166,7 @@ const tools = [
   defineTool({
     name: "discord_send_message",
     description:
-      "Send a plain-text message to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission. Returns the new message ID.",
+      "Send a plain-text message to a channel or thread, optionally with local file attachments (opt-in through the DISCORD_UPLOAD_DIRS allow-list). For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the Send Messages permission, plus Attach Files when sending files. Returns the new message ID.",
     annotations: {
       title: "Send message",
       readOnlyHint: false,
@@ -171,19 +177,25 @@ const tools = [
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
       content: z.string().describe("Plain-text body of the message (max 2000 characters)."),
+      ...uploadFieldsShape,
     }),
-    handle: async ({ channel_id, content }) => {
+    handle: async ({ channel_id, content, files }) => {
       const channel = await getTextChannel(channel_id);
-      const sent = await channel.send(content);
+      const sent = await channel.send({ content, files: await resolveUploads(files) });
       return {
-        content: [{ type: "text", text: `✅ Message sent (id: ${sent.id}) in #${channel.name}.` }],
+        content: [
+          {
+            type: "text",
+            text: `✅ Message sent (id: ${sent.id}) in #${channel.name}${attachedSuffix(files)}.`,
+          },
+        ],
       };
     },
   }),
   defineTool({
     name: "discord_reply_message",
     description:
-      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages permission. Returns the new reply's message ID.",
+      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply, optionally with local file attachments (opt-in through the DISCORD_UPLOAD_DIRS allow-list). Use discord_send_message for a standalone message with no reference. Requires the Send Messages permission, plus Attach Files when sending files. Returns the new reply's message ID.",
     annotations: {
       title: "Reply to message",
       readOnlyHint: false,
@@ -197,16 +209,17 @@ const tools = [
       ),
       message_id: messageId.describe("ID of the message to reply to."),
       content: z.string().describe("Plain-text body of the reply (max 2000 characters)."),
+      ...uploadFieldsShape,
     }),
-    handle: async ({ channel_id, message_id, content }) => {
+    handle: async ({ channel_id, message_id, content, files }) => {
       const channel = await getTextChannel(channel_id);
       const target = await channel.messages.fetch({ message: message_id, cache: false });
-      const sent = await target.reply(content);
+      const sent = await target.reply({ content, files: await resolveUploads(files) });
       return {
         content: [
           {
             type: "text",
-            text: `✅ Reply sent (id: ${sent.id}) to message ${message_id} in #${channel.name}.`,
+            text: `✅ Reply sent (id: ${sent.id}) to message ${message_id} in #${channel.name}${attachedSuffix(files)}.`,
           },
         ],
       };
@@ -766,7 +779,7 @@ const tools = [
   defineTool({
     name: "discord_get_message_attachments",
     description:
-      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Read-only. Use discord_read_messages to find messages with attachments.",
+      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. contentType is Discord's own guess: for text files its charset can be wrong (a UTF-8 file may be reported as ISO-8859-9), so try decoding as UTF-8 before trusting it. Requires the View Channel and Read Message History permissions. Read-only. Use discord_read_messages to find messages with attachments.",
     annotations: { title: "Get message attachments", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(

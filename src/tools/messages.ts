@@ -1,10 +1,13 @@
 import {
+  Attachment,
   ChannelType,
   TextChannel,
   PublicThreadChannel,
   PrivateThreadChannel,
   Message,
   MessageReaction,
+  MessageReferenceType,
+  MessageType,
   Routes,
   SnowflakeUtil,
   DiscordAPIError,
@@ -70,8 +73,11 @@ function cursorForInstant(iso: string): string {
 const messageSummary = z.object({
   id: z.string(),
   author: z.string(),
+  authorId: z.string(),
+  bot: z.literal(true).optional(),
   content: z.string(),
   timestamp: z.string(),
+  editedAt: z.string().optional(),
 });
 
 const attachmentSummary = z.object({
@@ -88,6 +94,7 @@ const attachmentSummary = z.object({
   duration: z.number().nullable(),
   waveform: z.string().nullable(),
   spoiler: z.boolean(),
+  forwarded: z.literal(true).optional(),
 });
 
 /**
@@ -102,6 +109,76 @@ function findReaction(msg: Message, emoji: string): MessageReaction | undefined 
   return msg.reactions.cache.get(key);
 }
 
+/** A reaction emoji in the form the reaction tools accept: the unicode char, or `name:id` when custom. */
+function reactionEmoji(emoji: { id: string | null; name: string | null }): string {
+  return emoji.id ? `${emoji.name}:${emoji.id}` : (emoji.name ?? "");
+}
+
+/** Id of the message `m` replies to; forwards and crossposts also carry a reference, but are not replies. */
+function repliedMessageId(m: Message): string | null {
+  const ref = m.reference;
+  const isReply = ref?.type === MessageReferenceType.Default && ref.channelId === m.channelId;
+  return isReply ? (ref.messageId ?? null) : null;
+}
+
+/** What a forward carries: Discord snapshots the original into the forward, whose own content stays empty. */
+function forwardedContent(m: Message) {
+  const ref = m.reference;
+  if (ref?.type !== MessageReferenceType.Forward) return undefined;
+  const snapshot = m.messageSnapshots.first();
+  return {
+    channelId: ref.channelId,
+    messageId: ref.messageId ?? null,
+    content: snapshot?.content ?? "",
+    attachments: snapshot?.attachments.size ?? 0,
+  };
+}
+
+/** A poll message has no text of its own: report the question, the answers and their votes instead. */
+function summarizePoll(m: Message) {
+  const poll = m.poll;
+  if (!poll) return undefined;
+  return {
+    question: poll.question.text,
+    answers: [...poll.answers.values()].map((a) => ({
+      id: a.id,
+      text: a.text,
+      votes: "voteCount" in a ? a.voteCount : 0,
+    })),
+    ...(poll.expiresAt ? { expiresAt: poll.expiresAt.toISOString() } : {}),
+    finalized: poll.resultsFinalized,
+  };
+}
+
+/** Author id, plus `bot: true` for bot authors; shared by every tool that returns messages. */
+function authorFields(author: { id: string; bot?: boolean }) {
+  return { authorId: author.id, ...(author.bot ? { bot: true as const } : {}) };
+}
+
+/** `editedAt` only for edited messages, so ordinary ones carry no empty key. */
+function editedField(editedAt: string | null | undefined) {
+  return editedAt ? { editedAt } : {};
+}
+
+/** One attachment as the attachment tool reports it. */
+function summarizeAttachment(a: Attachment) {
+  return {
+    id: a.id,
+    filename: a.name,
+    contentType: a.contentType,
+    size: a.size,
+    url: a.url,
+    proxyUrl: a.proxyURL,
+    width: a.width,
+    height: a.height,
+    description: a.description,
+    title: a.title,
+    duration: a.duration,
+    waveform: a.waveform,
+    spoiler: a.spoiler,
+  };
+}
+
 /** Mirrors discord.js `User#tag`, which raw API users lack. Both "0" and "0000" mean migrated. */
 function userTag(user: { username: string; discriminator: string }): string {
   return user.discriminator === "0" || user.discriminator === "0000"
@@ -114,7 +191,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions. Returns { messages: [...] } with id, author, author id, bot flag, content, timestamp, edit time (editedAt), attachment count, pinned flag, replyTo (id of the message it replies to; it may lie outside the page, so fetch it with the around cursor), reactions (emoji + count; use discord_get_reactions to see who reacted), poll (question, answers with vote counts, expiry and whether the count is final), forwarded (for a forward, whose own content is empty: the original's channel, message id, text and attachment count) and type (system messages only, e.g. PollResult). bot, editedAt, replyTo, reactions, poll, forwarded and type are omitted when they do not apply. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({
@@ -132,7 +209,33 @@ const tools = [
         "Pass at most one of before, after, around, or since: Discord treats before/after/around as mutually exclusive, and since is a form of after.",
       ),
     outputSchema: z.object({
-      messages: z.array(messageSummary.extend({ attachments: z.number(), pinned: z.boolean() })),
+      messages: z.array(
+        messageSummary.extend({
+          attachments: z.number(),
+          pinned: z.boolean(),
+          type: z.string().optional(),
+          poll: z
+            .object({
+              question: z.string().nullable(),
+              answers: z.array(
+                z.object({ id: z.number(), text: z.string().nullable(), votes: z.number() }),
+              ),
+              expiresAt: z.string().optional(),
+              finalized: z.boolean(),
+            })
+            .optional(),
+          forwarded: z
+            .object({
+              channelId: z.string(),
+              messageId: z.string().nullable(),
+              content: z.string(),
+              attachments: z.number(),
+            })
+            .optional(),
+          replyTo: z.string().optional(),
+          reactions: z.array(z.object({ emoji: z.string(), count: z.number() })).optional(),
+        }),
+      ),
     }),
     handle: async ({ channel_id, limit, before, after, around, since }) => {
       const channel = await getTextChannel(channel_id);
@@ -146,14 +249,30 @@ const tools = [
       });
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-        .map((m) => ({
-          id: m.id,
-          author: m.author.tag,
-          content: m.content,
-          timestamp: m.createdAt.toISOString(),
-          attachments: m.attachments.size,
-          pinned: m.pinned,
-        }));
+        .map((m) => {
+          const replyTo = repliedMessageId(m);
+          const forwarded = forwardedContent(m);
+          const poll = summarizePoll(m);
+          const reactions = [...m.reactions.cache.values()].map((r) => ({
+            emoji: reactionEmoji(r.emoji),
+            count: r.count,
+          }));
+          return {
+            id: m.id,
+            author: m.author.tag,
+            ...authorFields(m.author),
+            content: m.content,
+            timestamp: m.createdAt.toISOString(),
+            ...editedField(m.editedAt?.toISOString()),
+            attachments: m.attachments.size,
+            pinned: m.pinned,
+            ...(m.system ? { type: MessageType[m.type] } : {}),
+            ...(poll ? { poll } : {}),
+            ...(forwarded ? { forwarded } : {}),
+            ...(replyTo ? { replyTo } : {}),
+            ...(reactions.length > 0 ? { reactions } : {}),
+          };
+        });
       return structured({ messages: result });
     },
   }),
@@ -529,7 +648,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp. Use discord_read_messages to fetch recent messages without filtering.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, authorId, content, timestamp (plus bot and editedAt when they apply). Use discord_read_messages to fetch recent messages without filtering.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -549,8 +668,10 @@ const tools = [
         .map((m) => ({
           id: m.id,
           author: m.author.tag,
+          ...authorFields(m.author),
           content: m.content,
           timestamp: m.createdAt.toISOString(),
+          ...editedField(m.editedAt?.toISOString()),
         }));
       return structured({ matches });
     },
@@ -591,8 +712,9 @@ const tools = [
             id: string;
             content: string;
             timestamp: string;
+            edited_timestamp: string | null;
             channel_id: string;
-            author: { username: string; discriminator: string };
+            author: { id: string; username: string; discriminator: string; bot?: boolean };
           }>
         >;
         retry_after?: number;
@@ -606,8 +728,10 @@ const tools = [
       const matches = data.messages.flat().map((m) => ({
         id: m.id,
         author: userTag(m.author),
+        ...authorFields(m.author),
         content: m.content,
         timestamp: m.timestamp,
+        ...editedField(m.edited_timestamp),
         channel_id: m.channel_id,
         channel_name: "",
       }));
@@ -766,7 +890,7 @@ const tools = [
   defineTool({
     name: "discord_get_message_attachments",
     description:
-      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Read-only. Use discord_read_messages to find messages with attachments.",
+      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Read-only. A forward carries no file of its own: the original's attachments are listed too, flagged forwarded: true. Use discord_read_messages to find messages with attachments.",
     annotations: { title: "Get message attachments", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(
@@ -778,28 +902,21 @@ const tools = [
     handle: async ({ channel_id, message_id }) => {
       const channel = await getTextChannel(channel_id);
       const msg = await channel.messages.fetch({ message: message_id, cache: false });
-      const attachments = [...msg.attachments.values()].map((a) => ({
-        id: a.id,
-        filename: a.name,
-        contentType: a.contentType,
-        size: a.size,
-        url: a.url,
-        proxyUrl: a.proxyURL,
-        width: a.width,
-        height: a.height,
-        description: a.description,
-        title: a.title,
-        duration: a.duration,
-        waveform: a.waveform,
-        spoiler: a.spoiler,
-      }));
+      const original = msg.messageSnapshots.first();
+      const attachments = [
+        ...[...msg.attachments.values()].map(summarizeAttachment),
+        ...[...(original?.attachments.values() ?? [])].map((a) => ({
+          ...summarizeAttachment(a),
+          forwarded: true as const,
+        })),
+      ];
       return structured({ attachments });
     },
   }),
   defineTool({
     name: "discord_fetch_pinned_messages",
     description:
-      "List all pinned messages in a channel. Returns { messages: [...] } with id, author, content, timestamp, pinnedAt. Read-only. Use discord_pin_message to change which messages are pinned.",
+      "List all pinned messages in a channel. Returns { messages: [...] } with id, author, authorId, content, timestamp, pinnedAt (plus bot and editedAt when they apply). Read-only. Use discord_pin_message to change which messages are pinned.",
     annotations: { title: "Fetch pinned messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to list pins from."),
@@ -813,8 +930,10 @@ const tools = [
       const result = pinned.items.map(({ message: m, pinnedAt }) => ({
         id: m.id,
         author: m.author.tag,
+        ...authorFields(m.author),
         content: m.content,
         timestamp: m.createdAt.toISOString(),
+        ...editedField(m.editedAt?.toISOString()),
         pinnedAt: pinnedAt.toISOString(),
       }));
       return structured({ messages: result });

@@ -286,7 +286,7 @@ test("search_guild_messages carries the author id, bot flag and edit time", asyn
   const [bot, human] = (result.structuredContent as { matches: ReadMessage[] }).matches;
   assert.equal(bot.authorId, BOT_AUTHOR);
   assert.equal(bot.bot, true);
-  assert.equal(bot.editedAt, "2026-10-01T11:00:00.000000+00:00");
+  assert.equal(bot.editedAt, "2026-10-01T11:00:00.000Z");
   assert.equal(human.authorId, AUTHOR);
   assert.ok(!("bot" in human) && !("editedAt" in human));
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `discord_read_messages` reports, for each message, `authorId`, `bot` (bot authors only), `editedAt` (edited messages only), `replyTo` (the message it replies to), `reactions` (emoji and count, with the emoji written the way `discord_add_reaction` and `discord_remove_reactions` accept it), `poll` (question, answers, vote counts and whether the count is final), `forwarded` (a forward's original: channel, message, text and attachment count, since a forward's own content is empty) and `type` (system messages only, e.g. `PollResult`). `discord_search_messages`, `discord_search_guild_messages` and `discord_fetch_pinned_messages` report `authorId`, `bot` and `editedAt`. `discord_get_message_attachments` also lists the files of a forwarded original, flagged `forwarded: true`. Fields that do not apply are left out, and forwards and crossposts are not reported as replies.
+
 ## [2.2.0] - 2026-09-03
 
 ### Added

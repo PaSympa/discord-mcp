@@ -208,7 +208,7 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 
 5. **OAuth2 > URL Generator**:
    - Scopes: `bot`
-   - Permissions: `Send Messages`, `Read Message History`, `Manage Channels`, `Manage Roles`, `Kick Members`, `Ban Members`, `Moderate Members`, `View Audit Log`, `Manage Messages`, `Manage Threads`, `Add Reactions`, `Manage Guild`, `Manage Webhooks`, `Manage Events`, `Create Events`, `Create Instant Invite`, `Manage Nicknames`, `Pin Messages`, `Embed Links`, `Create Public Threads`, `Send Messages in Threads`
+   - Permissions: `Send Messages`, `Read Message History`, `Manage Channels`, `Manage Roles`, `Kick Members`, `Ban Members`, `Moderate Members`, `View Audit Log`, `Manage Messages`, `Manage Threads`, `Add Reactions`, `Manage Guild`, `Manage Webhooks`, `Manage Events`, `Create Events`, `Create Instant Invite`, `Manage Nicknames`, `Pin Messages`, `Embed Links`, `Create Public Threads`, `Send Messages in Threads`, `Send Polls`
 6. Copy the generated URL and invite the bot to your server
 
 ---

@@ -52,7 +52,7 @@ const tools = [
   defineTool({
     name: "discord_create_poll",
     description:
-      "Create a native Discord poll in a channel or thread. Up to 10 answers (55 characters each), a question up to 300 characters, and a duration up to 768 hours (32 days). Requires the Send Messages permission. Returns the poll message ID.",
+      "Create a native Discord poll in a channel or thread. Up to 10 answers (55 characters each), a question up to 300 characters, and a duration up to 768 hours (32 days). Requires the Send Messages and Send Polls permissions. Returns the poll message ID.",
     annotations: {
       title: "Create poll",
       readOnlyHint: false,

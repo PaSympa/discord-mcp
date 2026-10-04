@@ -20,7 +20,7 @@ function stubMessageWith(attachments: Map<string, unknown>): Record<string, unkn
     messages: {
       fetch: async (options: Record<string, unknown>) => {
         calls.push(options);
-        return { id: MESSAGE, attachments };
+        return { id: MESSAGE, attachments, messageSnapshots: { first: () => undefined } };
       },
     },
   };

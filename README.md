@@ -422,6 +422,8 @@ discord-mcp/
 │   ├── client.ts            ← Discord client + shared helpers
 │   ├── constants.ts         ← Shared constants (limits, defaults)
 │   ├── embeds.ts            ← Shared embed schema + builder
+│   ├── messageSummary.ts    ← One message shape for the message-reading tools
+│   ├── messageReferences.ts ← replyTo and forwarded of a message (discord.js, raw)
 │   └── tools/
 │       ├── index.ts         ← Tool registry (toolset gating, dispatch)
 │       ├── define.ts        ← defineTool/defineModule + shared zod fields

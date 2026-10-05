@@ -9,10 +9,18 @@ import {
   SnowflakeUtil,
   DiscordAPIError,
 } from "discord.js";
+import type { APIAttachment } from "discord.js";
 import { z } from "zod";
 import { discord, getTextChannel, fetchChannelChecked } from "../client.js";
 import { MAX_FETCH_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.js";
 import { buildEmbed, embedFieldsShape, embedArraySchema } from "../embeds.js";
+import {
+  attachmentsSchema,
+  buildAttachments,
+  formatAttachments,
+  formatApiAttachments,
+  attachmentSummarySchema,
+} from "../attachments.js";
 import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
 
 const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
@@ -72,6 +80,7 @@ const messageSummary = z.object({
   author: z.string(),
   content: z.string(),
   timestamp: z.string(),
+  attachments: z.array(attachmentSummarySchema),
 });
 
 const attachmentSummary = z.object({
@@ -114,7 +123,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions. Returns { messages: [...] } with id, author, content, timestamp, attachments (id, filename, url, size, content type, alt text), pinned flag. Use discord_get_message_attachments for full attachment metadata, discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({
@@ -132,7 +141,7 @@ const tools = [
         "Pass at most one of before, after, around, or since: Discord treats before/after/around as mutually exclusive, and since is a form of after.",
       ),
     outputSchema: z.object({
-      messages: z.array(messageSummary.extend({ attachments: z.number(), pinned: z.boolean() })),
+      messages: z.array(messageSummary.extend({ pinned: z.boolean() })),
     }),
     handle: async ({ channel_id, limit, before, after, around, since }) => {
       const channel = await getTextChannel(channel_id);
@@ -151,7 +160,7 @@ const tools = [
           author: m.author.tag,
           content: m.content,
           timestamp: m.createdAt.toISOString(),
-          attachments: m.attachments.size,
+          attachments: formatAttachments(m),
           pinned: m.pinned,
         }));
       return structured({ messages: result });
@@ -160,7 +169,7 @@ const tools = [
   defineTool({
     name: "discord_send_message",
     description:
-      "Send a plain-text message to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission. Returns the new message ID.",
+      "Send a message with text and/or file attachments to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission. Returns the new message ID.",
     annotations: {
       title: "Send message",
       readOnlyHint: false,
@@ -170,11 +179,20 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
-      content: z.string().describe("Plain-text body of the message (max 2000 characters)."),
+      content: z
+        .string()
+        .optional()
+        .describe(
+          "Plain-text body of the message (max 2000 characters). Optional if attachments are provided.",
+        ),
+      attachments: attachmentsSchema,
     }),
-    handle: async ({ channel_id, content }) => {
+    handle: async ({ channel_id, content, attachments }) => {
       const channel = await getTextChannel(channel_id);
-      const sent = await channel.send(content);
+      const files = attachments ? buildAttachments(attachments) : undefined;
+      if (!content && !files?.length)
+        throw new Error("At least one of content or attachments is required.");
+      const sent = await channel.send({ content: content || undefined, files });
       return {
         content: [{ type: "text", text: `✅ Message sent (id: ${sent.id}) in #${channel.name}.` }],
       };
@@ -183,7 +201,7 @@ const tools = [
   defineTool({
     name: "discord_reply_message",
     description:
-      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages permission. Returns the new reply's message ID.",
+      "Reply to a specific message with text and/or file attachments, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages permission. Returns the new reply's message ID.",
     annotations: {
       title: "Reply to message",
       readOnlyHint: false,
@@ -196,12 +214,21 @@ const tools = [
         "ID (snowflake) of the channel or thread containing the message.",
       ),
       message_id: messageId.describe("ID of the message to reply to."),
-      content: z.string().describe("Plain-text body of the reply (max 2000 characters)."),
+      content: z
+        .string()
+        .optional()
+        .describe(
+          "Plain-text body of the reply (max 2000 characters). Optional if attachments are provided.",
+        ),
+      attachments: attachmentsSchema,
     }),
-    handle: async ({ channel_id, message_id, content }) => {
+    handle: async ({ channel_id, message_id, content, attachments }) => {
       const channel = await getTextChannel(channel_id);
       const target = await channel.messages.fetch({ message: message_id, cache: false });
-      const sent = await target.reply(content);
+      const files = attachments ? buildAttachments(attachments) : undefined;
+      if (!content && !files?.length)
+        throw new Error("At least one of content or attachments is required.");
+      const sent = await target.reply({ content: content || undefined, files });
       return {
         content: [
           {
@@ -388,7 +415,7 @@ const tools = [
   defineTool({
     name: "discord_send_embed",
     description:
-      "Send a single rich embed (title, description, color, fields, author, footer, images, timestamp). Use discord_send_message for plain text, or discord_send_multiple_embeds to send several embeds at once. Requires the Send Messages and Embed Links permissions. Returns the new message ID.",
+      "Send a single rich embed (title, description, color, fields, author, footer, images, timestamp), with optional file attachments. Use discord_send_message for plain text, or discord_send_multiple_embeds to send several embeds at once. Requires the Send Messages and Embed Links permissions. Returns the new message ID.",
     annotations: {
       title: "Send embed",
       readOnlyHint: false,
@@ -399,10 +426,12 @@ const tools = [
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
       ...embedFieldsShape,
+      attachments: attachmentsSchema,
     }),
-    handle: async ({ channel_id, ...embedArgs }) => {
+    handle: async ({ channel_id, attachments, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
-      const sent = await channel.send({ embeds: [buildEmbed(embedArgs)] });
+      const files = attachments ? buildAttachments(attachments) : undefined;
+      const sent = await channel.send({ embeds: [buildEmbed(embedArgs)], files });
       return {
         content: [{ type: "text", text: `✅ Embed sent (id: ${sent.id}) in #${channel.name}.` }],
       };
@@ -444,7 +473,7 @@ const tools = [
   defineTool({
     name: "discord_send_multiple_embeds",
     description:
-      "Send up to 10 embeds in a single message, with optional text above them. Use discord_send_embed for a single embed. Requires the Send Messages and Embed Links permissions. Returns the new message ID.",
+      "Send up to 10 embeds in a single message, with optional text above them and optional file attachments. Use discord_send_embed for a single embed. Requires the Send Messages and Embed Links permissions. Returns the new message ID.",
     annotations: {
       title: "Send multiple embeds",
       readOnlyHint: false,
@@ -456,11 +485,13 @@ const tools = [
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
       content: z.string().optional().describe("Optional plain text shown above the embeds."),
       embeds: embedArraySchema.describe("Array of embed objects to send (max 10)."),
+      attachments: attachmentsSchema,
     }),
-    handle: async ({ channel_id, content, embeds }) => {
+    handle: async ({ channel_id, content, embeds, attachments }) => {
       const channel = await getTextChannel(channel_id);
       const built = embeds.map((e) => buildEmbed(e));
-      const sent = await channel.send({ content: content || undefined, embeds: built });
+      const files = attachments ? buildAttachments(attachments) : undefined;
+      const sent = await channel.send({ content: content || undefined, embeds: built, files });
       return {
         content: [
           {
@@ -529,7 +560,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp. Use discord_read_messages to fetch recent messages without filtering.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, attachments. Use discord_read_messages to fetch recent messages without filtering.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -551,6 +582,7 @@ const tools = [
           author: m.author.tag,
           content: m.content,
           timestamp: m.createdAt.toISOString(),
+          attachments: formatAttachments(m),
         }));
       return structured({ matches });
     },
@@ -593,6 +625,7 @@ const tools = [
             timestamp: string;
             channel_id: string;
             author: { username: string; discriminator: string };
+            attachments?: APIAttachment[];
           }>
         >;
         retry_after?: number;
@@ -608,6 +641,7 @@ const tools = [
         author: userTag(m.author),
         content: m.content,
         timestamp: m.timestamp,
+        attachments: formatApiAttachments(m.attachments),
         channel_id: m.channel_id,
         channel_name: "",
       }));
@@ -799,7 +833,7 @@ const tools = [
   defineTool({
     name: "discord_fetch_pinned_messages",
     description:
-      "List all pinned messages in a channel. Returns { messages: [...] } with id, author, content, timestamp, pinnedAt. Read-only. Use discord_pin_message to change which messages are pinned.",
+      "List all pinned messages in a channel. Returns { messages: [...] } with id, author, content, timestamp, attachments, pinnedAt. Read-only. Use discord_pin_message to change which messages are pinned.",
     annotations: { title: "Fetch pinned messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to list pins from."),
@@ -815,6 +849,7 @@ const tools = [
         author: m.author.tag,
         content: m.content,
         timestamp: m.createdAt.toISOString(),
+        attachments: formatAttachments(m),
         pinnedAt: pinnedAt.toISOString(),
       }));
       return structured({ messages: result });

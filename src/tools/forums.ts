@@ -1,6 +1,12 @@
 import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
 import { z } from "zod";
 import { discord, fetchChannelChecked } from "../client.js";
+import {
+  attachmentsSchema,
+  resolveAttachments,
+  formatAttachments,
+  attachmentSummarySchema,
+} from "../attachments.js";
 import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
 
 const threadId = snowflake.describe("ID (snowflake) of the forum post (thread).");
@@ -107,7 +113,7 @@ const tools = [
   defineTool({
     name: "discord_create_forum_post",
     description:
-      "Create a new post (a thread with a starter message) in a forum channel. Requires the Send Messages and Create Public Threads permissions. Use discord_reply_to_forum to add follow-up messages. Returns the new post's name and thread ID.",
+      "Create a new post (a thread with a starter message) in a forum channel, with optional file attachments. Requires the Send Messages and Create Public Threads permissions. Use discord_reply_to_forum to add follow-up messages. Returns the new post's name and thread ID.",
     annotations: {
       title: "Create forum post",
       readOnlyHint: false,
@@ -125,12 +131,14 @@ const tools = [
         .array(z.string())
         .optional()
         .describe("Optional tag IDs to apply. Get valid IDs from discord_get_forum_tags."),
+      attachments: attachmentsSchema,
     }),
-    handle: async ({ forum_channel_id, title, content, applied_tags }) => {
+    handle: async ({ forum_channel_id, title, content, applied_tags, attachments }) => {
       const forum = await getForumChannel(forum_channel_id);
+      const files = attachments ? await resolveAttachments(attachments) : undefined;
       const thread = await forum.threads.create({
         name: title,
-        message: { content },
+        message: { content, files },
         appliedTags: applied_tags ?? [],
       });
       return {
@@ -161,6 +169,7 @@ const tools = [
           author: z.string(),
           content: z.string(),
           timestamp: z.string(),
+          attachments: z.array(attachmentSummarySchema),
         }),
       ),
     }),
@@ -182,6 +191,7 @@ const tools = [
             author: m.author.tag,
             content: m.content,
             timestamp: m.createdAt.toISOString(),
+            attachments: formatAttachments(m),
           })),
       };
       return structured(result);
@@ -240,7 +250,7 @@ const tools = [
   defineTool({
     name: "discord_reply_to_forum",
     description:
-      "Post a follow-up message inside an existing forum post (thread). Requires the Send Messages in Threads permission (shown as 'Send Messages in Posts' for forums). Use discord_create_forum_post to start a new post instead. Returns the new message ID.",
+      "Post a follow-up message inside an existing forum post (thread), with optional file attachments. Requires the Send Messages in Threads permission (shown as 'Send Messages in Posts' for forums). Use discord_create_forum_post to start a new post instead. Returns the new message ID.",
     annotations: {
       title: "Reply to forum post",
       readOnlyHint: false,
@@ -250,11 +260,20 @@ const tools = [
     },
     schema: z.object({
       thread_id: snowflake.describe("ID (snowflake) of the forum post (thread) to reply in."),
-      content: z.string().describe("Plain-text body of the reply (max 2000 characters)."),
+      content: z
+        .string()
+        .optional()
+        .describe(
+          "Plain-text body of the reply (max 2000 characters). Optional if attachments are provided.",
+        ),
+      attachments: attachmentsSchema,
     }),
-    handle: async ({ thread_id, content }) => {
+    handle: async ({ thread_id, content, attachments }) => {
       const thread = await getThreadChannel(thread_id);
-      const sent = await thread.send(content);
+      const files = attachments ? await resolveAttachments(attachments) : undefined;
+      if (!content && !files?.length)
+        throw new Error("At least one of content or attachments is required.");
+      const sent = await thread.send({ content: content || undefined, files });
       return {
         content: [
           { type: "text", text: `✅ Reply sent (id: ${sent.id}) in thread "${thread.name}".` },

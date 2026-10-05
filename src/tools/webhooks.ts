@@ -4,7 +4,7 @@ import { discord, fetchChannelChecked, assertAllowedGuild, allowListActive } fro
 import { buildEmbed, embedArraySchema } from "../embeds.js";
 import {
   attachmentsSchema,
-  buildAttachments,
+  resolveAttachments,
   formatApiAttachments,
   attachmentSummarySchema,
 } from "../attachments.js";
@@ -115,7 +115,7 @@ const tools = [
         if (username) sendOptions.username = username;
         if (avatar_url) sendOptions.avatarURL = avatar_url;
         if (embeds) sendOptions.embeds = embeds.map((e) => buildEmbed(e));
-        if (attachments) sendOptions.files = buildAttachments(attachments);
+        if (attachments) sendOptions.files = await resolveAttachments(attachments);
         if (!sendOptions.content && !sendOptions.embeds && !sendOptions.files) {
           throw new Error("At least one of content, embeds, or attachments is required.");
         }

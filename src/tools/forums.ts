@@ -3,7 +3,7 @@ import { z } from "zod";
 import { discord, fetchChannelChecked } from "../client.js";
 import {
   attachmentsSchema,
-  buildAttachments,
+  resolveAttachments,
   formatAttachments,
   attachmentSummarySchema,
 } from "../attachments.js";
@@ -135,7 +135,7 @@ const tools = [
     }),
     handle: async ({ forum_channel_id, title, content, applied_tags, attachments }) => {
       const forum = await getForumChannel(forum_channel_id);
-      const files = attachments ? buildAttachments(attachments) : undefined;
+      const files = attachments ? await resolveAttachments(attachments) : undefined;
       const thread = await forum.threads.create({
         name: title,
         message: { content, files },
@@ -270,7 +270,7 @@ const tools = [
     }),
     handle: async ({ thread_id, content, attachments }) => {
       const thread = await getThreadChannel(thread_id);
-      const files = attachments ? buildAttachments(attachments) : undefined;
+      const files = attachments ? await resolveAttachments(attachments) : undefined;
       if (!content && !files?.length)
         throw new Error("At least one of content or attachments is required.");
       const sent = await thread.send({ content: content || undefined, files });

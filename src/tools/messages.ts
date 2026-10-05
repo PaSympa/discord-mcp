@@ -16,7 +16,7 @@ import { MAX_FETCH_LIMIT, DEFAULTS, AUTO_ARCHIVE_DURATIONS } from "../constants.
 import { buildEmbed, embedFieldsShape, embedArraySchema } from "../embeds.js";
 import {
   attachmentsSchema,
-  buildAttachments,
+  resolveAttachments,
   formatAttachments,
   formatApiAttachments,
   attachmentSummarySchema,
@@ -189,7 +189,7 @@ const tools = [
     }),
     handle: async ({ channel_id, content, attachments }) => {
       const channel = await getTextChannel(channel_id);
-      const files = attachments ? buildAttachments(attachments) : undefined;
+      const files = attachments ? await resolveAttachments(attachments) : undefined;
       if (!content && !files?.length)
         throw new Error("At least one of content or attachments is required.");
       const sent = await channel.send({ content: content || undefined, files });
@@ -225,7 +225,7 @@ const tools = [
     handle: async ({ channel_id, message_id, content, attachments }) => {
       const channel = await getTextChannel(channel_id);
       const target = await channel.messages.fetch({ message: message_id, cache: false });
-      const files = attachments ? buildAttachments(attachments) : undefined;
+      const files = attachments ? await resolveAttachments(attachments) : undefined;
       if (!content && !files?.length)
         throw new Error("At least one of content or attachments is required.");
       const sent = await target.reply({ content: content || undefined, files });
@@ -430,7 +430,7 @@ const tools = [
     }),
     handle: async ({ channel_id, attachments, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
-      const files = attachments ? buildAttachments(attachments) : undefined;
+      const files = attachments ? await resolveAttachments(attachments) : undefined;
       const sent = await channel.send({ embeds: [buildEmbed(embedArgs)], files });
       return {
         content: [{ type: "text", text: `✅ Embed sent (id: ${sent.id}) in #${channel.name}.` }],
@@ -490,7 +490,7 @@ const tools = [
     handle: async ({ channel_id, content, embeds, attachments }) => {
       const channel = await getTextChannel(channel_id);
       const built = embeds.map((e) => buildEmbed(e));
-      const files = attachments ? buildAttachments(attachments) : undefined;
+      const files = attachments ? await resolveAttachments(attachments) : undefined;
       const sent = await channel.send({ content: content || undefined, embeds: built, files });
       return {
         content: [

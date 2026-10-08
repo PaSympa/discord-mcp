@@ -1,0 +1,11 @@
+# Run from the repository root after npm ci && npm run build.
+# Set CONTROL_PLANE_TUNNEL_ID, CONTROL_PLANE_API_KEY, and DISCORD_TOKEN in the environment.
+config_version: 1
+control_plane:
+  api_key: env:CONTROL_PLANE_API_KEY
+health:
+  listen_addr: 127.0.0.1:8080
+mcp:
+  commands:
+    - channel: main
+      command: node dist/index.js

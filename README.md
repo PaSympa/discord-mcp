@@ -12,7 +12,7 @@
 
 [![discord-mcp MCP server](https://glama.ai/mcp/servers/PaSympa/discord-mcp/badges/score.svg)](https://glama.ai/mcp/servers/PaSympa/discord-mcp)
 
-Manage your entire Discord server from **Claude Desktop**, **Claude Code**, **Cursor**, **VS Code Copilot**, or any MCP-compatible client.
+Manage your entire Discord server from **ChatGPT**, **Claude Desktop**, **Claude Code**, **Cursor**, **VS Code Copilot**, or any MCP-compatible client.
 Messages, channels, roles, permissions, moderation, forums, webhooks, all through natural language.
 
 </div>
@@ -54,6 +54,18 @@ No install needed, `npx` handles everything.
 ---
 
 ## Configuration
+
+<details>
+<summary><strong>ChatGPT (Secure MCP Tunnel)</strong></summary>
+
+Use OpenAI's `tunnel-client` to connect the existing stdio server to ChatGPT.
+The repository includes a tunnel configuration and `npm run tunnel` / `npm run tunnel:doctor`
+commands for a source checkout. No public HTTP endpoint is required.
+
+See [Connecting ChatGPT through Secure MCP Tunnel](docs/chatgpt-tunnel.md) for setup,
+credentials, tool selection, and connection checks.
+
+</details>
 
 <details>
 <summary><strong>Claude Desktop</strong></summary>

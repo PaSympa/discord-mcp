@@ -16,6 +16,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "tunnel": "tunnel-client run --config tunnel-client.yaml",
+    "tunnel:doctor": "tunnel-client doctor --config tunnel-client.yaml --explain",
     "dev": "tsc && node dist/index.js",
     "lint": "eslint .",
     "format": "prettier --write .",

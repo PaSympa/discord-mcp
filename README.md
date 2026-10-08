@@ -12,7 +12,7 @@
 
 [![discord-mcp MCP server](https://glama.ai/mcp/servers/PaSympa/discord-mcp/badges/score.svg)](https://glama.ai/mcp/servers/PaSympa/discord-mcp)
 
-Manage your entire Discord server from **Claude Desktop**, **Claude Code**, **Cursor**, **VS Code Copilot**, or any MCP-compatible client.
+Manage your entire Discord server from **ChatGPT**, **Claude Desktop**, **Claude Code**, **Cursor**, **VS Code Copilot**, or any MCP-compatible client.
 Messages, channels, roles, permissions, moderation, forums, webhooks, all through natural language.
 
 </div>
@@ -54,6 +54,45 @@ No install needed, `npx` handles everything.
 ---
 
 ## Configuration
+
+<details>
+<summary><strong>ChatGPT (Secure MCP Tunnel)</strong></summary>
+
+Connect the stdio server using OpenAI's [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
+Follow that guide to install `tunnel-client` on your PATH, create a tunnel associated with
+your ChatGPT workspace, and obtain a runtime API key. Invite your
+[Discord bot](#creating-your-discord-bot) to each server you want to use.
+
+From a source checkout, build and run with the following environment variables
+(placeholders shown; supply real secrets through your local environment or secret manager):
+
+```bash
+npm ci
+npm run build
+
+export CONTROL_PLANE_TUNNEL_ID="tunnel_YOUR_TUNNEL_ID"
+export CONTROL_PLANE_API_KEY="YOUR_OPENAI_RUNTIME_API_KEY"
+export DISCORD_TOKEN="YOUR_DISCORD_BOT_TOKEN"
+export DISCORD_ALLOWED_GUILDS="FIRST_SERVER_ID,SECOND_SERVER_ID"
+export DISCORD_MCP_TOOLSETS="discovery"
+
+npm run tunnel:doctor
+npm run tunnel
+```
+
+`tunnel-client` does not load `.env`; export the `CONTROL_PLANE_*` variables even if
+your Discord settings are in `.env`. Start with read-only `discovery`, then select other
+[toolsets](#environment-variables) as needed and restart the tunnel and refresh the plugin's tools.
+
+Keep the process running. In [ChatGPT Plugins](https://chatgpt.com/plugins), choose
+**Add custom MCP server → Connection: Tunnel**, select your tunnel, and choose
+**No authentication** for this stdio server. Create and install the plugin, then ask it to
+call `discord_list_guilds` to verify Discord access. The plugin uses your bot's permissions.
+
+Diagnostics are available at <http://127.0.0.1:8080/ui>. Successful tool discovery alone
+does not verify Discord login; the first tool call does.
+
+</details>
 
 <details>
 <summary><strong>Claude Desktop</strong></summary>

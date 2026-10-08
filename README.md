@@ -63,7 +63,8 @@ The repository includes a tunnel configuration and `npm run tunnel` / `npm run t
 commands for a source checkout. No public HTTP endpoint is required.
 
 See [Connecting ChatGPT through Secure MCP Tunnel](docs/chatgpt-tunnel.md) for setup,
-credentials, tool selection, and connection checks.
+multi-server management, dots, and host migration. For a background service on macOS,
+see the optional [launchd guide](docs/chatgpt-tunnel-macos.md).
 
 </details>
 

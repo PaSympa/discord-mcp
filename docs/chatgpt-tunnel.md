@@ -30,13 +30,13 @@ ChatGPT user into a separate Discord account.
 ## Build the checkout
 
 ```bash
-git clone https://github.com/rokrokss/discord-mcp.git
+git clone https://github.com/PaSympa/discord-mcp.git
 cd discord-mcp
 npm ci
 npm run build
 ```
 
-The commands below use this checkout's `dist/index.js`, not the upstream npm package.
+The commands below use the `dist/index.js` built from this checkout.
 Run them from the repository root. Rebuild after changing TypeScript source.
 
 ## Configure and start

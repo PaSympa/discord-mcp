@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `discord_create_poll`, `discord_get_poll_results`, `discord_end_poll` and `discord_get_poll_voters` create, read, end and list the voters of a native Discord poll, in a new `polls` toolset. A poll takes a question of up to 300 characters, up to 10 answers of 55 characters each and a duration of up to 768 hours; `discord_end_poll` only works on the bot's own polls and cannot be undone. Results are read with a forced, uncached fetch, because a cached message keeps the vote counts it had when it was first fetched, so a poll that had ended still read as not final.
+
 ## [2.2.0] - 2026-09-03
 
 ### Added

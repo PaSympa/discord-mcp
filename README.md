@@ -191,7 +191,7 @@ These flags only control which gateway intents the server requests when identify
 
 Data access is governed by the **portal toggles**, not by these flags: this server reads everything over the REST API, which Discord gates on the portal setting alone. So with the portal toggles on, setting these flags to `false` loses nothing. With a portal toggle **off**, the corresponding data is restricted regardless of the flags: message bodies come back empty (`content`, `embeds`, `attachments`; except the bot's own messages, DMs, and messages that mention the bot) and member listing fails; enable the toggle in the portal to restore it.
 
-**Toolsets** (`DISCORD_MCP_TOOLSETS`): `discovery`, `messages`, `channels`, `permissions`, `members`, `roles`, `moderation`, `screening`, `stats`, `forums`, `webhooks`, `scheduled_events`, `invites`, `dm`. Example; `DISCORD_MCP_TOOLSETS=discovery,messages,members` exposes only the discovery, message, and member tools. Note: a toolset ships its whole module, including its destructive tools (`messages` includes bulk delete; `members` includes kick/ban); use `DISCORD_ALLOWED_GUILDS` and the dry-run defaults to bound them. Only the listed toolsets' tools are advertised and callable. Unknown names make the server fail at startup instead of silently exposing everything (an empty value counts as unset and exposes all).
+**Toolsets** (`DISCORD_MCP_TOOLSETS`): `discovery`, `messages`, `channels`, `permissions`, `members`, `roles`, `moderation`, `screening`, `stats`, `forums`, `webhooks`, `scheduled_events`, `invites`, `dm`, `polls`. Example; `DISCORD_MCP_TOOLSETS=discovery,messages,members` exposes only the discovery, message, and member tools. Note: a toolset ships its whole module, including its destructive tools (`messages` includes bulk delete; `members` includes kick/ban); use `DISCORD_ALLOWED_GUILDS` and the dry-run defaults to bound them. Only the listed toolsets' tools are advertised and callable. Unknown names make the server fail at startup instead of silently exposing everything (an empty value counts as unset and exposes all).
 
 ---
 
@@ -208,12 +208,12 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 
 5. **OAuth2 > URL Generator**:
    - Scopes: `bot`
-   - Permissions: `Send Messages`, `Read Message History`, `Manage Channels`, `Manage Roles`, `Kick Members`, `Ban Members`, `Moderate Members`, `View Audit Log`, `Manage Messages`, `Manage Threads`, `Add Reactions`, `Manage Guild`, `Manage Webhooks`, `Manage Events`, `Create Events`, `Create Instant Invite`, `Manage Nicknames`, `Pin Messages`, `Embed Links`, `Create Public Threads`, `Send Messages in Threads`
+   - Permissions: `Send Messages`, `Read Message History`, `Manage Channels`, `Manage Roles`, `Kick Members`, `Ban Members`, `Moderate Members`, `View Audit Log`, `Manage Messages`, `Manage Threads`, `Add Reactions`, `Manage Guild`, `Manage Webhooks`, `Manage Events`, `Create Events`, `Create Instant Invite`, `Manage Nicknames`, `Pin Messages`, `Embed Links`, `Create Public Threads`, `Send Messages in Threads`, `Send Polls`
 6. Copy the generated URL and invite the bot to your server
 
 ---
 
-## Available Tools (99)
+## Available Tools (103)
 
 ### Discovery & Navigation (4 tools)
 
@@ -248,6 +248,15 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 | `discord_search_guild_messages`   | Search across every channel using Discord's search index |
 | `discord_crosspost_message`       | Publish a message to announcement channel followers      |
 | `discord_forward_message`         | Forward a message to another channel                     |
+
+### Polls (4 tools)
+
+| Tool                       | Description                                      |
+| -------------------------- | ------------------------------------------------ |
+| `discord_create_poll`      | Create a native poll with up to 10 answers       |
+| `discord_get_poll_results` | Read a poll's current question, answers, votes   |
+| `discord_end_poll`         | End a poll immediately instead of waiting it out |
+| `discord_get_poll_voters`  | List the users who voted for one answer          |
 
 ### Channels (8 tools)
 
@@ -428,6 +437,7 @@ discord-mcp/
 │       ├── types.ts         ← Shared TypeScript interfaces
 │       ├── discovery.ts     ← Guild/channel discovery
 │       ├── messages.ts      ← Message CRUD, reactions, threads, embeds
+│       ├── polls.ts         ← Native polls (create, results, end, voters)
 │       ├── channels.ts      ← Channel management
 │       ├── permissions.ts   ← Permission overwrites
 │       ├── members.ts       ← Member management

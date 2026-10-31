@@ -95,6 +95,8 @@ const attachmentSummary = z.object({
  * The reaction cache is keyed by the emoji id (snowflake) for custom emoji and
  * by the raw unicode char for standard emoji, NOT by the "name:id" / "<:name:id>"
  * form the tool schema accepts, so a custom emoji is normalized to its id first.
+ * Callers fetch with `force: true`: a message this process sent stays cached, and no
+ * intent refreshes its reactions.
  */
 function findReaction(msg: Message, emoji: string): MessageReaction | undefined {
   const customId = emoji.match(/^<a?:[^:]+:(\d{17,20})>$|^[^:]+:(\d{17,20})$/);
@@ -695,7 +697,11 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, emoji, user_id }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch({ message: message_id, cache: false });
+      const msg = await channel.messages.fetch({
+        message: message_id,
+        cache: false,
+        force: true,
+      });
       if (!emoji) {
         await msg.reactions.removeAll();
         return {
@@ -750,7 +756,11 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, emoji, limit }) => {
       const channel = await getTextChannel(channel_id);
-      const msg = await channel.messages.fetch({ message: message_id, cache: false });
+      const msg = await channel.messages.fetch({
+        message: message_id,
+        cache: false,
+        force: true,
+      });
       const reaction = findReaction(msg, emoji);
       if (!reaction)
         throw new Error(`No reaction found for emoji "${emoji}" on message ${msg.id}.`);

@@ -799,7 +799,7 @@ const tools = [
   defineTool({
     name: "discord_fetch_pinned_messages",
     description:
-      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires View Channel and Read Message History. Read-only. Use discord_pin_message to change which messages are pinned.",
+      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires the View Channel and Read Message History permissions; without Read Message History Discord returns an empty list, not an error. Read-only. Use discord_pin_message to change which messages are pinned.",
     annotations: { title: "Fetch pinned messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to list pins from."),
@@ -820,11 +820,7 @@ const tools = [
     }),
     handle: async ({ channel_id, limit, before }) => {
       const channel = await getTextChannel(channel_id);
-      const pinned = await channel.messages.fetchPins({
-        limit,
-        cache: false,
-        ...(before === undefined ? {} : { before: new Date(before) }),
-      });
+      const pinned = await channel.messages.fetchPins({ limit, before, cache: false });
       const messages = pinned.items.map(({ message: m, pinnedAt }) => ({
         id: m.id,
         author: m.author.tag,
@@ -832,10 +828,7 @@ const tools = [
         timestamp: m.createdAt.toISOString(),
         pinnedAt: pinnedAt.toISOString(),
       }));
-      // Pins come back newest-pinned first, so the last item carries the oldest
-      // pinnedAt: that is the cursor for the next page. Reporting hasMore from the
-      // cursor keeps the pair from disagreeing, so a caller looping while hasMore is
-      // true always has something to send.
+      // Pins come back newest first, and hasMore follows the cursor so the two cannot disagree.
       const oldest = pinned.items.at(-1);
       const nextBefore = pinned.hasMore && oldest ? oldest.pinnedAt.toISOString() : null;
       return structured({ messages, hasMore: nextBefore !== null, nextBefore });

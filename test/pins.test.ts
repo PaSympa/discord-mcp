@@ -36,6 +36,7 @@ function capturePinFetches(hasMore: boolean, items: PinFixture[]): Record<string
               author: { tag: "someone" },
               content: `pinned ${id}`,
               createdAt: new Date(SENT_AT),
+              embeds: [],
             },
             pinnedAt: new Date(pinnedAt),
           })),
@@ -91,15 +92,20 @@ test("fetch_pinned_messages sends no cursor and declines the cache by default", 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].limit, 50);
   assert.equal(calls[0].cache, false, "pins must not fill the message cache");
-  assert.ok(!("before" in calls[0]), "an absent cursor must not be sent as an undefined key");
+  assert.equal(calls[0].before, undefined);
 });
 
-test("fetch_pinned_messages passes before through as a Date", async () => {
+test("fetch_pinned_messages passes before through", async () => {
   const calls = capturePinFetches(false, PAGE);
   await fetchPinned()({ channel_id: CHANNEL, before: "2026-02-02T00:00:00.000Z", limit: 10 });
-  assert.ok(calls[0].before instanceof Date, "discord.js expects a DateResolvable");
-  assert.equal((calls[0].before as Date).toISOString(), "2026-02-02T00:00:00.000Z");
+  assert.equal(new Date(calls[0].before as string).toISOString(), "2026-02-02T00:00:00.000Z");
   assert.equal(calls[0].limit, 10);
+});
+
+test("fetch_pinned_messages accepts a before with a non-UTC offset", async () => {
+  const calls = capturePinFetches(false, PAGE);
+  await fetchPinned()({ channel_id: CHANNEL, before: "2026-02-02T02:00:00+02:00" });
+  assert.equal(new Date(calls[0].before as string).toISOString(), "2026-02-02T00:00:00.000Z");
 });
 
 test("fetch_pinned_messages reports the next cursor only when a page was truncated", async () => {

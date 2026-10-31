@@ -1,6 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [2.2.1] - 2026-10-31
+
+### Security
+
+- The production dependencies are refreshed, so `npm audit --omit=dev` is clean. The 2.2.0 lockfile, which the Docker image is built from, carried 10 advisories: 1 critical (proxy-addr), 4 high (MCP SDK, body-parser, undici, zod) and 5 moderate (hono, @hono/node-server, ip-address, fast-uri, qs). dotenv moves to 18
 
 ### Fixed
 

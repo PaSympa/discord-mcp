@@ -1,6 +1,7 @@
 import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
 import { z } from "zod";
 import { discord, fetchChannelChecked } from "../client.js";
+import { MAX_FETCH_LIMIT, MIN_ARCHIVED_THREAD_LIMIT } from "../constants.js";
 import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
 
 const threadId = snowflake.describe("ID (snowflake) of the forum post (thread).");
@@ -196,9 +197,9 @@ const tools = [
       forum_channel_id: snowflake.describe(
         "ID (snowflake) of the forum channel to list posts from.",
       ),
-      limit: intIn(1, 100)
-        .default(100)
-        .describe("Max archived posts per page (1–100). Default 100."),
+      limit: intIn(MIN_ARCHIVED_THREAD_LIMIT, MAX_FETCH_LIMIT)
+        .default(MAX_FETCH_LIMIT)
+        .describe("Max archived posts per page (2–100). Discord rejects 1. Default 100."),
       before: z.iso
         .datetime({ offset: true })
         .optional()

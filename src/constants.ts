@@ -1,7 +1,14 @@
 /** Shared constants used across tool modules. */
 
-/** Per-fetch cap for most Discord list endpoints (messages, reactions, events); members/bans use DEFAULTS.MEMBERS_MAX. */
+/** Per-fetch cap for most Discord list endpoints (messages, reactions, events, archived threads); members/bans use DEFAULTS.MEMBERS_MAX. */
 export const MAX_FETCH_LIMIT = 100;
+
+/**
+ * The archived-threads endpoint refuses `limit: 1` with
+ * `limit[NUMBER_TYPE_MIN]: int value should be greater than or equal to 2`.
+ * The floor is undocumented, so it is pinned here rather than rediscovered.
+ */
+export const MIN_ARCHIVED_THREAD_LIMIT = 2;
 
 /** Default and maximum fetch limits by context. */
 export const DEFAULTS = {

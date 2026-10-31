@@ -213,7 +213,7 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 
 ---
 
-## Available Tools (99)
+## Available Tools (100)
 
 ### Discovery & Navigation (4 tools)
 
@@ -224,7 +224,7 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 | `discord_list_channels`        | List all channels in a guild grouped by category                 |
 | `discord_find_channel_by_name` | Find a channel by name (partial match)                           |
 
-### Messages (20 tools)
+### Messages (21 tools)
 
 | Tool                              | Description                                              |
 | --------------------------------- | -------------------------------------------------------- |
@@ -237,6 +237,7 @@ Data access is governed by the **portal toggles**, not by these flags: this serv
 | `discord_remove_reactions`        | Remove reactions (all, by emoji, or by user)             |
 | `discord_get_reactions`           | List users who reacted with a specific emoji             |
 | `discord_create_thread`           | Create a thread from a message or standalone             |
+| `discord_list_channel_threads`    | List a text channel's threads, paged                     |
 | `discord_bulk_delete_messages`    | Delete multiple messages at once (2-100)                 |
 | `discord_send_embed`              | Send a rich embed with all options                       |
 | `discord_edit_embed`              | Edit an embed previously sent by the bot                 |

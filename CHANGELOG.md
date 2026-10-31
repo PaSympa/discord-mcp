@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `discord_get_reactions` and `discord_remove_reactions` no longer answer `No reaction found` on a message the server sent itself. They read a cached copy of the message whose reactions nothing refreshed, until the sweeper dropped it.
+
 ## [2.2.0] - 2026-09-03
 
 ### Added

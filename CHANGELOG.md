@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `discord_send_message`, `discord_reply_message`, `discord_send_embed`, `discord_send_multiple_embeds`, `discord_create_forum_post`, `discord_reply_to_forum` and `discord_send_webhook_message` take an optional `attachments`: up to 10 files, each the absolute path of a local file, an object with that `path`, or an object with base64 `data` and the `filename` it gets, and either object may add an alt-text `description` and a `spoiler` flag (`spoiler: false` strips the `SPOILER_` prefix a file already has). Uploads from disk are opt-in: a file is read only if it sits, once symlinks are resolved, inside a directory listed in the new `DISCORD_UPLOAD_DIRS` environment variable, separated like `PATH` (`:`, or `;` on Windows), and every upload from disk is refused while that variable is unset, so a tool call cannot publish arbitrary local files. Base64 data reads nothing from disk and needs no directory. A file can no longer come from a url, which would have the server fetch an address of the caller's choosing. Based on the attachment support of [@UserGeneratedLLC](https://github.com/UserGeneratedLLC/discord-mcp), merged with its history.
+
 ## [2.2.0] - 2026-09-03
 
 ### Added

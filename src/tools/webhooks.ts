@@ -2,6 +2,12 @@ import { WebhookClient } from "discord.js";
 import { z } from "zod";
 import { discord, fetchChannelChecked, assertAllowedGuild, allowListActive } from "../client.js";
 import { buildEmbed, embedArraySchema } from "../embeds.js";
+import {
+  attachmentsSchema,
+  resolveAttachments,
+  formatApiAttachments,
+  attachmentSummarySchema,
+} from "../attachments.js";
 import { defineTool, defineModule, snowflake, guildId, httpUrl, structured } from "./define.js";
 
 const webhookId = snowflake.describe("ID (snowflake) of the webhook.");
@@ -53,7 +59,7 @@ const tools = [
   defineTool({
     name: "discord_send_webhook_message",
     description:
-      "Send a message through a webhook using its ID and token (no bot permissions needed; the token authorizes the send). Supports per-message username/avatar overrides and up to 10 embeds. At least one of content or embeds is required. Returns the new message ID.",
+      "Send a message through a webhook using its ID and token (no bot permissions needed; the token authorizes the send). Supports per-message username/avatar overrides, up to 10 embeds, and file attachments. At least one of content, embeds, or attachments is required. Returns the new message ID.",
     annotations: {
       title: "Send webhook message",
       readOnlyHint: false,
@@ -82,8 +88,17 @@ const tools = [
       embeds: embedArraySchema
         .optional()
         .describe("Up to 10 embed objects to attach to the webhook message."),
+      attachments: attachmentsSchema,
     }),
-    handle: async ({ webhook_id, webhook_token, content, username, avatar_url, embeds }) => {
+    handle: async ({
+      webhook_id,
+      webhook_token,
+      content,
+      username,
+      avatar_url,
+      embeds,
+      attachments,
+    }) => {
       if (!webhook_token) throw new Error("webhook_token is required.");
       if (allowListActive()) {
         const guildOfWebhook = (await discord.fetchWebhook(webhook_id, webhook_token)).guildId;
@@ -100,8 +115,9 @@ const tools = [
         if (username) sendOptions.username = username;
         if (avatar_url) sendOptions.avatarURL = avatar_url;
         if (embeds) sendOptions.embeds = embeds.map((e) => buildEmbed(e));
-        if (!sendOptions.content && !sendOptions.embeds) {
-          throw new Error("At least one of content or embeds is required.");
+        if (attachments) sendOptions.files = await resolveAttachments(attachments);
+        if (!sendOptions.content && !sendOptions.embeds && !sendOptions.files) {
+          throw new Error("At least one of content, embeds, or attachments is required.");
         }
         const sent = await client.send(sendOptions);
         return { content: [{ type: "text", text: `✅ Webhook message sent (id: ${sent.id}).` }] };
@@ -307,7 +323,7 @@ const tools = [
   defineTool({
     name: "discord_fetch_webhook_message",
     description:
-      "Fetch a single message sent through a webhook (id, content, embed count, timestamp), using the webhook's ID and token. Read-only. Requires the original webhook token.",
+      "Fetch a single message sent through a webhook (id, content, embed count, timestamp, attachments), using the webhook's ID and token. Read-only. Requires the original webhook token.",
     annotations: { title: "Fetch webhook message", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       webhook_id: webhookId.describe("ID (snowflake) of the webhook that sent the message."),
@@ -319,6 +335,7 @@ const tools = [
       content: z.string(),
       embeds: z.number(),
       timestamp: z.string(),
+      attachments: z.array(attachmentSummarySchema),
     }),
     handle: async ({ webhook_id, webhook_token, message_id }) => {
       if (!webhook_token) throw new Error("webhook_token is required.");
@@ -338,6 +355,7 @@ const tools = [
           content: msg.content,
           embeds: msg.embeds.length,
           timestamp: msg.timestamp,
+          attachments: formatApiAttachments(msg.attachments),
         });
       } finally {
         client.destroy();

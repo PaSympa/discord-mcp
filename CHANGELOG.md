@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `discord_fetch_pinned_messages` is now paginated instead of silently stopping at the first 50 pins. It takes `limit` (1-50) and a `before` cursor and returns `hasMore` and `nextBefore`, matching `discord_list_forum_threads`. The cursor compares against when a message was pinned, not when it was sent. `discord_get_reactions` no longer reads a stale snapshot after a pins call. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)
+- `discord_pin_message` states the per-channel pin cap of 250, not the old 50. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)
+
 ## [2.2.0] - 2026-09-03
 
 ### Added

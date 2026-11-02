@@ -117,6 +117,7 @@ test("list_channel_threads returns active threads alongside the first archived p
   );
   assert.equal(result.threads[0].archived, false, "an active thread is not archived");
   assert.equal(stub.archivedCalls[0].type, "public", "public archived threads by default");
+  assert.equal(stub.archivedCalls[0].fetchAll, false);
   assert.equal(stub.archivedCalls[0].limit, 100);
   assert.ok(!("before" in stub.archivedCalls[0]));
 });
@@ -169,6 +170,19 @@ test("list_channel_threads reports which threads are private", async () => {
   assert.equal(result.threads.find((t) => t.id === "a1")!.private, false);
 });
 
+test("list_channel_threads lists the threads of an announcement channel", async () => {
+  stubChannel({
+    type: ChannelType.GuildAnnouncement,
+    active: [{ id: "n1", name: "release notes", type: ChannelType.AnnouncementThread }],
+    archived: [],
+  });
+  const result = payload(await listThreads()({ channel_id: CHANNEL }));
+  assert.deepEqual(
+    result.threads.map((t) => [t.id, t.private]),
+    [["n1", false]],
+  );
+});
+
 test("list_channel_threads handles a channel with no threads", async () => {
   stubChannel({ active: [], archived: [] });
   const empty = payload(await listThreads()({ channel_id: CHANNEL }));
@@ -178,21 +192,16 @@ test("list_channel_threads handles a channel with no threads", async () => {
 });
 
 test("list_channel_threads points a forum at the tool that lists its posts", async () => {
-  // A forum is not text-based, so a generic message-capable check would reject it
-  // first and the caller would never learn which tool to use.
-  for (const type of [ChannelType.GuildForum, ChannelType.GuildMedia]) {
-    mock.restoreAll();
-    stubChannel({ type });
-    await assert.rejects(
-      () => listThreads()({ channel_id: CHANNEL }),
-      /use discord_list_forum_threads/i,
-      `type ${type} should redirect`,
-    );
-  }
+  stubChannel({ type: ChannelType.GuildForum });
+  await assert.rejects(
+    () => listThreads()({ channel_id: CHANNEL }),
+    /use discord_list_forum_threads/i,
+  );
 });
 
 test("list_channel_threads refuses channels that hold no threads of their own", async () => {
-  for (const type of [ChannelType.GuildVoice, ChannelType.PublicThread]) {
+  // discord_list_forum_threads accepts GuildForum only, so a media channel is not redirected there.
+  for (const type of [ChannelType.GuildVoice, ChannelType.PublicThread, ChannelType.GuildMedia]) {
     mock.restoreAll();
     stubChannel({ type });
     await assert.rejects(
@@ -207,6 +216,11 @@ test("list_channel_threads forwards the requested archived type", async () => {
   const stub = stubChannel({ active: ACTIVE, archived: ARCHIVED });
   await listThreads()({ channel_id: CHANNEL, type: "private" });
   assert.equal(stub.archivedCalls[0].type, "private");
+  assert.equal(
+    stub.archivedCalls[0].fetchAll,
+    true,
+    "without fetchAll discord.js uses the joined-threads route and drops a date cursor",
+  );
   assert.equal(stub.activeCalls, 1, "active threads come back whichever type was asked for");
 });
 

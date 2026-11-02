@@ -199,7 +199,7 @@ const tools = [
       ),
       limit: intIn(MIN_ARCHIVED_THREAD_LIMIT, MAX_FETCH_LIMIT)
         .default(MAX_FETCH_LIMIT)
-        .describe("Max archived posts per page (2–100). Discord rejects 1. Default 100."),
+        .describe("Max archived posts per page (2–100). Default 100."),
       before: z.iso
         .datetime({ offset: true })
         .optional()

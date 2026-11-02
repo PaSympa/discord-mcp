@@ -119,7 +119,6 @@ function userTag(user: { username: string; discriminator: string }): string {
     : `${user.username}#${user.discriminator}`;
 }
 
-/** Shape of a thread summary returned by the channel thread lister. */
 const channelThreadSummary = z.object({
   id: z.string(),
   name: z.string(),
@@ -131,18 +130,13 @@ const channelThreadSummary = z.object({
 });
 
 /**
- * Fetches a channel by ID and guarantees it can hold threads of its own. Forums are
- * already excluded by getTextChannel, which rejects them as not message-capable;
- * this rules out threads themselves and voice or stage channels, none of which carry
- * a thread manager.
+ * Fetches a channel by ID and guarantees it is a text or announcement channel, the
+ * two that hold threads of their own. A forum is pointed at discord_list_forum_threads
+ * instead of being refused generically.
  */
 async function getThreadParent(channelId: string): Promise<TextChannel | NewsChannel> {
-  // Not getTextChannel: a forum is not text-based, so it would be rejected there as
-  // "not message-capable" and the caller would never be pointed at the forum tool.
   const channel = await fetchChannelChecked(validateId(channelId, "channel_id"));
-  // Discriminate on `type` rather than instanceof, matching getForumChannel: a
-  // second copy of discord.js in the tree would break instanceof silently.
-  if (channel?.type === ChannelType.GuildForum || channel?.type === ChannelType.GuildMedia)
+  if (channel?.type === ChannelType.GuildForum)
     throw new Error(
       `Channel ${channelId} is a forum. Use discord_list_forum_threads to list its posts.`,
     );
@@ -336,7 +330,7 @@ const tools = [
       ),
       limit: intIn(MIN_ARCHIVED_THREAD_LIMIT, MAX_FETCH_LIMIT)
         .default(MAX_FETCH_LIMIT)
-        .describe("Max archived threads per page (2–100). Discord rejects 1. Default 100."),
+        .describe("Max archived threads per page (2–100). Default 100."),
       type: z
         .enum(["public", "private"])
         .default("public")
@@ -358,14 +352,14 @@ const tools = [
     handle: async ({ channel_id, limit, type, before }) => {
       const channel = await getThreadParent(channel_id);
       const collected: AnyThreadChannel[] = [];
-      // A cursor means the caller is already walking archived pages, so re-sending
-      // the active ones would duplicate what it read on the first call.
       if (before === undefined) {
         const active = await channel.threads.fetchActive();
         collected.push(...active.threads.values());
       }
       const archived = await channel.threads.fetchArchived({
         type,
+        // Without fetchAll, private goes to the joined-threads route, which ignores a date cursor.
+        fetchAll: type === "private",
         limit,
         ...(before === undefined ? {} : { before: new Date(before) }),
       });

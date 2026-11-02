@@ -64,14 +64,22 @@ const EMBED_READ_CAPS = {
   fields: 10,
   fieldName: 100,
   fieldValue: 300,
+  author: 100,
+  footer: 300,
 } as const;
 
 /** One embed as message reads report it: the parts that carry text a reader can use. */
 export const embedSummary = z.object({
   title: z.string().optional(),
+  author: z.string().optional(),
   description: z.string().optional(),
   url: z.string().optional(),
   fields: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
+  moreFields: z
+    .number()
+    .optional()
+    .describe("Count of fields left out past the first 10. Absent when none were."),
+  footer: z.string().optional(),
 });
 
 /** Structural shape shared by discord.js `Embed` and the raw `APIEmbed` of a search hit. */
@@ -80,50 +88,45 @@ interface EmbedLike {
   description?: string | null;
   url?: string | null;
   fields?: readonly { name: string; value: string }[];
+  author?: { name: string } | null;
+  footer?: { text: string } | null;
 }
 
 function clip(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, max)}…`;
+  if (text.length <= max) return text;
+  const code = text.charCodeAt(max - 1);
+  const end = code >= 0xd800 && code <= 0xdbff ? max - 1 : max;
+  return `${text.slice(0, end)}…`;
 }
 
-/**
- * Folds the readable text of a message's embeds into what message reads return.
- * Call sites go through embedField; this stays internal so the module exposes one way in.
- * Bot posts routinely carry no content at all and put everything in an embed, so a
- * reader that drops embeds sees an empty message and reports the channel as silent.
- * Colour, timestamps, images and thumbnails are left out: they carry no text.
- * Returns undefined when there are no embeds, so the key stays off ordinary messages.
- */
-function summarizeEmbeds(embeds: readonly EmbedLike[]): z.infer<typeof embedSummary>[] | undefined {
-  if (embeds.length === 0) return undefined;
-  return embeds.map((embed) => ({
+function summarizeEmbed(embed: EmbedLike): z.infer<typeof embedSummary> {
+  const fields = embed.fields ?? [];
+  const omitted = fields.length - EMBED_READ_CAPS.fields;
+  return {
     ...(embed.title ? { title: embed.title } : {}),
+    ...(embed.author?.name ? { author: clip(embed.author.name, EMBED_READ_CAPS.author) } : {}),
     ...(embed.description
       ? { description: clip(embed.description, EMBED_READ_CAPS.description) }
       : {}),
-    ...(embed.url ? { url: clip(embed.url, EMBED_READ_CAPS.url) } : {}),
-    ...(embed.fields?.length
+    // A clipped url points somewhere else, so an over-long one is left out instead.
+    ...(embed.url && embed.url.length <= EMBED_READ_CAPS.url ? { url: embed.url } : {}),
+    ...(fields.length
       ? {
-          fields: embed.fields.slice(0, EMBED_READ_CAPS.fields).map((field) => ({
+          fields: fields.slice(0, EMBED_READ_CAPS.fields).map((field) => ({
             name: clip(field.name, EMBED_READ_CAPS.fieldName),
             value: clip(field.value, EMBED_READ_CAPS.fieldValue),
           })),
         }
       : {}),
-  }));
+    ...(omitted > 0 ? { moreFields: omitted } : {}),
+    ...(embed.footer?.text ? { footer: clip(embed.footer.text, EMBED_READ_CAPS.footer) } : {}),
+  };
 }
 
-/**
- * Spreads an `embeds` key only when the message carries any. Assigning the summary
- * directly would leave `embeds: undefined` on every ordinary message: it disappears
- * on the wire but not from `structuredContent`, so the advertised shape and the
- * returned object would disagree.
- */
 export function embedField(embeds: readonly EmbedLike[]): {
   embeds?: z.infer<typeof embedSummary>[];
 } {
-  const summarized = summarizeEmbeds(embeds);
-  return summarized ? { embeds: summarized } : {};
+  return embeds.length === 0 ? {} : { embeds: embeds.map(summarizeEmbed) };
 }
 
 /** Validated embed input: the typed shape `buildEmbed` consumes. */

@@ -78,8 +78,6 @@ const messageSummary = z.object({
   author: z.string(),
   content: z.string(),
   timestamp: z.string(),
-  // Absent on ordinary messages. A bot post often carries no content at all and puts
-  // everything in an embed, so dropping these reports the message as empty.
   embeds: z.array(embedSummary).optional(),
 });
 
@@ -541,7 +539,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, and the text of any embeds. Use discord_read_messages to fetch recent messages without filtering.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, and the text of any embeds. Matching checks message content only, so a word that appears only in an embed is not found. Use discord_read_messages to fetch recent messages without filtering.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -611,6 +609,8 @@ const tools = [
               description?: string;
               url?: string;
               fields?: { name: string; value: string }[];
+              author?: { name: string };
+              footer?: { text: string };
             }[];
           }>
         >;

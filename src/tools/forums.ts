@@ -1,7 +1,7 @@
 import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
 import { z } from "zod";
-import { embedSummary, embedField } from "../embeds.js";
 import { discord, fetchChannelChecked } from "../client.js";
+import { embedSummary, embedField } from "../embeds.js";
 import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
 
 const threadId = snowflake.describe("ID (snowflake) of the forum post (thread).");

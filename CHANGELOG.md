@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `discord_read_messages`, `discord_search_messages`, `discord_search_guild_messages`, `discord_fetch_pinned_messages` and `discord_get_forum_post` return an `embeds` array with the title, author, description, url, fields and footer of each embed, so a bot post with empty `content` no longer reads as blank. Contributed by [@nobel6018](https://github.com/nobel6018) in [#124](https://github.com/PaSympa/discord-mcp/pull/124)
+
 ### Fixed
 
 - `discord_fetch_pinned_messages` is now paginated instead of silently stopping at the first 50 pins. It takes `limit` (1-50) and a `before` cursor and returns `hasMore` and `nextBefore`, matching `discord_list_forum_threads`. The cursor compares against when a message was pinned, not when it was sent. `discord_get_reactions` no longer reads a stale snapshot after a pins call. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)

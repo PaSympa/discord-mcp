@@ -4,14 +4,24 @@
 
 ### Added
 
+- `discord_read_messages`, `discord_search_messages`, `discord_search_guild_messages`, `discord_fetch_pinned_messages` and `discord_get_forum_post` return an `embeds` array with the title, author, description, url, fields and footer of each embed, so a bot post with empty `content` no longer reads as blank. Contributed by [@nobel6018](https://github.com/nobel6018) in [#124](https://github.com/PaSympa/discord-mcp/pull/124)
 - `discord_list_channel_threads` lists the threads in a text or announcement channel: every active thread plus paginated archived ones, public or private, each flagged with whether it is private. Active threads were already visible, but archived ones outside a forum could not be listed, since `discord_list_forum_threads` covers forums alone. The result uses the same `hasMore` and `nextBefore` shape as `discord_list_forum_threads`. Contributed by [@nobel6018](https://github.com/nobel6018) in [#123](https://github.com/PaSympa/discord-mcp/pull/123)
 
 ### Fixed
 
 - `discord_fetch_pinned_messages` is now paginated instead of silently stopping at the first 50 pins. It takes `limit` (1-50) and a `before` cursor and returns `hasMore` and `nextBefore`, matching `discord_list_forum_threads`. The cursor compares against when a message was pinned, not when it was sent. `discord_get_reactions` no longer reads a stale snapshot after a pins call. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)
 - `discord_pin_message` states the per-channel pin cap of 250, not the old 50. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)
-- `discord_get_reactions` and `discord_remove_reactions` no longer answer `No reaction found` on a message the server sent itself. They read a cached copy of the message whose reactions nothing refreshed, until the sweeper dropped it.
 - The archived-threads `limit` floor is 2, not 1. Discord answers `limit: 1` with `400 limit[NUMBER_TYPE_MIN]: int value should be greater than or equal to 2`, and the floor is absent from the endpoint's documented query parameters, so `discord_list_forum_threads` advertised a value the API rejects. Contributed by [@nobel6018](https://github.com/nobel6018) in [#123](https://github.com/PaSympa/discord-mcp/pull/123)
+
+## [2.2.1] - 2026-10-31
+
+### Security
+
+- The production dependencies are refreshed, so `npm audit --omit=dev` is clean. The 2.2.0 lockfile, which the Docker image is built from, carried 10 advisories: 1 critical (proxy-addr), 4 high (MCP SDK, body-parser, undici, zod) and 5 moderate (hono, @hono/node-server, ip-address, fast-uri, qs). dotenv moves to 18
+
+### Fixed
+
+- `discord_get_reactions` and `discord_remove_reactions` no longer answer `No reaction found` on a message the server sent itself. They read a cached copy of the message whose reactions nothing refreshed, until the sweeper dropped it.
 
 ## [2.2.0] - 2026-09-03
 

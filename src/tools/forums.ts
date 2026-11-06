@@ -2,6 +2,7 @@ import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
 import { z } from "zod";
 import { discord, fetchChannelChecked } from "../client.js";
 import { MAX_FETCH_LIMIT, MIN_ARCHIVED_THREAD_LIMIT } from "../constants.js";
+import { embedSummary, embedField } from "../embeds.js";
 import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
 
 const threadId = snowflake.describe("ID (snowflake) of the forum post (thread).");
@@ -162,6 +163,7 @@ const tools = [
           author: z.string(),
           content: z.string(),
           timestamp: z.string(),
+          embeds: z.array(embedSummary).optional(),
         }),
       ),
     }),
@@ -183,6 +185,7 @@ const tools = [
             author: m.author.tag,
             content: m.content,
             timestamp: m.createdAt.toISOString(),
+            ...embedField(m.embeds),
           })),
       };
       return structured(result);

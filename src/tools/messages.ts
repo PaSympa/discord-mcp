@@ -330,7 +330,7 @@ const tools = [
   defineTool({
     name: "discord_list_channel_threads",
     description:
-      "List the threads in a text or announcement channel. Returns { threads: [...], hasMore, nextBefore }. The first call includes active threads plus the first page of archived ones; while hasMore is true pass nextBefore back as `before`. hasMore means that page came back full, so the last call can return nothing. Requires View Channel and Read Message History. Read-only. Use discord_list_forum_threads for a forum's posts.",
+      "List the threads in a text or announcement channel. Returns { threads: [...], hasMore, nextBefore }. The first call includes active threads plus the first page of archived ones; while hasMore is true pass nextBefore back as `before`. hasMore means that page came back full, so the last call can return nothing. Requires the View Channel and Read Message History permissions. Read-only. Use discord_list_forum_threads for a forum's posts.",
     annotations: { title: "List channel threads", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe(
@@ -369,7 +369,7 @@ const tools = [
         // Without fetchAll, private goes to the joined-threads route, which ignores a date cursor.
         fetchAll: type === "private",
         limit,
-        ...(before === undefined ? {} : { before: new Date(before) }),
+        before,
       });
       collected.push(...archived.threads.values());
       const threads = collected.map((t) => ({
@@ -381,8 +381,7 @@ const tools = [
         messageCount: t.messageCount,
         createdAt: t.createdAt?.toISOString() ?? null,
       }));
-      // Reporting hasMore from the cursor keeps the pair from disagreeing, so a
-      // caller looping while hasMore is true always has something to send.
+      // hasMore follows the cursor so the two cannot disagree.
       const oldest = archived.threads.last();
       const nextBefore =
         archived.hasMore && oldest?.archivedAt ? oldest.archivedAt.toISOString() : null;

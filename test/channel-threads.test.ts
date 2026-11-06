@@ -119,7 +119,7 @@ test("list_channel_threads returns active threads alongside the first archived p
   assert.equal(stub.archivedCalls[0].type, "public", "public archived threads by default");
   assert.equal(stub.archivedCalls[0].fetchAll, false);
   assert.equal(stub.archivedCalls[0].limit, 100);
-  assert.ok(!("before" in stub.archivedCalls[0]));
+  assert.equal(stub.archivedCalls[0].before, undefined);
 });
 
 test("list_channel_threads omits active threads once the caller is paging", async () => {
@@ -132,7 +132,7 @@ test("list_channel_threads omits active threads once the caller is paging", asyn
     result.threads.map((t) => t.id),
     ["z1", "z2"],
   );
-  assert.ok(stub.archivedCalls[0].before instanceof Date);
+  assert.equal(stub.archivedCalls[0].before, "2026-03-03T00:00:00.000Z");
 });
 
 test("list_channel_threads cursors on archivedAt and only when a page was truncated", async () => {

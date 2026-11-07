@@ -6,6 +6,10 @@
 
 - `server.json` declares every environment variable the server reads, so MCP Registry clients can prompt for them. `DISCORD_MCP_TOOLSETS`, `DISCORD_ALLOWED_GUILDS`, `DISCORD_MESSAGE_CONTENT` and `DISCORD_GUILD_MEMBERS` join `DISCORD_TOKEN` on both the npm and Docker packages
 
+### Changed
+
+- The npm, MCP Registry and Docker image descriptions name Codex next to Claude, Cursor and VS Code
+
 ## [2.3.0] - 2026-11-07
 
 ### Added

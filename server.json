@@ -2,6 +2,18 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.PaSympa/discord-mcp",
   "description": "Run your Discord server from Claude, Cursor or VS Code: messages, moderation, roles, forums, events",
+  "title": "discord-mcp",
+  "websiteUrl": "https://github.com/PaSympa/discord-mcp",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/PaSympa/discord-mcp/main/.github/assets/logo.svg",
+      "mimeType": "image/svg+xml"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/PaSympa/discord-mcp/main/.github/assets/logo-512.png",
+      "mimeType": "image/png"
+    }
+  ],
   "repository": {
     "url": "https://github.com/PaSympa/discord-mcp",
     "source": "github"

@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
@@ -22,6 +24,17 @@ test("unknown tool is a JSON-RPC InvalidParams protocol error, not a tool result
     () => client.callTool({ name: "discord_nonexistent", arguments: {} }),
     (err: unknown) => err instanceof McpError && err.code === ErrorCode.InvalidParams,
   );
+  await client.close();
+});
+
+test("initialize advertises the title, website and icons that server.json declares", async () => {
+  const client = await connectedClient();
+  const info = client.getServerVersion();
+  const manifest = JSON.parse(readFileSync(join(__dirname, "..", "server.json"), "utf8"));
+  assert.equal(info?.title, manifest.title);
+  assert.equal(info?.websiteUrl, manifest.websiteUrl);
+  assert.deepEqual(info?.icons, manifest.icons);
+  for (const icon of manifest.icons) assert.match(icon.src, /^https:\/\/.{1,247}$/);
   await client.close();
 });
 

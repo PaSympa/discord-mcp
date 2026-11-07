@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t">
+  <title id="t">discord-mcp</title>
+  <rect x="24" y="24" width="464" height="464" rx="116" fill="#121A26"/>
+  <rect x="25.5" y="25.5" width="461" height="461" rx="114.5" fill="none" stroke="#2A3548" stroke-width="3"/>
+  <g transform="translate(256 256) scale(0.86) translate(-270 -256)" stroke-linecap="round" fill="none">
+    <path d="M226 120 L202 392 M330 120 L306 392" stroke="#E8EDF4" stroke-width="44"/>
+    <path d="M144 206 H384 M134 306 H340" stroke="#121A26" stroke-width="66"/>
+    <path d="M144 206 H384 M134 306 H340" stroke="#FFB547" stroke-width="44"/>
+    <circle cx="406" cy="306" r="31" fill="#FFB547" stroke="#121A26" stroke-width="12"/>
+  </g>
+</svg>

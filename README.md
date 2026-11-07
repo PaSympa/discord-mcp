@@ -21,8 +21,10 @@
 ## See it in action
 
 <p align="center">
-  <img src=".github/assets/demo.webp" alt="Claude Code previews a cleanup of four spam messages in #general with a dry run, then deletes them, on a demo Discord server" width="100%">
+  <a href="https://github.com/user-attachments/assets/c87d8fe5-6c9c-4186-ab95-c154f4987502"><img src=".github/assets/demo.webp" alt="Claude Code previews a cleanup of four spam messages in #general with a dry run, then deletes them, on a demo Discord server" width="100%"></a>
 </p>
+
+<p align="center"><a href="https://github.com/user-attachments/assets/c87d8fe5-6c9c-4186-ab95-c154f4987502">Watch the full one-minute demo</a>: a channel recap, a bug forum, the spam cleanup and an event.</p>
 
 <sub>Calls made live with Claude Code on a demo server; the panel summarizes their results. The Discord window shows real captures, except that the spot of each new message or post stays blank until it appears.</sub>
 

@@ -451,3 +451,5 @@ Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the module 
 ## License
 
 MIT, see [LICENSE](LICENSE). discord-mcp is an independent open-source project, not affiliated with or endorsed by Discord Inc.
+
+VS Code and VS Code Insiders icons: [Codicons](https://github.com/microsoft/vscode-codicons) © Microsoft Corporation, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

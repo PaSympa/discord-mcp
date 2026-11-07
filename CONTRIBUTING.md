@@ -112,7 +112,7 @@ git push origin vX.Y.Z
 The tag triggers `.github/workflows/release.yml`, which does everything else automatically:
 
 1. Fails fast if the tag does not match `package.json` / `server.json`
-2. Lints, builds, tests, then publishes to npm through trusted publishing (GitHub OIDC). The `NPM_TOKEN` secret is only a fallback until a release confirms it
+2. Lints, builds, tests, then publishes to npm through trusted publishing (GitHub OIDC). No npm token is stored: the trusted publisher on npmjs.com must name `release.yml`
 3. Pushes the Docker images
 4. Publishes to the official MCP Registry via GitHub OIDC (no secret needed). The registry pulls the tagged Docker image to validate the `server.json` OCI entry. The [GitHub MCP Registry](https://github.com/mcp) is curated: a new server is requested once in [github/github-mcp-server#1257](https://github.com/github/github-mcp-server/discussions/1257), then later versions sync from the official registry
 5. Creates the GitHub Release

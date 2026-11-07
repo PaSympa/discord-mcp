@@ -11,7 +11,7 @@ FROM node:26-alpine
 
 LABEL io.modelcontextprotocol.server.name="io.github.PaSympa/discord-mcp"
 LABEL org.opencontainers.image.title="Discord MCP Server"
-LABEL org.opencontainers.image.description="A lightweight, multi-guild Discord MCP server with 100 tools"
+LABEL org.opencontainers.image.description="Run your Discord server from Claude, Cursor or VS Code: messages, moderation, roles, forums, events"
 LABEL org.opencontainers.image.source="https://github.com/PaSympa/discord-mcp"
 LABEL org.opencontainers.image.licenses="MIT"
 

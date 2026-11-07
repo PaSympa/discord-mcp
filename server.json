@@ -34,6 +34,30 @@
           "isRequired": true,
           "isSecret": true,
           "format": "string"
+        },
+        {
+          "name": "DISCORD_MCP_TOOLSETS",
+          "description": "Comma-separated toolsets to expose: discovery, messages, channels, permissions, members, roles, moderation, screening, stats, forums, webhooks, scheduled_events, invites, dm, or all. An unknown name stops the server at startup.",
+          "format": "string",
+          "default": "all"
+        },
+        {
+          "name": "DISCORD_ALLOWED_GUILDS",
+          "description": "Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected. Unset allows every guild.",
+          "format": "string",
+          "placeholder": "123456789012345678,234567890123456789"
+        },
+        {
+          "name": "DISCORD_MESSAGE_CONTENT",
+          "description": "Set to false to stop requesting the Message Content privileged intent at connect time.",
+          "format": "boolean",
+          "default": "true"
+        },
+        {
+          "name": "DISCORD_GUILD_MEMBERS",
+          "description": "Set to false to stop requesting the Server Members privileged intent at connect time.",
+          "format": "boolean",
+          "default": "true"
         }
       ]
     },
@@ -50,6 +74,30 @@
           "isRequired": true,
           "isSecret": true,
           "format": "string"
+        },
+        {
+          "name": "DISCORD_MCP_TOOLSETS",
+          "description": "Comma-separated toolsets to expose: discovery, messages, channels, permissions, members, roles, moderation, screening, stats, forums, webhooks, scheduled_events, invites, dm, or all. An unknown name stops the server at startup.",
+          "format": "string",
+          "default": "all"
+        },
+        {
+          "name": "DISCORD_ALLOWED_GUILDS",
+          "description": "Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected. Unset allows every guild.",
+          "format": "string",
+          "placeholder": "123456789012345678,234567890123456789"
+        },
+        {
+          "name": "DISCORD_MESSAGE_CONTENT",
+          "description": "Set to false to stop requesting the Message Content privileged intent at connect time.",
+          "format": "boolean",
+          "default": "true"
+        },
+        {
+          "name": "DISCORD_GUILD_MEMBERS",
+          "description": "Set to false to stop requesting the Server Members privileged intent at connect time.",
+          "format": "boolean",
+          "default": "true"
         }
       ]
     }

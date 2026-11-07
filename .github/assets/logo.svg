@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t">
-  <title id="t">discord-mcp</title>
-  <rect x="24" y="24" width="464" height="464" rx="116" fill="#121A26"/>
-  <rect x="25.5" y="25.5" width="461" height="461" rx="114.5" fill="none" stroke="#2A3548" stroke-width="3"/>
-  <g transform="translate(256 256) scale(0.86) translate(-270 -256)" stroke-linecap="round" fill="none">
-    <path d="M226 120 L202 392 M330 120 L306 392" stroke="#E8EDF4" stroke-width="44"/>
-    <path d="M144 206 H384 M134 306 H340" stroke="#121A26" stroke-width="66"/>
-    <path d="M144 206 H384 M134 306 H340" stroke="#FFB547" stroke-width="44"/>
-    <circle cx="406" cy="306" r="31" fill="#FFB547" stroke="#121A26" stroke-width="12"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><title>discord-mcp</title><path fill="#5865F2" d="M160 64A96 96 0 0 0 64 160L64 441.6A16 16 0 0 0 89.1 454.8L181.8 391A40 40 0 0 1 204.4 384L352 384A96 96 0 0 0 448 288L448 160A96 96 0 0 0 352 64L160 64ZM192 160L320 160A64 64 0 0 1 384 224 64 64 0 0 1 320 288L192 288A64 64 0 0 1 128 224 64 64 0 0 1 192 160ZM196 204A20 20 0 0 0 176 224 20 20 0 0 0 196 244L316 244A20 20 0 0 0 336 224 20 20 0 0 0 316 204L196 204Z"/></svg>

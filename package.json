@@ -1,6 +1,6 @@
 {
   "name": "@pasympa/discord-mcp",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "mcpName": "io.github.PaSympa/discord-mcp",
   "description": "Discord MCP server for Claude, Cursor and VS Code: read and send messages, moderate members, manage roles, channels, forums, webhooks and events. Toolset profiles, guild allow-list, dry-run for mass actions.",
   "main": "dist/index.js",

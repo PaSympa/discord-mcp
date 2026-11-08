@@ -52,6 +52,7 @@ export default tseslint.config(
         console: "readonly",
         document: "readonly",
         Event: "readonly",
+        fetch: "readonly",
         history: "readonly",
         HTMLElement: "readonly",
         localStorage: "readonly",

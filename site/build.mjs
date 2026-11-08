@@ -20,7 +20,7 @@ const BUNDLES = {
   "landing.js": ["tpl", "keys", "common", "landing"],
   "catalog.js": ["tpl", "keys", "common", "search", "detail", "catalog"],
   "page.js": ["keys", "common", "page"],
-  "notfound.js": ["tpl", "keys", "common", "suggest", "notfound"],
+  "notfound.js": ["tpl", "keys", "common", "search", "suggest", "notfound"],
 };
 const OG_IMAGE = "assets/social-preview.png";
 const TOUCH_ICON = "assets/apple-touch-icon.png";

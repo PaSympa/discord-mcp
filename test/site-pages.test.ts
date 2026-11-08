@@ -539,18 +539,30 @@ test("the build date comes from the caller, then SITE_BUILD_DATE, and must be a 
   assert.throws(() => buildDate("2026-13-45"), /YYYY-MM-DD/);
 });
 
-test("the 404 page suggests the closest tool names for a mistyped address", async () => {
-  const { suggest, requestedName } = await siteSuggest();
-  const names = (path: string) =>
+test("the 404 page suggests the closest tool names, then the search's own matches", async () => {
+  const { suggest, suggestTools, requestedName } = await siteSuggest();
+  const near = (path: string) =>
     suggest(path, catalog.tools, { base }).map((t: { name: string }) => t.name);
+  const names = (path: string) =>
+    suggestTools(path, catalog.tools, { base }).map((t: { name: string }) => t.name);
   assert.equal(requestedName(`${base}tools/discord-Ban-Membr.html`, base), "ban_membr");
   assert.equal(names(`${base}tools/discord_ban_membr/`)[0], "discord_ban_member");
   assert.equal(names(`${base}tools/discord_send_mesage/`)[0], "discord_send_message");
   assert.equal(names(`${base}tools/discord_timeout_memebr/`)[0], "discord_timeout_member");
   assert.equal(names(`${base}tools/discord-delete-channel`)[0], "discord_delete_channel");
   assert.equal(names(`${base}tools/ban_member/`)[0], "discord_ban_member");
-  assert.ok(names(`${base}tools/delete_messages/`).includes("discord_bulk_delete_messages"));
   assert.ok(names(`${base}tools/discord_ban_membr/`).length <= 3);
+  const fallback: [string, string][] = [
+    ["discord_list_threads", "discord_list_channel_threads"],
+    ["discord_purge_messages", "discord_bulk_delete_messages"],
+    ["discord_mute_member", "discord_timeout_member"],
+    ["discord_create_event", "discord_create_scheduled_event"],
+    ["ban", "discord_ban_member"],
+  ];
+  for (const [path, first] of fallback) {
+    assert.deepEqual(near(`${base}tools/${path}/`), [], `${path} has no close name`);
+    assert.equal(names(`${base}tools/${path}/`)[0], first, path);
+  }
   assert.deepEqual(names(`${base}blog/`), []);
   assert.deepEqual(names(`${base}tools/`), []);
   assert.deepEqual(names(`${base}tools/%E0%A4%A/`), []);

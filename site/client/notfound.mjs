@@ -1,14 +1,14 @@
 import { $, initCommon } from "./common.mjs";
-import { requestedName, suggest } from "./suggest.mjs";
+import { requestedName, suggest, suggestTools } from "./suggest.mjs";
 import { breakable, glyph, RISK_LABEL, tpl } from "./tpl.mjs";
 
-const { base, tools } = JSON.parse($("#nf-data").textContent);
+const { base, labels, tools } = JSON.parse($("#nf-data").textContent);
 const input = $("#nf-q");
 initCommon({ onSearch: () => input.focus() });
 
-$("#nf-path").textContent = location.pathname;
-const found = suggest(location.pathname, tools, { base });
-if (found.length) {
+function show(found, heading) {
+  if (!found.length) return;
+  $("#nf-sug-h").textContent = heading;
   $("#nf-list").innerHTML = String(
     tpl`${found.map(
       (tool) => tpl`<li><a href="${base}tools/${tool.name}/">
@@ -19,5 +19,20 @@ if (found.length) {
   );
   $("#nf-sug").hidden = false;
 }
+
+$("#nf-path").textContent = location.pathname;
 const words = requestedName(location.pathname, base).replace(/_/g, " ");
 if (words && !input.value) input.value = words;
+const near = suggest(location.pathname, tools, { base });
+if (near.length) show(near, "Closest tool names");
+else if (words)
+  // The search needs every description, so tools.json loads only when no name is close.
+  fetch(base + "tools.json")
+    .then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+    .then((catalog) =>
+      show(
+        suggestTools(location.pathname, catalog.tools, { base, labels }),
+        `Tools for “${words}”`,
+      ),
+    )
+    .catch(() => {});

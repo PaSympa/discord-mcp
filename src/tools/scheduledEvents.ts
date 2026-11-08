@@ -117,7 +117,12 @@ const tools = [
     outputSchema: eventSummary,
     handle: async ({ guild_id, event_id }) => {
       const guild = await discord.guilds.fetch(guild_id);
-      const event = await guild.scheduledEvents.fetch(event_id);
+      // The cached gateway copy never carries user_count, so a cache hit reports null.
+      const event = await guild.scheduledEvents.fetch({
+        guildScheduledEvent: event_id,
+        force: true,
+        withUserCount: true,
+      });
       return structured(serializeEvent(event));
     },
   }),

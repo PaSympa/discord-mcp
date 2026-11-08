@@ -13,6 +13,11 @@
 - The npm, MCP Registry and Docker image descriptions name Codex next to Claude, Cursor and VS Code
 - 23 tool descriptions name the tool to use instead and state behavior the schemas do not show, so an agent picks the right tool among similar ones. Examples: `discord_get_guild_info` and `discord_get_server_stats` point at each other, `discord_update_membership_screening` warns that `form_fields` deletes question fields, and `discord_find_channel_by_name` describes its `{ matches }` result instead of a JSON array
 
+### Fixed
+
+- `discord_set_forum_tags` keeps the ID of each existing tag it lists again, matched by name case-insensitively as Discord itself does, so posts keep that tag. Every call used to recreate all tags under new IDs, which stripped them from existing posts
+- `discord_get_scheduled_event` returns the interested count instead of `null`. It read the cached gateway copy of the event, which never carries `user_count`, while `discord_list_scheduled_events` already asked the API
+
 ## [2.3.0] - 2026-11-07
 
 ### Added

@@ -21,6 +21,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --import tsx --test test/*.test.ts",
+    "site:data": "node site/generate.mjs",
     "version": "node scripts/sync-version.js && git add server.json",
     "prepublishOnly": "npm run build"
   },

@@ -287,6 +287,7 @@ function renderBuilder() {
     li.classList.toggle("none", inSet.length === 0);
     $("input", li).checked = selected.has(s);
     $("[data-n]", li).textContent = String(inSet.length);
+    $("[data-unit]", li).textContent = inSet.length === 1 ? " tool" : " tools";
     $("[data-tok]", li).textContent = formatTokens(inSet.reduce((n, t) => n + t.tokens, 0));
   }
   for (const button of presets) {

@@ -77,12 +77,12 @@ function builder(site) {
     (set) => tpl`<li class="ts-row on" data-set="${set.name}">
   <label>
     <input type="checkbox" value="${set.name}" checked>
-    <span class="ts-name"><code>${set.name}</code>${
+    <span class="ts-name"><code>${breakable(set.name)}</code>${
       set.risk.destructive
         ? tpl`<span class="ts-de" data-risk="destructive" title="${set.risk.destructive} destructive">${glyph()}<span aria-hidden="true">${set.risk.destructive}</span><span class="vh">${set.risk.destructive} destructive</span></span>`
         : ""
     }</span>
-    <span class="ts-n"><span data-n>${set.tools}</span><span class="vh"> tools</span></span>
+    <span class="ts-n"><span data-n>${set.tools}</span><span class="vh" data-unit> ${set.tools === 1 ? "tool" : "tools"}</span></span>
     <span class="ts-tok"><span data-tok>${formatTokens(set.tokens)}</span><span class="vh"> tokens</span></span>
     <span class="ts-bar" aria-hidden="true"><i style="width: ${((set.tokens / max) * 100).toFixed(1)}%"></i></span>
   </label>

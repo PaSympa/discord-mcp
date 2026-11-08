@@ -709,6 +709,20 @@ test("a parameter that accepts several types shows each type with its own rules"
   assert.deepEqual(rest, []);
 });
 
+test("counts say 1 tool, never 1 tools, in the text screen readers get too", () => {
+  for (const page of pages) {
+    const text = textOf(read(page));
+    assert.doesNotMatch(text, /(^|[^\d,.])1 tools\b/, page);
+  }
+  const catalogHtml = read("tools/index.html");
+  for (const set of ["moderation", "stats"]) {
+    const row = new RegExp(`<li class="ts-row on" data-set="${set}">[\\s\\S]*?</li>`).exec(
+      catalogHtml,
+    )![0];
+    assert.ok(row.includes('<span data-n>1</span><span class="vh" data-unit> tool</span>'), set);
+  }
+});
+
 test("every page has a menu button that shows the site links on narrow screens", () => {
   for (const page of pages) {
     const html = read(page);

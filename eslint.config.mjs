@@ -38,11 +38,12 @@ export default tseslint.config(
         fetch: "readonly",
         process: "readonly",
         URL: "readonly",
+        WebSocket: "readonly",
       },
     },
   },
   {
-    // Browser code, bundled into _site/assets/. search.mjs and detail.mjs also run at build time.
+    // Browser code, bundled into _site/assets/. search.mjs, detail.mjs and suggest.mjs also run in Node.
     files: ["site/client/**/*.mjs"],
     languageOptions: {
       globals: {

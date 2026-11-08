@@ -30,6 +30,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run bundle
+      - run: node scripts/check-bundle.mjs discord-mcp.mcpb
       - name: Validate the bundled manifest
         run: |
           unzip -q discord-mcp.mcpb -d "$RUNNER_TEMP/bundle"

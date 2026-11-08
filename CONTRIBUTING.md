@@ -112,7 +112,7 @@ git push origin vX.Y.Z
 
 The tag triggers `.github/workflows/release.yml`, which does everything else automatically:
 
-1. Builds the Claude Desktop bundle, `discord-mcp.mcpb`, with `npm run bundle`. A broken bundle stops the release before anything is published
+1. Builds the Claude Desktop bundle, `discord-mcp.mcpb`, with `npm run bundle`, then starts it once with `scripts/check-bundle.mjs`. A broken bundle stops the release before anything is published
 2. Fails fast if the tag does not match `package.json`, `server.json` and `manifest.json`
 3. Lints, builds, tests, then publishes to npm through trusted publishing (GitHub OIDC). No npm token is stored: the trusted publisher on npmjs.com must name `release.yml`
 4. Pushes the Docker images
@@ -121,6 +121,6 @@ The tag triggers `.github/workflows/release.yml`, which does everything else aut
 
 If a job fails, resume the run with `gh run rerun <run-id> --failed`. Once npm has the version, "Re-run all jobs" stops at `npm publish`, which refuses to publish it twice. A full rerun also builds a new bundle with another sha256, since the zip records the build time. The release keeps the first asset (`overwrite_files: false`), and the registry step hashes that public file.
 
-Pull requests that touch the bundle inputs run `.github/workflows/bundle.yml`. It builds the bundle, validates its manifest and the `server.json` entry, and uploads `discord-mcp.mcpb` as an artifact to install by hand. `mcp-publisher validate` checks the entry's shape only. The registry sends its HEAD request to the asset URL during `publish`, so the release must be public by then.
+Pull requests that touch the bundle inputs run `.github/workflows/bundle.yml`. It builds the bundle, starts it, validates its manifest and the `server.json` entry, and uploads `discord-mcp.mcpb` as an artifact to install by hand. `mcp-publisher validate` checks the entry's shape only. The registry sends its HEAD request to the asset URL during `publish`, so the release must be public by then.
 
 No manual `npm publish`: local publishes are blocked by npm's 2FA policy anyway.

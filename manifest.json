@@ -1,0 +1,80 @@
+{
+  "manifest_version": "0.3",
+  "name": "discord-mcp",
+  "display_name": "discord-mcp",
+  "version": "2.3.0",
+  "description": "Run your Discord from Claude through your own bot: messages, moderation, roles, channels, forums, webhooks and events.",
+  "author": {
+    "name": "PaSympa",
+    "url": "https://github.com/PaSympa"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PaSympa/discord-mcp"
+  },
+  "homepage": "https://github.com/PaSympa/discord-mcp#readme",
+  "license": "MIT",
+  "keywords": ["discord", "discord-bot", "discord-api", "moderation", "bot", "mcp"],
+  "icon": "icon.png",
+  "privacy_policies": ["https://discord.com/privacy"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "DISCORD_TOKEN": "${user_config.discord_token}",
+        "DISCORD_MCP_TOOLSETS": "${user_config.toolsets}",
+        "DISCORD_MCP_READ_ONLY": "${user_config.read_only}",
+        "DISCORD_ALLOWED_GUILDS": "${user_config.allowed_guilds}",
+        "DISCORD_MESSAGE_CONTENT": "${user_config.message_content}",
+        "DISCORD_GUILD_MEMBERS": "${user_config.guild_members}"
+      }
+    }
+  },
+  "compatibility": {
+    "runtimes": {
+      "node": ">=22.0.0"
+    }
+  },
+  "user_config": {
+    "discord_token": {
+      "type": "string",
+      "title": "Discord bot token",
+      "description": "Bot token from the Bot page of the Discord Developer Portal.",
+      "sensitive": true,
+      "required": true
+    },
+    "toolsets": {
+      "type": "string",
+      "title": "Toolsets",
+      "description": "Comma-separated toolsets to expose, such as discovery,messages. Empty exposes every tool. An unknown name stops the server at startup.",
+      "default": ""
+    },
+    "read_only": {
+      "type": "boolean",
+      "title": "Read-only mode",
+      "description": "Expose only the tools annotated readOnlyHint: true. Write tools are neither listed nor callable.",
+      "default": false
+    },
+    "allowed_guilds": {
+      "type": "string",
+      "title": "Allowed guilds",
+      "description": "Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected. Empty allows every guild.",
+      "default": ""
+    },
+    "message_content": {
+      "type": "boolean",
+      "title": "Message Content intent",
+      "description": "Request the Message Content privileged intent at connect time. Turn it off if the intent is disabled in the Developer Portal.",
+      "default": true
+    },
+    "guild_members": {
+      "type": "boolean",
+      "title": "Server Members intent",
+      "description": "Request the Server Members privileged intent at connect time. Turn it off if the intent is disabled in the Developer Portal.",
+      "default": true
+    }
+  }
+}

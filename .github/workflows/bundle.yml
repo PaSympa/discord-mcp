@@ -1,0 +1,53 @@
+name: Bundle
+
+on:
+  pull_request:
+    paths:
+      - manifest.json
+      - scripts/**
+      - package.json
+      - package-lock.json
+      - src/**
+      - .github/workflows/bundle.yml
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bundle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build
+      - run: npm run bundle
+      - run: node scripts/check-bundle.mjs discord-mcp.mcpb
+      - name: Validate the bundled manifest
+        run: |
+          unzip -q discord-mcp.mcpb -d "$RUNNER_TEMP/bundle"
+          ./node_modules/.bin/mcpb validate "$RUNNER_TEMP/bundle/manifest.json"
+          ./node_modules/.bin/mcpb info discord-mcp.mcpb
+      # Schema only: the registry sends its HEAD request to the asset URL at publish, not here.
+      - name: Validate server.json with the bundle entry
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          node scripts/registry-mcpb.mjs "$VERSION" --file discord-mcp.mcpb > "$RUNNER_TEMP/server.json"
+          curl -fsSLo mcp-publisher.tar.gz "https://github.com/modelcontextprotocol/registry/releases/download/v1.7.9/mcp-publisher_linux_amd64.tar.gz"
+          echo "ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+          ./mcp-publisher validate "$RUNNER_TEMP/server.json"
+      - uses: actions/upload-artifact@v7
+        with:
+          path: discord-mcp.mcpb
+          archive: false
+          retention-days: 7
+          if-no-files-found: error

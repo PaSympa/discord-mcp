@@ -187,7 +187,7 @@ codex mcp add discord --env DISCORD_TOKEN=YOUR_BOT_TOKEN -- npx -y @pasympa/disc
 
 ChatGPT on the web cannot start a local stdio server. OpenAI's [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) fills the gap: its `tunnel-client` runs on your machine, starts the server over stdio and relays ChatGPT's requests through an outbound HTTPS connection. Nothing listens on a public port.
 
-- **Plans.** Write tools need a Business, Enterprise or Edu workspace. On Pro, ChatGPT runs read tools only ([OpenAI Help Center](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt)).
+- **Plans.** Write tools need a Business, Enterprise or Edu workspace. On Pro, ChatGPT runs read tools only ([OpenAI Help Center](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)).
 - **Admin rights.** Creating the tunnel takes Tunnels **Read** and **Manage** in the OpenAI Platform organization. Running it and adding the connector take **Read** and **Use**. The ChatGPT workspace must also allow custom MCP servers. See [permissions](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels#permissions-and-access).
 
 In [Platform tunnel settings](https://platform.openai.com/settings/organization/tunnels), create a tunnel associated with your ChatGPT workspace, and download `tunnel-client`. On macOS, install it with `brew install openai/tools/tunnel-client` instead. Then create a runtime API key in [API keys](https://platform.openai.com/settings/organization/api-keys).
@@ -219,7 +219,7 @@ tunnel-client run --config tunnel-client.yaml
 
 In [ChatGPT Plugins](https://chatgpt.com/plugins), select the plus button, then **Add custom MCP server**. Under **Connection**, choose **Tunnel** and select your tunnel. Choose **No authentication**: the bot token stays with the local server. Confirm the risk warning, select **Create as a plugin**, then install the plugin. Type `@` in the prompt box to use it. See [Add custom MCP server](https://developers.openai.com/api/docs/guides/custom-mcp-server).
 
-Everyone with access to the plugin acts with your bot's permissions. Narrow what it can do with `DISCORD_ALLOWED_GUILDS` and `DISCORD_MCP_TOOLSETS`. ChatGPT asks before each write by default. It tells reads from writes by `readOnlyHint`, which every tool here declares.
+Everyone with access to the plugin acts with your bot's permissions. Narrow what it can do with `DISCORD_ALLOWED_GUILDS` and `DISCORD_MCP_TOOLSETS`. ChatGPT may ask before a write, depending on the app's permissions and the action. It tells reads from writes by `readOnlyHint`, which every tool here declares.
 
 Tested by [@rokrokss](https://github.com/rokrokss) on 2026-10-08 with read-only tools (`discord_list_guilds`, `discord_list_channels`, `discord_get_guild_info`).
 

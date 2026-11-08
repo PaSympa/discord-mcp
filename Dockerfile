@@ -25,4 +25,8 @@ COPY --from=builder /app/dist/ dist/
 
 USER nodejs
 ENV NODE_ENV=production
+# stdio by default. For HTTP, set DISCORD_MCP_TRANSPORT=http, DISCORD_MCP_HTTP_TOKEN and
+# DISCORD_MCP_HTTP_HOST=0.0.0.0 (127.0.0.1 is unreachable from outside the container),
+# then publish the port on the host loopback only: -p 127.0.0.1:3000:3000.
+EXPOSE 3000
 ENTRYPOINT ["node", "dist/index.js"]

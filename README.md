@@ -235,16 +235,107 @@ You can also put `DISCORD_TOKEN=YOUR_BOT_TOKEN` in a `.env` file at the project 
 
 </details>
 
+## Remote clients over HTTP
+
+The OpenAI Responses API, Codex and n8n can reach an MCP server by URL instead of starting it. For them, the server can run as a Streamable HTTP endpoint, protected by a static bearer token:
+
+```bash
+export DISCORD_TOKEN=YOUR_BOT_TOKEN
+export DISCORD_MCP_HTTP_TOKEN="$(openssl rand -hex 32)"
+DISCORD_MCP_TRANSPORT=http npx -y @pasympa/discord-mcp
+```
+
+The endpoint is `http://127.0.0.1:3000/mcp`. Every request must carry `Authorization: Bearer <DISCORD_MCP_HTTP_TOKEN>`. Toolsets, read-only mode and `DISCORD_ALLOWED_GUILDS` apply as on stdio.
+
+The token is static: there is no OAuth, so this mode sits outside the MCP authorization spec. ChatGPT connectors need OAuth 2.1 or OpenAI's Secure MCP Tunnel, so this mode is not for ChatGPT.
+
+In Docker, the server must listen on `0.0.0.0` inside the container. Publish the port on the host loopback only:
+
+```bash
+docker run --rm -p 127.0.0.1:3000:3000 \
+  -e DISCORD_TOKEN -e DISCORD_MCP_HTTP_TOKEN \
+  -e DISCORD_MCP_TRANSPORT=http -e DISCORD_MCP_HTTP_HOST=0.0.0.0 \
+  pasympa/discord-mcp:latest
+```
+
+<details>
+<summary><strong>OpenAI Responses API</strong></summary>
+
+The calls come from OpenAI's servers, so the endpoint must be reachable over public HTTPS, behind a reverse proxy or a tunnel. OpenAI does not keep the headers: send them with every request.
+
+```bash
+curl https://api.openai.com/v1/responses \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
+  -d '{
+    "model": "YOUR_MODEL",
+    "input": "List my Discord servers.",
+    "tools": [{
+      "type": "mcp",
+      "server_label": "discord",
+      "server_url": "https://discord-mcp.example.com/mcp",
+      "headers": { "Authorization": "Bearer YOUR_DISCORD_MCP_HTTP_TOKEN" },
+      "require_approval": { "never": { "read_only": true } },
+      "allowed_tools": ["discord_list_guilds", "discord_read_messages"]
+    }]
+  }'
+```
+
+With this `require_approval`, only the tools annotated `readOnlyHint: true` run without approval. See the [OpenAI MCP guide](https://developers.openai.com/api/docs/guides/tools-connectors-mcp).
+
+</details>
+
+<details>
+<summary><strong>Codex</strong></summary>
+
+Codex runs on your machine, so the local URL works. In `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.discord]
+url = "http://127.0.0.1:3000/mcp"
+bearer_token_env_var = "DISCORD_MCP_HTTP_TOKEN"
+```
+
+Or run `codex mcp add discord --url http://127.0.0.1:3000/mcp --bearer-token-env-var DISCORD_MCP_HTTP_TOKEN`. Codex reads the token from that variable in its own environment. See the [Codex MCP docs](https://developers.openai.com/codex/mcp).
+
+</details>
+
+<details>
+<summary><strong>n8n</strong></summary>
+
+Add an **MCP Client Tool** node to an AI Agent:
+
+- **Endpoint**: `http://127.0.0.1:3000/mcp`
+- **Server Transport**: HTTP Streamable
+- **Authentication**: Header Auth, with a credential whose **Name** is `Authorization` and **Value** is `Bearer YOUR_DISCORD_MCP_HTTP_TOKEN`
+
+When n8n runs in Docker, `127.0.0.1` is the n8n container itself. Run the server in a container on the same Docker network, use `http://CONTAINER_NAME:3000/mcp` as the endpoint, and add the container name to `DISCORD_MCP_HTTP_ALLOWED_HOSTS`. n8n Cloud needs a public HTTPS URL. See the [n8n MCP Client Tool docs](https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-langchain.toolmcp/).
+
+</details>
+
+### Security over HTTP
+
+- **Bind address.** The default, `127.0.0.1`, accepts connections from this machine only. Use `0.0.0.0` only inside a container, with the port published on `127.0.0.1`.
+- **Token.** Use at least 32 characters: `openssl rand -hex 32` gives 64. Anyone who holds it acts as your bot, with the same toolsets, read-only mode and allow-list. To rotate it, restart the server with a new value.
+- **HTTPS.** The server speaks plain HTTP. To reach it from another machine, put it behind a reverse proxy or a tunnel that terminates TLS. Never publish the port on the Internet: the token would travel in clear text.
+- **Allowed hosts.** A request needs a `Host` of `localhost`, `127.0.0.1`, `[::1]` or a name in `DISCORD_MCP_HTTP_ALLOWED_HOSTS`. Any request with an `Origin` header is refused, so a web page cannot reach the server, even through DNS rebinding. nginx forwards its upstream address by default, which passes. Caddy forwards the public hostname: list it.
+- **Stateless.** Each POST to `/mcp` stands alone, and GET and DELETE answer `405`. If a client drops the connection during a call, the Discord action still completes, so a retry can repeat a write.
+
 ## Configuration
 
-| Variable                  | Default | Description                                                                                                                                                                    |
-| ------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DISCORD_TOKEN`           | none    | **Required.** Bot token.                                                                                                                                                       |
-| `DISCORD_MCP_TOOLSETS`    | `all`   | Comma-separated toolsets to expose (see [Expose only what you need](#expose-only-what-you-need)). Unset, empty or `all` exposes every tool.                                    |
-| `DISCORD_MCP_READ_ONLY`   | `false` | Set to `true` to expose only the tools annotated `readOnlyHint: true`. Accepts true/false, 1/0, yes/no or on/off; any other value stops the server at startup.                 |
-| `DISCORD_ALLOWED_GUILDS`  | all     | Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected, whether addressed by guild ID, channel ID, thread ID, webhook or invite code. |
-| `DISCORD_MESSAGE_CONTENT` | `true`  | Set to `false` to stop requesting the Message Content privileged intent at connect time.                                                                                       |
-| `DISCORD_GUILD_MEMBERS`   | `true`  | Set to `false` to stop requesting the Server Members privileged intent at connect time.                                                                                        |
+| Variable                         | Default     | Description                                                                                                                                                                                             |
+| -------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCORD_TOKEN`                  | none        | **Required.** Bot token.                                                                                                                                                                                |
+| `DISCORD_MCP_TOOLSETS`           | `all`       | Comma-separated toolsets to expose (see [Expose only what you need](#expose-only-what-you-need)). Unset, empty or `all` exposes every tool.                                                             |
+| `DISCORD_MCP_READ_ONLY`          | `false`     | Set to `true` to expose only the tools annotated `readOnlyHint: true`. Accepts true/false, 1/0, yes/no or on/off; any other value stops the server at startup.                                          |
+| `DISCORD_ALLOWED_GUILDS`         | all         | Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected, whether addressed by guild ID, channel ID, thread ID, webhook or invite code.                          |
+| `DISCORD_MESSAGE_CONTENT`        | `true`      | Set to `false` to stop requesting the Message Content privileged intent at connect time.                                                                                                                |
+| `DISCORD_GUILD_MEMBERS`          | `true`      | Set to `false` to stop requesting the Server Members privileged intent at connect time.                                                                                                                 |
+| `DISCORD_MCP_TRANSPORT`          | `stdio`     | `stdio`, or `http` to serve Streamable HTTP (see [Remote clients over HTTP](#remote-clients-over-http)). Any other value stops the server at startup.                                                   |
+| `DISCORD_MCP_HTTP_TOKEN`         | none        | **Required in http mode.** Bearer token every request must carry: at least 32 characters from the RFC 6750 b64token alphabet (letters, digits, `-._~+/`, trailing `=`), different from `DISCORD_TOKEN`. |
+| `DISCORD_MCP_HTTP_HOST`          | `127.0.0.1` | Address to listen on in http mode.                                                                                                                                                                      |
+| `DISCORD_MCP_HTTP_PORT`          | `3000`      | Port to listen on in http mode.                                                                                                                                                                         |
+| `DISCORD_MCP_HTTP_ALLOWED_HOSTS` | none        | Comma-separated hostnames, without port, accepted in the `Host` header besides `localhost`, `127.0.0.1` and `[::1]`, such as the public name a reverse proxy forwards.                                  |
 
 The intent flags only change what the bot requests when it connects. Requesting a privileged intent that is not enabled in the Developer Portal closes the connection with code `4014`; set the flag to `false` to connect anyway. What the tools can read is governed by the portal toggles: every message is fetched over the REST API, which Discord gates on the portal setting alone. With Message Content off in the portal, message bodies come back empty (`content`, `embeds`, `attachments`), except the bot's own messages, DMs and messages that mention the bot; with Server Members off, member listing fails.
 

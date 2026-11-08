@@ -64,6 +64,37 @@
           "description": "Set to false to stop requesting the Server Members privileged intent at connect time.",
           "format": "boolean",
           "default": "true"
+        },
+        {
+          "name": "DISCORD_MCP_TRANSPORT",
+          "description": "stdio, or http to serve Streamable HTTP on /mcp for remote clients such as the OpenAI Responses API, Codex or n8n. Any other value stops the server at startup.",
+          "format": "string",
+          "default": "stdio",
+          "choices": ["stdio", "http"]
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_TOKEN",
+          "description": "Bearer token every HTTP request must carry. Required when DISCORD_MCP_TRANSPORT is http: at least 32 characters from the RFC 6750 b64token alphabet, different from DISCORD_TOKEN. Generate one with openssl rand -hex 32.",
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_HOST",
+          "description": "Address the HTTP server listens on when DISCORD_MCP_TRANSPORT is http. Keep 127.0.0.1 unless the server runs in a container.",
+          "format": "string",
+          "default": "127.0.0.1"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_PORT",
+          "description": "Port the HTTP server listens on when DISCORD_MCP_TRANSPORT is http.",
+          "format": "number",
+          "default": "3000"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_ALLOWED_HOSTS",
+          "description": "Comma-separated hostnames, without port, accepted in the Host header of HTTP requests besides localhost, 127.0.0.1 and [::1], such as the public name a reverse proxy forwards.",
+          "format": "string",
+          "placeholder": "discord-mcp.example.com"
         }
       ]
     },
@@ -110,6 +141,37 @@
           "description": "Set to false to stop requesting the Server Members privileged intent at connect time.",
           "format": "boolean",
           "default": "true"
+        },
+        {
+          "name": "DISCORD_MCP_TRANSPORT",
+          "description": "stdio, or http to serve Streamable HTTP on /mcp for remote clients such as the OpenAI Responses API, Codex or n8n. Any other value stops the server at startup.",
+          "format": "string",
+          "default": "stdio",
+          "choices": ["stdio", "http"]
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_TOKEN",
+          "description": "Bearer token every HTTP request must carry. Required when DISCORD_MCP_TRANSPORT is http: at least 32 characters from the RFC 6750 b64token alphabet, different from DISCORD_TOKEN. Generate one with openssl rand -hex 32.",
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_HOST",
+          "description": "Address the HTTP server listens on when DISCORD_MCP_TRANSPORT is http. Keep 127.0.0.1 unless the server runs in a container.",
+          "format": "string",
+          "default": "127.0.0.1"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_PORT",
+          "description": "Port the HTTP server listens on when DISCORD_MCP_TRANSPORT is http.",
+          "format": "number",
+          "default": "3000"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_ALLOWED_HOSTS",
+          "description": "Comma-separated hostnames, without port, accepted in the Host header of HTTP requests besides localhost, 127.0.0.1 and [::1], such as the public name a reverse proxy forwards.",
+          "format": "string",
+          "placeholder": "discord-mcp.example.com"
         }
       ]
     }

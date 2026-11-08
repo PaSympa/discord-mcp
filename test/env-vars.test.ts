@@ -75,8 +75,22 @@ test("server.json packages declare identical env var lists", () => {
   }
 });
 
-test("manifest.json maps every env var src/ reads, and only those", () => {
+// Claude Desktop runs the bundle over stdio: the HTTP transport settings stay out of manifest.json.
+const HTTP_ONLY = new Set([
+  "DISCORD_MCP_TRANSPORT",
+  "DISCORD_MCP_HTTP_TOKEN",
+  "DISCORD_MCP_HTTP_HOST",
+  "DISCORD_MCP_HTTP_PORT",
+  "DISCORD_MCP_HTTP_ALLOWED_HOSTS",
+]);
+
+test("manifest.json maps every env var src/ reads except the HTTP-only ones, and only those", () => {
+  for (const name of HTTP_ONLY) {
+    assert.ok(reads.has(name), `HTTP_ONLY lists ${name}, which src/ never reads`);
+    assert.ok(!(name in manifestEnv), `manifest.json maps ${name}, an HTTP-only variable`);
+  }
   for (const [name, file] of reads) {
+    if (HTTP_ONLY.has(name)) continue;
     assert.ok(
       name in manifestEnv,
       `${name} is read in ${file} but not mapped in manifest.json mcp_config.env`,

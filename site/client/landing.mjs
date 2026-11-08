@@ -66,6 +66,7 @@ function showProfile(say) {
     const tokens = Number(ro ? input.dataset.roTokens : input.dataset.tokens);
     row.classList.toggle("on", input === picked);
     $(".pf-tools", row).textContent = String(tools);
+    $(".pf-unit", row).textContent = tools === 1 ? " tool" : " tools";
     $(".pf-tok-short", row).textContent = formatTokens(tokens);
     $(".pf-tok-long", row).textContent =
       "about " + formatInt(Math.round(tokens / 100) * 100) + " tokens";

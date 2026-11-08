@@ -399,13 +399,16 @@
 }
 .ts-name {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s2);
+  gap: 2px var(--s2);
   min-width: 0;
 }
 .ts-name code {
+  min-width: 0;
   font-size: 0.8125rem;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 .ts-de {
   display: inline-flex;
@@ -859,6 +862,11 @@ table.schema {
   }
   .builder {
     padding: var(--s4);
+  }
+  .ts-cols,
+  .ts-row label {
+    grid-template-columns: 18px minmax(0, 1fr) 2.5em 3.25em;
+    column-gap: var(--s2);
   }
   .dlg {
     height: auto;

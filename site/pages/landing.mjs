@@ -227,7 +227,7 @@ function profiles(site) {
   <input type="radio" name="profile" value="${i}" data-sets="${p.all ? "all" : p.sets.join(",")}" data-tools="${p.tools}" data-tokens="${Math.round(p.tokens)}" data-ro-tools="${p.readOnly.tools}" data-ro-tokens="${Math.round(p.readOnly.tokens)}" data-max="${Math.round(max)}"${p.checked ? raw(" checked") : ""}>
   <span class="pf-name">${p.label}</span>
   <span class="pf-sets">${sets}</span>
-  <span class="pf-n"><span class="pf-tools">${p.tools}</span> tools</span>
+  <span class="pf-n"><span class="pf-tools">${p.tools}</span><span class="pf-unit"> ${p.tools === 1 ? "tool" : "tools"}</span></span>
   <span class="pf-bar" aria-hidden="true"><i style="width: ${((p.tokens / max) * 100).toFixed(1)}%"></i></span>
   <span class="pf-tok"><span class="pf-tok-short" aria-hidden="true">${formatTokens(p.tokens)}</span><span class="vh pf-tok-long">about ${formatInt(Math.round(p.tokens / 100) * 100)} tokens</span></span>
 </label>`;

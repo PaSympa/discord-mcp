@@ -141,11 +141,37 @@ ${tpl`<footer class="foot">
 `;
 }
 
-/** Cuts text to at most `max` characters at a word boundary, marking the cut with an ellipsis. */
+const CLOSER = { "(": ")", "[": "]", "{": "}" };
+const isWord = (char = "") => /[A-Za-z0-9]/.test(char);
+
+/**
+ * Where the first bracket, quote or backtick that `text` leaves open starts, or -1. An
+ * apostrophe between two letters ("user's") is not a quote.
+ */
+export function unclosedAt(text) {
+  const open = [];
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const top = text[open.at(-1)];
+    const quote = char === '"' || char === "`" || (char === "'" && !isWord(text[i - 1]));
+    const unquote = (char === "'" && !isWord(text[i + 1])) || (char !== "'" && quote);
+    if (CLOSER[char]) open.push(i);
+    else if (char === CLOSER[top] || (char === top && unquote)) open.pop();
+    else if (quote && (char !== "'" || isWord(text[i + 1]))) open.push(i);
+  }
+  return open.length ? open[0] : -1;
+}
+
+/**
+ * Cuts text to at most `max` characters at a word boundary, before any bracket or quote the
+ * cut would leave open, and marks the cut with an ellipsis.
+ */
 export function fit(text, max) {
   if (text.length <= max) return text;
   let cut = text.slice(0, max - 1);
   if (/\S/.test(text[max - 1])) cut = cut.replace(/\s+\S*$/, "");
+  const open = unclosedAt(cut);
+  if (open !== -1) cut = cut.slice(0, open);
   return cut.replace(/[\s,;:]+$/, "") + "\u2026";
 }
 

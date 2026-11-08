@@ -224,6 +224,21 @@ const unescape = (text: string) =>
     .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&");
 
+/** What a snippet leaves unbalanced: brackets, double quotes, backticks, quoting apostrophes. */
+function unbalanced(text: string) {
+  const count = (char: string) => text.split(char).length - 1;
+  const quotes = text.replace(/(?<=[A-Za-z0-9])'(?=[A-Za-z0-9])/g, "");
+  return [
+    ["(", ")"],
+    ["[", "]"],
+    ["{", "}"],
+  ]
+    .filter(([open, close]) => count(open) !== count(close))
+    .map(([open, close]) => open + close)
+    .concat(['"', "`"].filter((mark) => count(mark) % 2))
+    .concat((quotes.split("'").length - 1) % 2 ? ["'"] : []);
+}
+
 test("every page has a unique title and description, its canonical URL, one h1 and Open Graph tags", () => {
   const png = readFileSync(join(out, "assets/social-preview.png"));
   const image = { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
@@ -240,6 +255,8 @@ test("every page has a unique title and description, its canonical URL, one h1 a
     assert.equal(description.length, 1, `${page}: one description`);
     const text = unescape(description[0]);
     assert.ok(text.length >= 50 && text.length <= 160, `${page}: description "${text}"`);
+    assert.deepEqual(unbalanced(unescape(title[0])), [], `${page}: title "${title[0]}"`);
+    assert.deepEqual(unbalanced(text), [], `${page}: description "${text}"`);
     assert.ok(
       !descriptions.has(description[0]),
       `${page} repeats the description of ${descriptions.get(description[0])}`,
@@ -537,6 +554,35 @@ test("the build date comes from the caller, then SITE_BUILD_DATE, and must be a 
   assert.match(buildDate(undefined), /^\d{4}-\d{2}-\d{2}$/);
   assert.throws(() => buildDate("31/01/2026"), /YYYY-MM-DD/);
   assert.throws(() => buildDate("2026-13-45"), /YYYY-MM-DD/);
+});
+
+test("a shortened text never ends inside brackets, quotes or backticks", async () => {
+  const { fit, unclosedAt } = await siteLayout();
+  const ellipsis = String.fromCharCode(0x2026);
+  const cuts: [string, number, string][] = [
+    [
+      "Lists each role and their permissions (entity names resolved). More.",
+      50,
+      "Lists each role and their permissions",
+    ],
+    ['Mute a member (Discord "timeout" style) for a set duration', 30, "Mute a member"],
+    ["Pass `before and after` values", 20, "Pass"],
+    ["The user's roles and 'sync permissions' mode", 30, "The user's roles and"],
+    [
+      "Get a snapshot of server metrics: members (humans vs bots), channels.",
+      60,
+      "Get a snapshot of server metrics: members (humans vs bots),",
+    ],
+  ];
+  for (const [text, max, kept] of cuts) {
+    const cut = fit(text, max);
+    assert.ok(cut.length <= max, cut);
+    assert.equal(cut, kept.replace(/[\s,;:]+$/, "") + ellipsis, text);
+  }
+  assert.equal(fit("Short enough.", 160), "Short enough.");
+  assert.equal(unclosedAt("a (b [c] d"), 2);
+  assert.equal(unclosedAt('say "hi" and (it\'s done)'), -1);
+  assert.equal(unclosedAt("members' roles"), -1);
 });
 
 test("the 404 page suggests the closest tool names, then the search's own matches", async () => {

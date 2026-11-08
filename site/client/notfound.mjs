@@ -4,7 +4,7 @@ import { breakable, glyph, RISK_LABEL, tpl } from "./tpl.mjs";
 
 const { base, tools } = JSON.parse($("#nf-data").textContent);
 const input = $("#nf-q");
-initCommon({ onSlash: () => input.focus() });
+initCommon({ onSearch: () => input.focus() });
 
 $("#nf-path").textContent = location.pathname;
 const found = suggest(location.pathname, tools, { base });

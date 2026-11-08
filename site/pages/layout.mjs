@@ -9,6 +9,9 @@ export const FONTS = {
   text: "assets/fonts/bricolage-grotesque-latin.woff2",
   mono: "assets/fonts/jetbrains-mono-latin.woff2",
 };
+/** Ctrl+K, or Cmd+K on Apple systems: the script relabels the hint there. */
+export const SEARCH_KEYS = "Control+K";
+export const searchHint = () => raw('<kbd data-shortcut aria-hidden="true">Ctrl K</kbd>');
 
 const icon = (body) => raw(`<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${body}</svg>`);
 export const ICONS = {
@@ -19,6 +22,7 @@ export const ICONS = {
   github: icon(
     '<path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/>',
   ),
+  menu: icon('<path d="M4 7h16M4 12h16M4 17h16"/>'),
   close: icon('<path d="M6 6l12 12M18 6 6 18"/>'),
   play: icon('<path d="M7 4.5v15l12-7.5z" fill="currentColor"/>'),
   pause: icon('<path d="M9 5v14M15 5v14"/>'),
@@ -69,9 +73,10 @@ export function layout(
     ["builder", `${up}tools/#builder`, "Toolsets"],
     ["install", `${up}#install`, "Install"],
   ];
+  const label = tpl`${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span>${searchHint()}`;
   const search = searchButton
-    ? tpl`<button class="search-btn" type="button" id="search-jump">${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span><kbd>/</kbd></button>`
-    : tpl`<a class="search-btn" href="${up}tools/#search">${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span><kbd>/</kbd></a>`;
+    ? tpl`<button class="search-btn" type="button" id="search-jump" aria-keyshortcuts="${SEARCH_KEYS}">${label}</button>`
+    : tpl`<a class="search-btn" href="${up}tools/#q" aria-keyshortcuts="${SEARCH_KEYS}">${label}</a>`;
   const indexing = indexed
     ? tpl`<link rel="canonical" href="${canonical}">
 <meta property="og:url" content="${canonical}">`
@@ -108,14 +113,16 @@ ${ld}
 ${tpl`<header class="top">
   <div class="wrap top-in">
     <a class="brand" href="${up || "./"}" aria-label="discord-mcp home"${current === "home" ? raw(' aria-current="page"') : ""}>${site.logo}<span>discord-mcp</span></a>
-    <nav class="nav" aria-label="Site">
+    <button class="icon-btn menu-btn" type="button" id="menu-btn" aria-expanded="false" aria-controls="site-nav" aria-label="Menu">${ICONS.menu}</button>
+    <nav class="nav" id="site-nav" aria-label="Site">
       ${nav.map(([key, href, label]) => tpl`<a href="${href}"${key === current ? raw(' aria-current="page"') : ""}>${label}</a>`)}
       <a href="${REPO}#readme">README</a>
+      <a class="nav-gh" href="${REPO}">GitHub</a>
     </nav>
     <div class="top-actions">
       ${search}
       <button class="icon-btn" type="button" id="theme-btn" aria-label="Color theme: follows your system">${ICONS.theme}</button>
-      <a class="icon-btn" href="${REPO}" aria-label="discord-mcp on GitHub">${ICONS.github}</a>
+      <a class="icon-btn gh-btn" href="${REPO}" aria-label="discord-mcp on GitHub">${ICONS.github}</a>
     </div>
   </div>
 </header>`}

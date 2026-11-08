@@ -2,8 +2,8 @@ import { $, $$, announce, initCommon, setTerminalLines } from "./common.mjs";
 import { formatInt, formatTokens } from "./tpl.mjs";
 
 initCommon({
-  onSlash: () => {
-    location.href = "tools/#search";
+  onSearch: () => {
+    location.href = "tools/#q";
   },
 });
 

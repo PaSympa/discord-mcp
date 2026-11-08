@@ -9,7 +9,7 @@ import {
   riskBadge,
   tpl,
 } from "../client/tpl.mjs";
-import { firstFitting, ICONS, layout } from "./layout.mjs";
+import { firstFitting, ICONS, layout, SEARCH_KEYS, searchHint } from "./layout.mjs";
 import { md, terminal } from "./parts.mjs";
 
 const UP = "../";
@@ -185,8 +185,8 @@ export function renderCatalog(site) {
     <div class="search" id="search">
       ${ICONS.search}
       <label class="vh" for="q">Search tools by task, name or parameter</label>
-      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name" data-wide-placeholder="Search by task or name, for example: ban a member">
-      <kbd>/</kbd>
+      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name" data-wide-placeholder="Search by task or name, for example: ban a member" aria-keyshortcuts="${SEARCH_KEYS}">
+      ${searchHint()}
     </div>
     ${facets(site)}
     <div class="count-row">

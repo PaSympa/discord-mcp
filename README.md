@@ -79,7 +79,7 @@ The full set of 100 tools costs about 32k tokens of context when a client loads 
 | Chat assistant       | `discovery,messages`                             | 25    | ~9k tokens  |
 | Community manager    | `discovery,messages,forums,scheduled_events`     | 42    | ~15k tokens |
 | Moderator            | `discovery,members,moderation,roles,permissions` | 31    | ~9k tokens  |
-| Read-only monitor    | `discovery,stats,moderation`                     | 6     | ~2k tokens  |
+| Audit and stats      | `discovery,stats,moderation`                     | 6     | ~2k tokens  |
 
 ```json
 "env": {
@@ -90,12 +90,15 @@ The full set of 100 tools costs about 32k tokens of context when a client loads 
 
 Context sizes are measured on the `tools/list` response (bytes divided by 4). Toolsets: `discovery`, `messages`, `channels`, `permissions`, `members` (includes kick, ban and timeout), `roles`, `moderation` (the audit log), `screening`, `stats`, `forums`, `webhooks`, `scheduled_events`, `invites`, `dm`. A toolset brings its whole module, destructive tools included; an unknown name stops the server at startup instead of exposing everything.
 
+Set `DISCORD_MCP_READ_ONLY=true` to keep only the 35 tools annotated `readOnlyHint: true`, about 13k tokens. It narrows `DISCORD_MCP_TOOLSETS` instead of replacing it: `discovery,messages` then exposes 11 tools, about 5k tokens. A selection with no read-only tool left, such as `channels` alone, stops the server at startup.
+
 ## Safety
 
 - **Your bot, your permissions.** The server can only do what the bot's Discord permissions allow.
 - **Preview before mass actions.** `discord_bulk_delete_messages`, `discord_bulk_ban`, `discord_prune_members` and `discord_delete_channel` run as a dry run by default and report what would happen. Pass `dry_run: false` to apply.
 - **Stay in your servers.** `DISCORD_ALLOWED_GUILDS` restricts every call to the guilds you list, whether the target is addressed by guild, channel, thread, webhook or invite.
 - **Clear annotations.** Every tool declares `readOnlyHint`, and every write tool declares `destructiveHint`, so clients can approve reads automatically and ask before destructive calls.
+- **Read-only mode.** With `DISCORD_MCP_READ_ONLY=true`, the server lists only the tools that declare `readOnlyHint: true`. A call to any other tool fails as an unknown tool. Two reads stay sensitive. `discord_list_webhooks` returns webhook tokens, and a token lets anyone post through its webhook without this server. `discord_read_dms` reads the bot's direct messages with a user. To hide both, leave `webhooks` and `dm` out of `DISCORD_MCP_TOOLSETS`.
 - **Keep the token out of files.** Prefer your client's secret prompt (the VS Code button asks for the token) over a config file you might commit.
 
 ## Clients
@@ -232,6 +235,7 @@ You can also put `DISCORD_TOKEN=YOUR_BOT_TOKEN` in a `.env` file at the project 
 | ------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `DISCORD_TOKEN`           | none    | **Required.** Bot token.                                                                                                                                                       |
 | `DISCORD_MCP_TOOLSETS`    | `all`   | Comma-separated toolsets to expose (see [Expose only what you need](#expose-only-what-you-need)). Unset, empty or `all` exposes every tool.                                    |
+| `DISCORD_MCP_READ_ONLY`   | `false` | Set to `true` to expose only the tools annotated `readOnlyHint: true`. Accepts true/false, 1/0, yes/no or on/off; any other value stops the server at startup.                 |
 | `DISCORD_ALLOWED_GUILDS`  | all     | Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected, whether addressed by guild ID, channel ID, thread ID, webhook or invite code. |
 | `DISCORD_MESSAGE_CONTENT` | `true`  | Set to `false` to stop requesting the Message Content privileged intent at connect time.                                                                                       |
 | `DISCORD_GUILD_MEMBERS`   | `true`  | Set to `false` to stop requesting the Server Members privileged intent at connect time.                                                                                        |

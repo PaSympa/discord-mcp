@@ -70,26 +70,68 @@ export function selectModules(): ToolModule[] {
   return names.map((n) => allToolsets[n]);
 }
 
-const modules: ToolModule[] = selectModules();
-
-/** One O(1) name→handler table merged from every module, built once at load. */
-const registry: Map<string, ToolHandler> = (() => {
-  const map = new Map<string, ToolHandler>();
-  for (const mod of modules) {
-    for (const [name, handler] of mod.handlers) {
-      if (map.has(name)) throw new Error(`Duplicate tool name across modules: ${name}`);
-      map.set(name, handler);
-    }
-  }
-  return map;
-})();
+const READ_ONLY_ON = ["true", "1", "yes", "on"];
+const READ_ONLY_OFF = ["false", "0", "no", "off"];
 
 /**
- * Returns every tool definition across all modules.
+ * Parses `DISCORD_MCP_READ_ONLY` (case-insensitive). Unset or empty is off. Unlike the
+ * lenient intent flags in client.ts, any other value throws at startup: a typo must
+ * not silently expose the write tools.
+ */
+export function readOnlyMode(): boolean {
+  const raw = process.env.DISCORD_MCP_READ_ONLY?.trim() ?? "";
+  const value = raw.toLowerCase();
+  if (value === "" || READ_ONLY_OFF.includes(value)) return false;
+  if (READ_ONLY_ON.includes(value)) return true;
+  throw new Error(
+    `Invalid DISCORD_MCP_READ_ONLY: "${raw}". ` +
+      `Accepted: ${READ_ONLY_ON.join(", ")} to enable it; ${READ_ONLY_OFF.join(", ")} to disable it.`,
+  );
+}
+
+/**
+ * The exposed tools: `DISCORD_MCP_TOOLSETS`, narrowed by `DISCORD_MCP_READ_ONLY` to
+ * the tools annotated `readOnlyHint: true`. Handlers are looked up from the kept
+ * definitions, so a tool is callable exactly when it is listed.
+ * @throws {Error} If either variable is invalid, or if read-only mode leaves no tool.
+ */
+export function selectTools(): {
+  definitions: ToolDefinition[];
+  handlers: ReadonlyMap<string, ToolHandler>;
+} {
+  const modules = selectModules();
+  const readOnly = readOnlyMode();
+  const definitions: ToolDefinition[] = [];
+  const handlers = new Map<string, ToolHandler>();
+  for (const mod of modules) {
+    for (const def of mod.definitions) {
+      if (readOnly && def.annotations?.readOnlyHint !== true) continue;
+      const handler = mod.handlers.get(def.name);
+      if (!handler) throw new Error(`Tool ${def.name} has no handler.`);
+      if (handlers.has(def.name))
+        throw new Error(`Duplicate tool name across modules: ${def.name}`);
+      definitions.push(def);
+      handlers.set(def.name, handler);
+    }
+  }
+  if (definitions.length === 0) {
+    throw new Error(
+      `DISCORD_MCP_READ_ONLY leaves no tool to expose: the toolsets in DISCORD_MCP_TOOLSETS ` +
+        `("${process.env.DISCORD_MCP_TOOLSETS?.trim()}") have no read-only tool. ` +
+        `Add a toolset with read tools, such as discovery, or turn read-only mode off.`,
+    );
+  }
+  return { definitions, handlers };
+}
+
+const { definitions, handlers: registry } = selectTools();
+
+/**
+ * Returns every exposed tool definition.
  * Called on each tools/list request from the MCP client.
  */
 export function getAllDefinitions(): ToolDefinition[] {
-  return modules.flatMap((m) => m.definitions);
+  return definitions;
 }
 
 /** True if a tool with this name is registered (and not gated off). */

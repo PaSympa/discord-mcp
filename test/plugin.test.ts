@@ -126,3 +126,34 @@ test("the skills name only tools the server has", () => {
     }
   }
 });
+
+test("each skill's frontmatter is valid and pre-approves only read-only tools", () => {
+  delete process.env.DISCORD_MCP_TOOLSETS;
+  const readOnly = new Set(
+    selectModules()
+      .flatMap((mod) => mod.definitions)
+      .filter((def) => def.annotations?.readOnlyHint === true)
+      .map((def) => def.name),
+  );
+  // Claude Code names a plugin's MCP tools mcp__plugin_<plugin>_<server>__<tool>.
+  const prefixes = servers.map(([server]) => `mcp__plugin_${plugin.name}_${server}__`);
+  const dir = join(root, "plugin", "skills");
+  for (const skill of readdirSync(dir)) {
+    const front = /^---\n([\s\S]*?)\n---\n/.exec(
+      readFileSync(join(dir, skill, "SKILL.md"), "utf8"),
+    )?.[1];
+    assert.ok(front, `skills/${skill}/SKILL.md has no frontmatter`);
+    assert.equal(
+      /^name: (.+)$/m.exec(front)?.[1],
+      skill,
+      `skills/${skill}: name and folder differ`,
+    );
+    const description = /^description: (.+)$/m.exec(front)?.[1] ?? "";
+    assert.ok(description.length > 0 && description.length <= 1024, `skills/${skill}: description`);
+    for (const [, tool] of front.matchAll(/^ {2}- (\S+)$/gm)) {
+      const prefix = prefixes.find((p) => tool.startsWith(p));
+      assert.ok(prefix, `skills/${skill} pre-approves ${tool}, which this plugin does not serve`);
+      assert.ok(readOnly.has(tool.slice(prefix.length)), `skills/${skill} pre-approves ${tool}`);
+    }
+  }
+});

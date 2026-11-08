@@ -33,7 +33,7 @@ function capturePinFetches(hasMore: boolean, items: PinFixture[]): Record<string
           items: items.map(({ id, pinnedAt }) => ({
             message: {
               id,
-              author: { tag: "someone" },
+              author: { id: "555555555555555555", tag: "someone" },
               content: `pinned ${id}`,
               createdAt: new Date(SENT_AT),
               embeds: [],

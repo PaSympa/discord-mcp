@@ -9,7 +9,7 @@ import {
   riskBadge,
   tpl,
 } from "../client/tpl.mjs";
-import { ICONS, layout } from "./layout.mjs";
+import { firstFitting, ICONS, layout } from "./layout.mjs";
 import { md, terminal } from "./parts.mjs";
 
 const UP = "../";
@@ -218,7 +218,12 @@ export function renderCatalog(site) {
     ogType: "article",
     current: "tools",
     title: "discord-mcp tool catalog",
-    description: `All ${totals.tools} tools of the discord-mcp server, with what each one can change, its parameters and declared output, and a toolset builder that estimates context cost.`,
+    description: firstFitting(
+      [
+        `All ${totals.tools} tools of the discord-mcp server: what each one can change, its parameters and output, and a toolset builder that estimates context cost.`,
+      ],
+      160,
+    ),
     body: String(body),
     script: "catalog.js",
     searchButton: true,

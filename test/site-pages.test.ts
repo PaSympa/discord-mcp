@@ -217,6 +217,13 @@ test("nothing on any page loads from another host", () => {
     assert.ok(!/^(https?:)?\/\//.test(url), `site.css loads ${url}`);
 });
 
+const unescape = (text: string) =>
+  text
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
 test("every page has a unique title and description, its canonical URL, one h1 and Open Graph tags", () => {
   const png = readFileSync(join(out, "assets/social-preview.png"));
   const image = { width: png.readUInt32BE(16), height: png.readUInt32BE(20) };
@@ -228,9 +235,11 @@ test("every page has a unique title and description, its canonical URL, one h1 a
     assert.equal(title.length, 1, `${page}: one title`);
     assert.ok(!titles.has(title[0]), `${page} repeats the title of ${titles.get(title[0])}`);
     titles.set(title[0], page);
+    assert.ok(unescape(title[0]).length <= 60, `${page}: title "${title[0]}" is over 60`);
     const description = metas(html, "description");
     assert.equal(description.length, 1, `${page}: one description`);
-    assert.ok(description[0].length >= 50, `${page}: description "${description[0]}"`);
+    const text = unescape(description[0]);
+    assert.ok(text.length >= 50 && text.length <= 160, `${page}: description "${text}"`);
     assert.ok(
       !descriptions.has(description[0]),
       `${page} repeats the description of ${descriptions.get(description[0])}`,
@@ -238,8 +247,15 @@ test("every page has a unique title and description, its canonical URL, one h1 a
     descriptions.set(description[0], page);
 
     const canonical = links(html, "canonical");
-    assert.deepEqual(canonical, [siteUrl + urlPath(page)], `${page}: canonical`);
-    assert.deepEqual(metas(html, "og:url"), canonical, `${page}: og:url`);
+    if (page === "404.html") {
+      assert.deepEqual(canonical, [], "404.html has no canonical URL");
+      assert.deepEqual(metas(html, "og:url"), [], "404.html has no og:url");
+      assert.deepEqual(metas(html, "robots"), ["noindex"], "404.html asks not to be indexed");
+    } else {
+      assert.deepEqual(canonical, [siteUrl + urlPath(page)], `${page}: canonical`);
+      assert.deepEqual(metas(html, "og:url"), canonical, `${page}: og:url`);
+      assert.deepEqual(metas(html, "robots"), [], `${page}: indexable`);
+    }
     assert.equal(html.match(/<h1[\s>]/g)?.length, 1, `${page}: one h1`);
     const levels = [...withoutData(html).matchAll(/<h([1-6])[\s>]/g)].map((m) => Number(m[1]));
     levels.forEach((level, i) =>
@@ -274,7 +290,7 @@ test("every page has a unique title and description, its canonical URL, one h1 a
   }
 });
 
-test("tool pages carry a BreadcrumbList that ends at their canonical URL", () => {
+test("tool pages carry a BreadcrumbList that matches the visible breadcrumb", () => {
   for (const tool of catalog.tools) {
     const page = toolPage(tool.name);
     const html = read(page);
@@ -283,16 +299,28 @@ test("tool pages carry a BreadcrumbList that ends at their canonical URL", () =>
     const ld = JSON.parse(blocks[0][1]);
     assert.equal(ld["@context"], "https://schema.org");
     assert.equal(ld["@type"], "BreadcrumbList");
-    const items = ld.itemListElement;
-    assert.deepEqual(
-      items.map((item: { position: number }) => item.position),
-      [1, 2, 3],
+    const crumbs = /<nav class="crumbs" aria-label="Breadcrumb"><ol>([\s\S]*?)<\/ol><\/nav>/.exec(
+      html,
+    )![1];
+    const visible = [...crumbs.matchAll(/<li( aria-current="page")?>([\s\S]*?)<\/li>/g)].map(
+      ([, current, inner]) => {
+        const href = /<a href="([^"]+)">/.exec(inner)?.[1];
+        const url = href
+          ? new URL(href, siteUrl + urlPath(page)).href
+          : current && siteUrl + urlPath(page);
+        return { name: unescape(inner.replace(/<[^>]+>/g, "")), url };
+      },
     );
-    assert.deepEqual(
-      items.map((item: { item: string }) => pageOf(item.item)),
-      ["index.html", "tools/index.html", page],
+    const items = ld.itemListElement.map(
+      (item: { position: number; name: string; item: string }, i: number) => {
+        assert.equal(item.position, i + 1, `${page}: position`);
+        return { name: item.name, url: item.item };
+      },
     );
-    assert.equal(items[2].name, tool.title);
+    assert.deepEqual(items, visible, `${page}: JSON-LD and visible breadcrumb`);
+    assert.equal(visible.at(-1)!.name, tool.title, `${page}: the trail ends at the tool`);
+    assert.equal(visible.at(-1)!.url, siteUrl + urlPath(page));
+    for (const { url } of visible) assert.ok(existsSync(join(out, pageOf(url.split("#")[0]))));
   }
   for (const page of ["index.html", "tools/index.html", "404.html"])
     assert.doesNotMatch(read(page), /application\/ld\+json/, `${page} has no breadcrumb`);
@@ -585,13 +613,6 @@ test("search puts a sensible tool first for task words and name fragments", asyn
   assert.equal(partial.results[0].name, "discord_ban_member");
   assert.equal(search(index, "zzzz").results.length, 0);
 });
-
-const unescape = (text: string) =>
-  text
-    .replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&");
 
 test("permission lines keep the bracketed clauses, and the label follows the count", () => {
   const facts = (name: string) =>

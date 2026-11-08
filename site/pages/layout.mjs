@@ -39,11 +39,24 @@ export function inlineLogo(svg) {
  * Wraps a page body in the shared head, header and footer. `path` is the page's URL below
  * the site root ("" for the home page, "tools/x/" for a folder). Every link is relative to
  * it, so the site works under any base path, /discord-mcp/ on GitHub Pages included. A page
- * served at any address, like 404.html, passes `base`: the root path its links start from.
+ * served at any address, like 404.html, passes `base`: the root path its links start from,
+ * and `indexed: false`, which drops the canonical URL and asks crawlers not to index it.
  */
 export function layout(
   site,
-  { path, base, current, title, description, body, script, searchButton, ogType, jsonLd },
+  {
+    path,
+    base,
+    indexed = true,
+    current,
+    title,
+    description,
+    body,
+    script,
+    searchButton,
+    ogType,
+    jsonLd,
+  },
 ) {
   const up = base ?? "../".repeat(path.split("/").length - 1);
   const canonical = SITE_URL + path;
@@ -59,6 +72,10 @@ export function layout(
   const search = searchButton
     ? tpl`<button class="search-btn" type="button" id="search-jump">${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span><kbd>/</kbd></button>`
     : tpl`<a class="search-btn" href="${up}tools/#search">${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span><kbd>/</kbd></a>`;
+  const indexing = indexed
+    ? tpl`<link rel="canonical" href="${canonical}">
+<meta property="og:url" content="${canonical}">`
+    : tpl`<meta name="robots" content="noindex">`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -66,12 +83,11 @@ export function layout(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${tpl`${title}`}</title>
 <meta name="description" content="${tpl`${description}`}">
-${tpl`<link rel="canonical" href="${canonical}">
+${tpl`${indexing}
 <meta property="og:type" content="${ogType}">
 <meta property="og:site_name" content="discord-mcp">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
-<meta property="og:url" content="${canonical}">
 <meta property="og:image" content="${SITE_URL}${og.path}">
 <meta property="og:image:width" content="${og.width}">
 <meta property="og:image:height" content="${og.height}">
@@ -117,3 +133,15 @@ ${tpl`<footer class="foot">
 </html>
 `;
 }
+
+/** Cuts text to at most `max` characters at a word boundary, marking the cut with an ellipsis. */
+export function fit(text, max) {
+  if (text.length <= max) return text;
+  let cut = text.slice(0, max - 1);
+  if (/\S/.test(text[max - 1])) cut = cut.replace(/\s+\S*$/, "");
+  return cut.replace(/[\s,;:]+$/, "") + "\u2026";
+}
+
+/** The first candidate that fits in `max` characters, else the last one cut to fit. */
+export const firstFitting = (candidates, max) =>
+  candidates.find((text) => text.length <= max) ?? fit(candidates.at(-1), max);

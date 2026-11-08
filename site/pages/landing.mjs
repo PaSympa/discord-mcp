@@ -1,6 +1,6 @@
 import { breakable, formatInt, formatTokens, glyph, plural, raw, tpl } from "../client/tpl.mjs";
 import { inline } from "../markdown.mjs";
-import { ICONS, layout } from "./layout.mjs";
+import { firstFitting, ICONS, layout } from "./layout.mjs";
 import { md, terminal, toolChip } from "./parts.mjs";
 
 const UP = "";
@@ -291,7 +291,13 @@ export function renderLanding(site) {
     ogType: "website",
     current: "home",
     title: `discord-mcp: ${site.readme.tagline}`,
-    description: site.description,
+    description: firstFitting(
+      [
+        site.description,
+        `Connect Claude, Codex, Cursor, VS Code and any MCP client to your Discord server through your own bot: ${site.totals.tools} tools, dry runs for mass actions, read-only mode.`,
+      ],
+      160,
+    ),
     body,
     script: "landing.js",
   });

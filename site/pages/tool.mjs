@@ -1,6 +1,6 @@
 import { permissionLabel, permissionLines, renderToolDetail } from "../client/detail.mjs";
 import { breakable, formatInt, raw, riskBadge, tpl } from "../client/tpl.mjs";
-import { layout, SITE_URL } from "./layout.mjs";
+import { firstFitting, layout, SITE_URL } from "./layout.mjs";
 
 const RISK_WORD = { read: "Read-only", write: "Write", destructive: "Destructive" };
 
@@ -11,11 +11,47 @@ const EXAMPLE_SLOT = raw(
 
 export const toolPath = (name) => `tools/${name}/`;
 
+/** Title of at most 60 characters and description of at most 160, for search results. */
+export function toolMeta(tool, label) {
+  const word = RISK_WORD[tool.risk];
+  return {
+    title: firstFitting(
+      [
+        `${tool.title}: ${tool.name} | discord-mcp`,
+        `${tool.title}: ${tool.name}`,
+        `${tool.title} | discord-mcp`,
+      ],
+      60,
+    ),
+    description: firstFitting(
+      [
+        `${tool.purpose} ${word} tool in the ${label} toolset of the discord-mcp server.`,
+        `${tool.purpose} ${word} tool of the discord-mcp server.`,
+        tool.purpose,
+      ],
+      160,
+    ),
+  };
+}
+
+/** The breadcrumb trail of a tool page: shown above its title and given to search engines. */
+export function toolTrail(tool, label) {
+  return [
+    { name: "Tools", href: "../", url: SITE_URL + "tools/" },
+    {
+      name: label,
+      href: `../#set-${tool.toolset}`,
+      url: `${SITE_URL}tools/#set-${tool.toolset}`,
+    },
+    { name: tool.title, url: SITE_URL + toolPath(tool.name) },
+  ];
+}
+
 /** One tool's page: what the catalog panel shows, under an h1, at its own URL. */
 export function renderToolPage(site, tool) {
   const labels = Object.fromEntries(site.toolsets.map((s) => [s.name, s.label]));
   const label = labels[tool.toolset];
-  const path = toolPath(tool.name);
+  const trail = toolTrail(tool, label);
   const { body } = renderToolDetail(tool, {
     labels,
     byName: site.byName,
@@ -25,7 +61,11 @@ export function renderToolPage(site, tool) {
   });
   const permissions = permissionLines(tool.permissions);
   const id = tpl`<div class="tp-id">
-  <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="../">Tools</a></li><li><a href="../#set-${tool.toolset}">${label}</a></li></ol></nav>
+  <nav class="crumbs" aria-label="Breadcrumb"><ol>${trail.map((step) =>
+    step.href
+      ? tpl`<li><a href="${step.href}">${step.name}</a></li>`
+      : tpl`<li aria-current="page">${step.name}</li>`,
+  )}</ol></nav>
   <h1>${tool.title}</h1>
   <p class="tp-name"><code>${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button></p>
   <p class="tp-badges">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}</p>
@@ -36,10 +76,9 @@ export function renderToolPage(site, tool) {
   </dl>
 </div>`;
   return layout(site, {
-    path,
+    path: toolPath(tool.name),
     current: "",
-    title: `${tool.title}: ${tool.name} | discord-mcp`,
-    description: `${tool.purpose} ${RISK_WORD[tool.risk]} tool in the ${label} toolset of discord-mcp, the MCP server for Discord.`,
+    ...toolMeta(tool, label),
     body: String(tpl`<div class="wrap tp">
 ${id}
 <div class="tp-main">${body}</div>
@@ -49,11 +88,12 @@ ${id}
     jsonLd: {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
-      itemListElement: [
-        ["discord-mcp", SITE_URL],
-        ["Tools", SITE_URL + "tools/"],
-        [tool.title, SITE_URL + path],
-      ].map(([name, item], i) => ({ "@type": "ListItem", position: i + 1, name, item })),
+      itemListElement: trail.map((step, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: step.name,
+        item: step.url,
+      })),
     },
   });
 }

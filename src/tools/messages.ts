@@ -27,7 +27,16 @@ import {
   embedSummary,
   embedField,
 } from "../embeds.js";
-import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
+import {
+  defineModule,
+  defineTool,
+  snowflake,
+  guildId,
+  intIn,
+  structured,
+  messageAuthor,
+  messageAuthorShape,
+} from "./define.js";
 
 const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
 const messageId = snowflake.describe("ID of the message.");
@@ -84,6 +93,7 @@ function cursorForInstant(iso: string): string {
 const messageSummary = z.object({
   id: z.string(),
   author: z.string(),
+  ...messageAuthorShape,
   content: z.string(),
   timestamp: z.string(),
   embeds: z.array(embedSummary).optional(),
@@ -177,6 +187,7 @@ const tools = [
         "Pass at most one of before, after, around, or since: Discord treats before/after/around as mutually exclusive, and since is a form of after.",
       ),
     outputSchema: z.object({
+      guild_id: z.string().nullable(),
       messages: z.array(messageSummary.extend({ attachments: z.number(), pinned: z.boolean() })),
     }),
     handle: async ({ channel_id, limit, before, after, around, since }) => {
@@ -194,13 +205,14 @@ const tools = [
         .map((m) => ({
           id: m.id,
           author: m.author.tag,
+          ...messageAuthor(m.author.id, m.webhookId),
           content: m.content,
           timestamp: m.createdAt.toISOString(),
           ...embedField(m.embeds),
           attachments: m.attachments.size,
           pinned: m.pinned,
         }));
-      return structured({ messages: result });
+      return structured({ guild_id: channel.guildId, messages: result });
     },
   }),
   defineTool({
@@ -656,6 +668,7 @@ const tools = [
         .map((m) => ({
           id: m.id,
           author: m.author.tag,
+          ...messageAuthor(m.author.id, m.webhookId),
           content: m.content,
           timestamp: m.createdAt.toISOString(),
           ...embedField(m.embeds),
@@ -700,7 +713,8 @@ const tools = [
             content: string;
             timestamp: string;
             channel_id: string;
-            author: { username: string; discriminator: string };
+            author: { id: string; username: string; discriminator: string };
+            webhook_id?: string;
             embeds?: {
               title?: string;
               description?: string;
@@ -722,6 +736,7 @@ const tools = [
       const matches = data.messages.flat().map((m) => ({
         id: m.id,
         author: userTag(m.author),
+        ...messageAuthor(m.author.id, m.webhook_id),
         content: m.content,
         timestamp: m.timestamp,
         ...embedField(m.embeds ?? []),
@@ -939,6 +954,7 @@ const tools = [
         ),
     }),
     outputSchema: z.object({
+      guild_id: z.string().nullable(),
       messages: z.array(messageSummary.extend({ pinnedAt: z.string() })),
       hasMore: z.boolean(),
       nextBefore: z.string().nullable(),
@@ -949,6 +965,7 @@ const tools = [
       const messages = pinned.items.map(({ message: m, pinnedAt }) => ({
         id: m.id,
         author: m.author.tag,
+        ...messageAuthor(m.author.id, m.webhookId),
         content: m.content,
         timestamp: m.createdAt.toISOString(),
         ...embedField(m.embeds),
@@ -957,7 +974,12 @@ const tools = [
       // Pins come back newest first, and hasMore follows the cursor so the two cannot disagree.
       const oldest = pinned.items.at(-1);
       const nextBefore = pinned.hasMore && oldest ? oldest.pinnedAt.toISOString() : null;
-      return structured({ messages, hasMore: nextBefore !== null, nextBefore });
+      return structured({
+        guild_id: channel.guildId,
+        messages,
+        hasMore: nextBefore !== null,
+        nextBefore,
+      });
     },
   }),
   defineTool({

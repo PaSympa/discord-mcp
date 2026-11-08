@@ -4,9 +4,12 @@ import { discord } from "../src/client.js";
 import { embedField } from "../src/embeds.js";
 import messages from "../src/tools/messages.js";
 import forums from "../src/tools/forums.js";
+import dm from "../src/tools/dm.js";
 
 const GUILD = "111111111111111111";
 const CHANNEL = "333333333333333333";
+const MEMBER = "555555555555555555";
+const WEBHOOK = "666666666666666666";
 
 afterEach(() => mock.restoreAll());
 
@@ -14,6 +17,8 @@ interface MessageFixture {
   id: string;
   content: string;
   embeds?: unknown[];
+  authorId?: string;
+  webhookId?: string;
 }
 
 function stubMessages(items: MessageFixture[]) {
@@ -132,7 +137,8 @@ function builtMessage(m: MessageFixture) {
   return {
     id: m.id,
     content: m.content,
-    author: { tag: "someone" },
+    author: { id: m.authorId ?? MEMBER, tag: "someone" },
+    webhookId: m.webhookId ?? null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     createdTimestamp: 1767225600000,
     embeds: m.embeds ?? [],
@@ -197,7 +203,8 @@ const READERS: {
         content: m.content,
         timestamp: "2026-01-01T00:00:00.000Z",
         channel_id: CHANNEL,
-        author: { username: "someone", discriminator: "0" },
+        author: { id: m.authorId ?? MEMBER, username: "someone", discriminator: "0" },
+        ...(m.webhookId ? { webhook_id: m.webhookId } : {}),
         embeds: m.embeds ?? [],
       }));
       mock.method(discord.rest, "get", async () => ({ messages: raw.map((r) => [r]) }));
@@ -270,4 +277,87 @@ test("every message-reading tool advertises the embed field", () => {
     JSON.stringify(forumPost.outputSchema).includes("embeds"),
     "discord_get_forum_post must advertise embeds too",
   );
+});
+
+type AuthorFields = { id: string; author_id: string; webhook_id?: string };
+
+for (const reader of READERS) {
+  test(`${reader.name} gives each author's id and sets webhook_id only on a webhook post`, async () => {
+    const result = (await reader.call([
+      { id: "1", content: "member", authorId: MEMBER },
+      { id: "2", content: "hook", authorId: WEBHOOK, webhookId: WEBHOOK },
+    ])) as { structuredContent: Record<string, AuthorFields[]> };
+    const list = result.structuredContent[reader.key];
+
+    const member = list.find((m) => m.id === "1")!;
+    assert.equal(member.author_id, MEMBER);
+    assert.ok(!("webhook_id" in member), "a member's message must not carry a webhook_id key");
+
+    const hook = list.find((m) => m.id === "2")!;
+    assert.equal(hook.webhook_id, WEBHOOK);
+    assert.equal(hook.author_id, WEBHOOK, "Discord reports the webhook as the post's author");
+  });
+}
+
+test("discord_read_dms gives each author's id and sets webhook_id only on a webhook post", async () => {
+  const BOT = "777777777777777777";
+  const APP = "888888888888888888";
+  const sent = [
+    { id: "1", author: { id: MEMBER, username: "someone" }, webhookId: null },
+    // An interaction reply carries the application's ID as webhook_id; its author is the bot user.
+    { id: "2", author: { id: BOT, username: "bot" }, webhookId: APP },
+  ].map((m, i) => ({ ...m, content: "", embeds: [], createdAt: new Date(i), createdTimestamp: i }));
+  const channel = { messages: { fetch: async () => new Map(sent.map((m) => [m.id, m])) } };
+  mock.method(discord.users, "fetch", async () => ({ createDM: async () => channel }) as never);
+
+  const result = await dm.handlers.get("discord_read_dms")!({ user_id: MEMBER });
+  const [member, reply] = (result.structuredContent as { messages: AuthorFields[] }).messages;
+  assert.equal(member.author_id, MEMBER);
+  assert.ok(!("webhook_id" in member), "a member's message must not carry a webhook_id key");
+  assert.equal(reply.author_id, BOT);
+  assert.equal(reply.webhook_id, APP);
+});
+
+const GUILD_READERS = ["discord_read_messages", "discord_fetch_pinned_messages"];
+
+for (const name of GUILD_READERS) {
+  test(`${name} names the guild the channel belongs to`, async () => {
+    const reader = READERS.find((r) => r.name === name)!;
+    const result = (await reader.call([{ id: "1", content: "x" }])) as {
+      structuredContent: { guild_id: unknown };
+    };
+    assert.equal(result.structuredContent.guild_id, GUILD);
+  });
+}
+
+test("every message-reading tool advertises author_id and an optional webhook_id", () => {
+  const definitions = [...messages.definitions, ...forums.definitions, ...dm.definitions];
+  for (const { name, key } of [...READERS, { name: "discord_read_dms", key: "messages" }]) {
+    const definition = definitions.find((d) => d.name === name);
+    assert.ok(definition, `${name} should be defined`);
+    const schema = definition.outputSchema as {
+      properties: Record<
+        string,
+        { items: { properties: Record<string, { type?: unknown }>; required: string[] } }
+      >;
+    };
+    const { properties, required } = schema.properties[key].items;
+    assert.equal(properties.author_id?.type, "string", `${name} must advertise author_id`);
+    assert.ok(required.includes("author_id"), `${name} sends author_id on every message`);
+    assert.equal(properties.webhook_id?.type, "string", `${name} must advertise webhook_id`);
+    assert.ok(!required.includes("webhook_id"), `${name} sends webhook_id only on a webhook post`);
+  }
+});
+
+test("read_messages and fetch_pinned_messages advertise guild_id as a string or null", () => {
+  for (const name of GUILD_READERS) {
+    const definition = messages.definitions.find((d) => d.name === name);
+    assert.ok(definition, `${name} should be defined`);
+    const schema = definition.outputSchema as {
+      properties: Record<string, { type?: unknown }>;
+      required: string[];
+    };
+    assert.deepEqual(schema.properties.guild_id?.type, ["string", "null"], name);
+    assert.ok(schema.required.includes("guild_id"), `${name} sends guild_id on every call`);
+  }
 });

@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { discord } from "../client.js";
 import { buildEmbed, embedFieldsShape } from "../embeds.js";
-import { defineTool, defineModule, snowflake, intIn, structured } from "./define.js";
+import {
+  defineTool,
+  defineModule,
+  snowflake,
+  intIn,
+  structured,
+  messageAuthor,
+  messageAuthorShape,
+} from "./define.js";
 
 const userId = snowflake.describe("Discord user ID (snowflake) of the DM recipient.");
 const messageId = snowflake.describe("ID of the target message within the DM conversation.");
@@ -178,6 +186,7 @@ const tools = [
         z.object({
           id: z.string(),
           author: z.string(),
+          ...messageAuthorShape,
           content: z.string(),
           embeds: z.number(),
           timestamp: z.string(),
@@ -193,6 +202,7 @@ const tools = [
         .map((m) => ({
           id: m.id,
           author: m.author.username,
+          ...messageAuthor(m.author.id, m.webhookId),
           content: m.content,
           embeds: m.embeds.length,
           timestamp: m.createdAt.toISOString(),

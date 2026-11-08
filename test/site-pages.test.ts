@@ -562,6 +562,12 @@ test("search puts a sensible tool first for task words and name fragments", asyn
     ["purge", "discord_bulk_delete_messages"],
     ["give a role", "discord_add_role"],
     ["schedule an event", "discord_create_scheduled_event"],
+    ["create event", "discord_create_scheduled_event"],
+    ["dm", "discord_send_dm"],
+    ["event", "discord_create_scheduled_event"],
+    ["webhook", "discord_create_webhook"],
+    ["invite", "discord_create_invite"],
+    ["message", "discord_send_message"],
   ];
   for (const [q, name] of first) assert.equal(top(q)[0], name, `"${q}"`);
   // Both deletion tools fit these; either may lead.

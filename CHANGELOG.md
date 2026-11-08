@@ -7,6 +7,7 @@
 - `server.json` declares every environment variable the server reads, so MCP Registry clients can prompt for them. `DISCORD_MCP_TOOLSETS`, `DISCORD_ALLOWED_GUILDS`, `DISCORD_MESSAGE_CONTENT` and `DISCORD_GUILD_MEMBERS` join `DISCORD_TOKEN` on both the npm and Docker packages
 - `DISCORD_MCP_READ_ONLY=true` exposes only the 35 tools annotated `readOnlyHint: true`. Write tools are absent from `tools/list`, and `tools/call` rejects them as unknown tools. The mode narrows `DISCORD_MCP_TOOLSETS`. An invalid value, or a selection with no read-only tool left, stops the server at startup
 - A Claude Desktop bundle, `discord-mcp.mcpb`, is attached to each GitHub Release and listed in the MCP Registry. Opening it installs the server and asks for the bot token; it runs on the Node.js built into Claude Desktop
+- The README explains how to use the server from ChatGPT Business, Enterprise and Edu through OpenAI's Secure MCP Tunnel, which starts it over stdio. Contributed by [@rokrokss](https://github.com/rokrokss) in [#151](https://github.com/PaSympa/discord-mcp/pull/151)
 
 ### Changed
 

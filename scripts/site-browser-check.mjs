@@ -56,6 +56,7 @@ const SEARCHES = [
   ["event", "discord_create_scheduled_event"],
   ["webhook", "discord_create_webhook"],
   ["invite", "discord_create_invite"],
+  ["who reacted to a message", "discord_get_reactions"],
 ];
 const MISSPELLED = [
   ["tools/discord_ban_membr/", "discord_ban_member"],
@@ -245,7 +246,8 @@ const FOCUSABLES = `(() => {
   return keep.length;
 })()`;
 
-// Runs in the page: which expected element has focus, and whether its ring shows.
+// Runs in the page: which expected element has focus, whether its ring shows, and whether
+// something else covers it (the open menu did). Hidden inputs show through their label.
 const FOCUSED = `(() => {
   const el = document.activeElement;
   if (!el || el === document.body) return null;
@@ -255,7 +257,11 @@ const FOCUSED = `(() => {
     return (cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0) || cs.boxShadow !== "none";
   };
   const hidden = getComputedStyle(el).opacity === "0";
-  return { k: el.getAttribute("data-k"), ring: hidden ? ring(el.nextElementSibling) : ring(el) || ring(el.nextElementSibling), what: el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + "." + el.className };
+  const shown = hidden ? el.nextElementSibling : el;
+  const r = shown.getBoundingClientRect();
+  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  const covered = !hit || !(shown.contains(hit) || hit.contains(shown) || [...(el.labels || [])].some((label) => label.contains(hit)));
+  return { k: el.getAttribute("data-k"), ring: hidden ? ring(el.nextElementSibling) : ring(el) || ring(el.nextElementSibling), covered, what: el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + "." + el.className + (covered && hit ? " under " + hit.tagName.toLowerCase() + "." + hit.className : "") };
 })()`;
 
 async function main() {
@@ -410,6 +416,7 @@ async function main() {
           );
           const seen = new Map();
           const noRing = [];
+          const covered = [];
           for (let i = 0; i < expected + 4 && seen.size < expected; i++) {
             await pressTab();
             const focus = await evaluate(FOCUSED);
@@ -418,6 +425,7 @@ async function main() {
               seen.set(focus.k, focus);
               counts.tabStops++;
               if (!focus.ring) noRing.push(focus.what);
+              if (focus.covered) covered.push(focus.what);
             }
           }
           check(
@@ -429,6 +437,11 @@ async function main() {
             `${where}: focus is visible on every stop`,
             noRing.length === 0,
             noRing.slice(0, 5),
+          );
+          check(
+            `${where}: no Tab stop sits under another element`,
+            covered.length === 0,
+            covered.slice(0, 5),
           );
 
           const overflow = await evaluate(OVERFLOW);
@@ -602,6 +615,65 @@ async function main() {
             `Escape closes the menu and returns focus to its button ${at}`,
             after.expanded === "false" && after.links === 0 && (await focusedId()) === "menu-btn",
             after,
+          );
+
+          await click("#menu-btn");
+          await click('#site-nav a[href="#install"]');
+          await sleep(150);
+          const clicked = await menu();
+          check(
+            `clicking an in-page menu link closes the menu ${at}`,
+            (await evaluate("location.hash")) === "#install" &&
+              clicked.expanded === "false" &&
+              clicked.links === 0,
+            clicked,
+          );
+
+          await go("tools/");
+          await click("#menu-btn");
+          await evaluate(`document.querySelector('#site-nav a[href$="#builder"]').focus()`);
+          for (const type of ["keyDown", "keyUp"])
+            await send("Input.dispatchKeyEvent", {
+              type,
+              key: "Enter",
+              code: "Enter",
+              windowsVirtualKeyCode: 13,
+              text: type === "keyDown" ? "\r" : undefined,
+            });
+          await sleep(150);
+          const entered = await menu();
+          check(
+            `Enter on an in-page menu link closes the menu ${at}`,
+            (await evaluate("location.hash")) === "#builder" &&
+              entered.expanded === "false" &&
+              entered.links === 0,
+            entered,
+          );
+
+          await go("tools/discord_ban_member/");
+          await click("#menu-btn");
+          await evaluate(`[...document.querySelectorAll("#site-nav a")].at(-1).focus()`);
+          const landed = [];
+          for (let i = 0; i < 5; i++) {
+            await pressTab();
+            landed.push(await evaluate(FOCUSED));
+          }
+          const left = await menu();
+          check(
+            `tabbing out of the menu closes it, and no later stop is under it ${at}`,
+            left.expanded === "false" &&
+              left.links === 0 &&
+              landed.every((focus) => focus && !focus.covered),
+            { ...left, landed: landed.map((focus) => focus?.what) },
+          );
+          if ((await menu()).expanded !== "true") await click("#menu-btn");
+          await evaluate(`document.getElementById("menu-btn").focus()`);
+          await press("Tab", "Tab", 9, 8);
+          const back = await menu();
+          check(
+            `shift+Tab out of the menu closes it ${at}`,
+            back.expanded === "false" && back.links === 0,
+            back,
           );
         } else {
           const wide = await menu();

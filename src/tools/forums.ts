@@ -161,6 +161,8 @@ const tools = [
         z.object({
           id: z.string(),
           author: z.string(),
+          author_id: z.string(),
+          webhook_id: z.string().optional(),
           content: z.string(),
           timestamp: z.string(),
           embeds: z.array(embedSummary).optional(),
@@ -183,6 +185,8 @@ const tools = [
           .map((m) => ({
             id: m.id,
             author: m.author.tag,
+            author_id: m.author.id,
+            ...(m.webhookId ? { webhook_id: m.webhookId } : {}),
             content: m.content,
             timestamp: m.createdAt.toISOString(),
             ...embedField(m.embeds),

@@ -178,6 +178,8 @@ const tools = [
         z.object({
           id: z.string(),
           author: z.string(),
+          author_id: z.string(),
+          webhook_id: z.string().optional(),
           content: z.string(),
           embeds: z.number(),
           timestamp: z.string(),
@@ -193,6 +195,8 @@ const tools = [
         .map((m) => ({
           id: m.id,
           author: m.author.username,
+          author_id: m.author.id,
+          ...(m.webhookId ? { webhook_id: m.webhookId } : {}),
           content: m.content,
           embeds: m.embeds.length,
           timestamp: m.createdAt.toISOString(),

@@ -299,7 +299,7 @@ test("tool pages carry a BreadcrumbList that ends at their canonical URL", () =>
 });
 
 test("each tool page shows the tool's title, name, risk, permission, schemas and links as declared", async () => {
-  const { permissionText } = await siteDetail();
+  const { permissionLines, permissionLabel } = await siteDetail();
   const { breakable, esc, formatInt } = await import("../site/client/tpl.mjs");
   const label: Record<string, string> = {
     read: "Read-only",
@@ -324,13 +324,11 @@ test("each tool page shows the tool's title, name, risk, permission, schemas and
       tool.dryRunDefault,
       `${page}: dry run`,
     );
-    const permission = permissionText(tool.permissions);
-    assert.equal(
-      id.includes(`<dt>Discord permission</dt><dd>${permission}</dd>`),
-      permission !== "",
-      `${page}: permission "${permission}"`,
-    );
-    assert.equal(id.includes("<dt>Discord permission</dt>"), permission !== "", page);
+    const lines: string[] = permissionLines(tool.permissions);
+    const shown = lines.map((line) => `<span class="perm">${esc(line)}</span>`).join("");
+    const dt = `<dt>${permissionLabel(tool.permissions)}</dt>`;
+    assert.equal(id.includes(`${dt}<dd>${shown}</dd>`), lines.length > 0, `${page}: ${shown}`);
+    assert.equal(/<dt>Discord permissions?<\/dt>/.test(id), lines.length > 0, page);
     assert.ok(id.includes(`${formatInt(tool.tokens)} tokens, estimated`), `${page}: token cost`);
 
     const output = /<section class="d-sec" aria-labelledby="d-out">([\s\S]*?)<\/section>/.exec(
@@ -586,4 +584,65 @@ test("search puts a sensible tool first for task words and name fragments", asyn
   assert.equal(partial.mode, "or", "a word no tool knows falls back to the other words");
   assert.equal(partial.results[0].name, "discord_ban_member");
   assert.equal(search(index, "zzzz").results.length, 0);
+});
+
+const unescape = (text: string) =>
+  text
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+test("permission lines keep the bracketed clauses, and the label follows the count", () => {
+  const facts = (name: string) =>
+    /<dt>(Discord permissions?)<\/dt><dd>((?:<span class="perm">[^<]*<\/span>)+)<\/dd>/
+      .exec(read(toolPage(name)))!
+      .slice(1)
+      .map(unescape);
+  assert.deepEqual(facts("discord_crosspost_message"), [
+    "Discord permissions",
+    '<span class="perm">Send Messages</span><span class="perm">Manage Messages for messages authored by others</span>',
+  ]);
+  assert.deepEqual(facts("discord_set_nickname"), [
+    "Discord permissions",
+    '<span class="perm">Manage Nicknames, or Change Nickname for the bot itself</span>',
+  ]);
+  assert.deepEqual(facts("discord_delete_invite"), [
+    "Discord permissions",
+    '<span class="perm">Manage Channels, or Manage Server</span>',
+  ]);
+  assert.deepEqual(facts("discord_ban_member"), [
+    "Discord permission",
+    '<span class="perm">Ban Members</span>',
+  ]);
+  assert.deepEqual(facts("discord_pin_message"), [
+    "Discord permission",
+    '<span class="perm">Pin Messages</span>',
+  ]);
+});
+
+test("a parameter that accepts several types shows each type with its own rules", () => {
+  const rules = (tool: string, param: string) => {
+    const html = read(toolPage(tool));
+    const row = new RegExp(`<span class="pn">${param}</span>[\\s\\S]*?</tr>`).exec(html)![0];
+    return [
+      ...row.matchAll(/<div class="pvar"><span class="pvt">([^<]*)<\/span>([\s\S]*?)<\/div>/g),
+    ].map(([, type, inner]) => [
+      unescape(type),
+      inner
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+    ]);
+  };
+  assert.deepEqual(rules("discord_set_role_icon", "icon"), [
+    ["string:", "format uri pattern ^https?://"],
+    ['"null"', ""],
+    ["null", ""],
+  ]);
+  const [number, integer, ...rest] = rules("discord_get_audit_log", "action_<wbr>type");
+  assert.equal(number[0], "number:");
+  assert.match(number[1], /^one of \d+ values/);
+  assert.deepEqual(integer, ["integer:", "at least 1"]);
+  assert.deepEqual(rest, []);
 });

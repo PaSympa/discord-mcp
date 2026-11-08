@@ -40,6 +40,7 @@ const PERMISSIONS = new RegExp(
   `\\bthe (${PERMISSION}(?:(?:,? and |, )${PERMISSION})*) permissions?\\b|\\b([A-Z]+(?:_[A-Z]+)+) permissions?\\b`,
   "g",
 );
+const BRACKETED = new RegExp(`\\((and|or) (${PERMISSION})((?: [^)]*)?)\\)`, "g");
 const titleCase = (constant) =>
   constant
     .toLowerCase()
@@ -49,11 +50,16 @@ const titleCase = (constant) =>
 
 /**
  * The Discord permissions a description says the tool requires, read from its "requires
- * the X permission" clauses. `when` holds the clause's subject when the requirement only
- * covers some calls ("deleting another user's message requires ..."), else null.
+ * the X permission" clauses and the "(and Y ...)" or "(or Z ...)" that follow them.
+ * `condition` limits a requirement to some calls ("for messages authored by others", or
+ * "when ..." with the subject of "... requires"); `alternativeTo` names the permission
+ * that this one can replace.
  */
 export function permissionsOf(description) {
   const found = [];
+  const add = (name, condition, alternativeTo = null) => {
+    if (!found.some((p) => p.name === name)) found.push({ name, condition, alternativeTo });
+  };
   for (const match of description.matchAll(/\brequires\b/gi)) {
     const before = description.slice(0, match.index);
     const subject = before
@@ -61,10 +67,16 @@ export function permissionsOf(description) {
       .trim();
     const rest = description.slice(match.index);
     const clause = rest.slice(0, rest.search(/[.;](?:\s|$)|$/));
-    const when = subject ? subject[0].toLowerCase() + subject.slice(1) : null;
+    const condition = subject ? "when " + subject[0].toLowerCase() + subject.slice(1) : null;
+    let last = null;
     for (const [, names, constant] of clause.matchAll(PERMISSIONS))
-      for (const name of constant ? [titleCase(constant)] : names.split(/,? and |, /))
-        if (!found.some((p) => p.name === name)) found.push({ name, when });
+      for (const name of constant ? [titleCase(constant)] : names.split(/,? and |, /)) {
+        add(name, condition);
+        last = name;
+      }
+    if (!last) continue;
+    for (const [, joint, name, scope] of clause.matchAll(BRACKETED))
+      add(name, scope.trim() || condition, joint === "or" ? last : null);
   }
   return found;
 }

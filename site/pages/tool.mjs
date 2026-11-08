@@ -1,4 +1,4 @@
-import { permissionText, renderToolDetail } from "../client/detail.mjs";
+import { permissionLabel, permissionLines, renderToolDetail } from "../client/detail.mjs";
 import { breakable, formatInt, raw, riskBadge, tpl } from "../client/tpl.mjs";
 import { layout, SITE_URL } from "./layout.mjs";
 
@@ -23,7 +23,7 @@ export function renderToolPage(site, tool) {
     level: 2,
     example: EXAMPLE_SLOT,
   });
-  const permission = permissionText(tool.permissions);
+  const permissions = permissionLines(tool.permissions);
   const id = tpl`<div class="tp-id">
   <nav class="crumbs" aria-label="Breadcrumb"><ol><li><a href="../">Tools</a></li><li><a href="../#set-${tool.toolset}">${label}</a></li></ol></nav>
   <h1>${tool.title}</h1>
@@ -31,7 +31,7 @@ export function renderToolPage(site, tool) {
   <p class="tp-badges">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}</p>
   <dl class="facts">
     <div><dt>Toolset</dt><dd><a href="../#set-${tool.toolset}">${label}</a> <code>${tool.toolset}</code></dd></div>
-    ${permission ? tpl`<div><dt>Discord permission</dt><dd>${permission}</dd></div>` : ""}
+    ${permissions.length ? tpl`<div><dt>${permissionLabel(tool.permissions)}</dt><dd>${permissions.map((line) => tpl`<span class="perm">${line}</span>`)}</dd></div>` : ""}
     <div><dt>Context cost</dt><dd>${formatInt(tool.tokens)} tokens, estimated<span class="fine">${formatInt(tool.bytes)} bytes of definition, divided by 4</span></dd></div>
   </dl>
 </div>`;

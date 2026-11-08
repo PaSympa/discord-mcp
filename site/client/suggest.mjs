@@ -1,3 +1,5 @@
+import { createIndex, search } from "./search.mjs";
+
 /** Edit distance where swapping two adjacent letters counts as one edit. */
 export function editDistance(a, b) {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
@@ -40,25 +42,35 @@ export function requestedName(pathname, base = "/") {
     .replace(/^discord_/, "");
 }
 
-/**
- * Up to `limit` tools whose names are closest to the requested path: within a few edits
- * first, then names that contain it as a word or a longer fragment.
- */
+/** Up to `limit` tools whose names are within a few edits of the requested path, closest first. */
 export function suggest(pathname, tools, { base = "/", limit = 3 } = {}) {
   const wanted = requestedName(pathname, base);
   if (wanted.length < 3) return [];
   const near = Math.max(2, Math.floor(wanted.length / 4));
-  const ranked = [];
-  tools.forEach((tool, order) => {
-    const short = tool.name.replace(/^discord_/, "");
-    const distance = editDistance(wanted, short);
-    const contains =
-      short.split("_").includes(wanted) || (wanted.length >= 4 && short.includes(wanted));
-    if (distance <= near || contains)
-      ranked.push({ tool, rank: distance <= near ? distance : 100 + distance, order });
-  });
-  return ranked
-    .sort((a, b) => a.rank - b.rank || a.order - b.order)
+  return tools
+    .map((tool, order) => ({
+      tool,
+      order,
+      distance: editDistance(wanted, tool.name.replace(/^discord_/, "")),
+    }))
+    .filter((entry) => entry.distance <= near)
+    .sort((a, b) => a.distance - b.distance || a.order - b.order)
     .slice(0, limit)
     .map((entry) => entry.tool);
+}
+
+/**
+ * The closest names first; when no name is close, the catalog's own search on the words of
+ * the path, synonyms included: /tools/discord_mute_member/ finds discord_timeout_member.
+ * `tools` are catalog entries, with their definitions.
+ */
+export function suggestTools(pathname, tools, { base = "/", limit = 3, labels = {} } = {}) {
+  const near = suggest(pathname, tools, { base, limit });
+  if (near.length) return near;
+  const words = requestedName(pathname, base).replace(/_/g, " ");
+  if (!words) return [];
+  const byName = new Map(tools.map((tool) => [tool.name, tool]));
+  return search(createIndex(tools, labels), words)
+    .results.slice(0, limit)
+    .map((result) => byName.get(result.name));
 }

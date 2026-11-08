@@ -9,6 +9,7 @@ export function renderNotFound(site) {
   const base = new URL(SITE_URL).pathname;
   const data = {
     base,
+    labels: Object.fromEntries(site.toolsets.map((set) => [set.name, set.label])),
     tools: site.tools.map(({ name, title, risk }) => ({ name, title, risk })),
   };
   const body = tpl`<div class="wrap nf">

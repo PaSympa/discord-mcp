@@ -106,7 +106,13 @@ Set `DISCORD_MCP_READ_ONLY=true` to keep only the 35 tools annotated `readOnlyHi
 <details>
 <summary><strong>Claude Desktop</strong></summary>
 
-Add the config from [Quick start](#quick-start) to `claude_desktop_config.json`, then restart Claude Desktop.
+**Bundle.** Download `discord-mcp.mcpb` from the [latest release](https://github.com/PaSympa/discord-mcp/releases/latest) and open it. Claude Desktop shows an install screen: enter the bot token there. The other settings are optional and match [Configuration](#configuration). The bundle runs on the Node.js built into Claude Desktop, so there is nothing else to install.
+
+- On Windows, the file may not open in Claude Desktop. Install it from **Settings > Extensions > Advanced settings > Install Extension** instead.
+- After you change a setting, quit and reopen Claude Desktop.
+- The bundle does not update itself. After each release, download and open the new `discord-mcp.mcpb`.
+
+**Config file.** Or add the config from [Quick start](#quick-start) to `claude_desktop_config.json`, then restart Claude Desktop.
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`

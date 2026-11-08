@@ -6,8 +6,27 @@ on:
       - "v*"
 
 jobs:
+  build-mcpb:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run build
+      - run: npm run bundle
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mcpb
+          path: discord-mcp.mcpb
+          if-no-files-found: error
+
   publish-npm:
     runs-on: ubuntu-latest
+    needs: [build-mcpb]
     permissions:
       contents: read
       id-token: write
@@ -18,13 +37,14 @@ jobs:
           # Trusted publishing needs npm >= 11.5.1, which Node 22 does not ship.
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Check tag matches package.json and server.json
+      - name: Check tag matches package.json, server.json and manifest.json
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
           PKG_VERSION="$(node -p "require('./package.json').version")"
           SRV_VERSION="$(node -p "require('./server.json').version")"
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$TAG_VERSION" != "$SRV_VERSION" ]; then
-            echo "Version mismatch: tag=$TAG_VERSION package.json=$PKG_VERSION server.json=$SRV_VERSION"
+          MCPB_VERSION="$(node -p "require('./manifest.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$TAG_VERSION" != "$SRV_VERSION" ] || [ "$TAG_VERSION" != "$MCPB_VERSION" ]; then
+            echo "Version mismatch: tag=$TAG_VERSION package.json=$PKG_VERSION server.json=$SRV_VERSION manifest.json=$MCPB_VERSION"
             exit 1
           fi
           node -e '
@@ -45,21 +65,30 @@ jobs:
 
   publish-mcp-registry:
     runs-on: ubuntu-latest
-    needs: [publish-npm, publish-docker]
+    needs: [publish-npm, publish-docker, github-release]
     permissions:
       id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # Hashes the public release asset, never the build artifact: a full rerun rebuilds a
+      # bundle with another sha256 (zip mtimes), while the release keeps the first upload.
+      - name: Add the bundle from the GitHub Release to server.json
+        run: node scripts/registry-mcpb.mjs "${GITHUB_REF#refs/tags/v}" > "$RUNNER_TEMP/server.json"
       - name: Install mcp-publisher (pinned + checksum-verified)
         run: |
           curl -fsSLo mcp-publisher.tar.gz "https://github.com/modelcontextprotocol/registry/releases/download/v1.7.9/mcp-publisher_linux_amd64.tar.gz"
           echo "ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac  mcp-publisher.tar.gz" | sha256sum -c -
           tar xzf mcp-publisher.tar.gz mcp-publisher
+      - name: Validate server.json
+        run: ./mcp-publisher validate "$RUNNER_TEMP/server.json"
       - name: Authenticate to MCP Registry
         run: ./mcp-publisher login github-oidc
       - name: Publish server to MCP Registry
-        run: ./mcp-publisher publish
+        run: ./mcp-publisher publish "$RUNNER_TEMP/server.json"
 
   publish-docker:
     runs-on: ubuntu-latest
@@ -87,12 +116,19 @@ jobs:
 
   github-release:
     runs-on: ubuntu-latest
-    needs: [publish-npm, publish-docker]
+    needs: [build-mcpb, publish-npm, publish-docker]
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: mcpb
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          files: discord-mcp.mcpb
+          fail_on_unmatched_files: true
+          # The immutable registry entry records this asset's sha256: a rerun must not replace it.
+          overwrite_files: false

@@ -81,6 +81,7 @@ _lowest_-quality tool heavily, so one thin definition drags the whole server's g
 npm install
 npm run build
 npm run dev       # build + run
+npm run bundle    # after a build: packs discord-mcp.mcpb for Claude Desktop
 ```
 
 ## Pull Requests
@@ -93,7 +94,7 @@ npm run dev       # build + run
 
 ## Releasing (maintainers)
 
-Versions live in three files (`package.json`, `package-lock.json` and `server.json`, the MCP Registry manifest) and must always agree. Never edit them by hand. `main` only accepts pull requests, so the flow is:
+Versions live in four files and must always agree: `package.json`, `package-lock.json`, `server.json` (the MCP Registry manifest) and `manifest.json` (the Claude Desktop bundle manifest). Never edit them by hand. `main` only accepts pull requests, so the flow is:
 
 ```bash
 git switch -c release/x.y.z main   # from an up-to-date main
@@ -101,7 +102,7 @@ npm version patch                  # or minor / major
 git push -u origin release/x.y.z
 ```
 
-`npm version` bumps all three files (`server.json` via the `version` lifecycle script in `scripts/sync-version.js`), commits, and creates the `vX.Y.Z` tag locally. Make sure `CHANGELOG.md` has an entry for the new version (commit it on the branch if not).
+`npm version` bumps all four files (`server.json` and `manifest.json` via the `version` lifecycle script in `scripts/sync-version.js`), commits, and creates the `vX.Y.Z` tag locally. Make sure `CHANGELOG.md` has an entry for the new version (commit it on the branch if not).
 
 Open a PR and **merge it with a merge commit** (not squash or rebase: the tagged commit must end up in `main`'s history). Then push the tag:
 
@@ -111,10 +112,15 @@ git push origin vX.Y.Z
 
 The tag triggers `.github/workflows/release.yml`, which does everything else automatically:
 
-1. Fails fast if the tag does not match `package.json` / `server.json`
-2. Lints, builds, tests, then publishes to npm through trusted publishing (GitHub OIDC). No npm token is stored: the trusted publisher on npmjs.com must name `release.yml`
-3. Pushes the Docker images
-4. Publishes to the official MCP Registry via GitHub OIDC (no secret needed). The registry pulls the tagged Docker image to validate the `server.json` OCI entry. The [GitHub MCP Registry](https://github.com/mcp) is curated: a new server is requested once in [github/github-mcp-server#1257](https://github.com/github/github-mcp-server/discussions/1257), then later versions sync from the official registry
-5. Creates the GitHub Release
+1. Builds the Claude Desktop bundle, `discord-mcp.mcpb`, with `npm run bundle`. A broken bundle stops the release before anything is published
+2. Fails fast if the tag does not match `package.json`, `server.json` and `manifest.json`
+3. Lints, builds, tests, then publishes to npm through trusted publishing (GitHub OIDC). No npm token is stored: the trusted publisher on npmjs.com must name `release.yml`
+4. Pushes the Docker images
+5. Creates the GitHub Release and attaches `discord-mcp.mcpb` to it
+6. Publishes to the official MCP Registry via GitHub OIDC (no secret needed). The registry pulls the tagged Docker image to validate the `server.json` OCI entry. The bundle entry is added at this step only: `scripts/registry-mcpb.mjs` downloads the public release asset and records its sha256. The committed `server.json` never lists it. The [GitHub MCP Registry](https://github.com/mcp) is curated: a new server is requested once in [github/github-mcp-server#1257](https://github.com/github/github-mcp-server/discussions/1257), then later versions sync from the official registry
+
+If a job fails, resume the run with `gh run rerun <run-id> --failed`. Once npm has the version, "Re-run all jobs" stops at `npm publish`, which refuses to publish it twice. A full rerun also builds a new bundle with another sha256, since the zip records the build time. The release keeps the first asset (`overwrite_files: false`), and the registry step hashes that public file.
+
+Pull requests that touch the bundle inputs run `.github/workflows/bundle.yml`. It builds the bundle, validates its manifest and the `server.json` entry, and uploads `discord-mcp.mcpb` as an artifact to install by hand. `mcp-publisher validate` checks the entry's shape only. The registry sends its HEAD request to the asset URL during `publish`, so the release must be public by then.
 
 No manual `npm publish`: local publishes are blocked by npm's 2FA policy anyway.

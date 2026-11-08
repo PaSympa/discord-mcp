@@ -16,7 +16,7 @@
 
 </div>
 
-**discord-mcp** connects Claude, Cursor, VS Code and any other MCP client to your Discord server through your own bot. Ask in plain language: your assistant reads channels, answers, moderates, and manages roles, channels, forums and events, with 100 tools behind it.
+**discord-mcp** connects Claude, Codex, Cursor, VS Code and any other MCP client to your Discord server through your own bot. Ask in plain language: your assistant reads channels, answers, moderates, and manages roles, channels, forums and events, with 100 tools behind it.
 
 ## See it in action
 

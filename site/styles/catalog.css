@@ -550,6 +550,11 @@ dialog#tool[open] {
   height: 14px;
   background: var(--line);
 }
+.dlg-perm {
+  margin-top: var(--s2);
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
 .dlg-body {
   flex: 1;
   overflow: auto;
@@ -897,7 +902,8 @@ table.schema {
     padding-left: calc(var(--depth, 0) * 12px);
   }
   .schema td.c-name,
-  .schema td.c-desc {
+  .schema td.c-desc,
+  .schema td:nth-child(2):nth-last-child(-n + 2) {
     grid-column: 1 / -1;
   }
   .schema td.c-name .req,

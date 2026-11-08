@@ -2,6 +2,9 @@ import { raw, tpl } from "../client/tpl.mjs";
 
 export const REPO = "https://github.com/PaSympa/discord-mcp";
 export const NPM = "https://www.npmjs.com/package/@pasympa/discord-mcp";
+export const SITE_URL = process.env.SITE_URL || "https://pasympa.github.io/discord-mcp/";
+if (!/^https:\/\/[^/]+\/(.+\/)?$/.test(SITE_URL))
+  throw new Error(`SITE_URL must be an https URL ending with a slash, not ${SITE_URL}.`);
 export const FONTS = {
   text: "assets/fonts/bricolage-grotesque-latin.woff2",
   mono: "assets/fonts/jetbrains-mono-latin.woff2",
@@ -33,12 +36,21 @@ export function inlineLogo(svg) {
 }
 
 /**
- * Wraps a page body in the shared head, header and footer. `depth` is how many folders
- * the page sits below the site root, so every URL stays relative and the site works
- * under any base path, /discord-mcp/ on GitHub Pages included.
+ * Wraps a page body in the shared head, header and footer. `path` is the page's URL below
+ * the site root ("" for the home page, "tools/x/" for a folder). Every link is relative to
+ * it, so the site works under any base path, /discord-mcp/ on GitHub Pages included. A page
+ * served at any address, like 404.html, passes `base`: the root path its links start from.
  */
-export function layout(site, { depth, current, title, description, body, script, searchButton }) {
-  const up = "../".repeat(depth);
+export function layout(
+  site,
+  { path, base, current, title, description, body, script, searchButton, ogType, jsonLd },
+) {
+  const up = base ?? "../".repeat(path.split("/").length - 1);
+  const canonical = SITE_URL + path;
+  const og = site.ogImage;
+  const ld = jsonLd
+    ? tpl`<script type="application/ld+json">${raw(JSON.stringify(jsonLd).replace(/</g, "\\u003c"))}</script>`
+    : "";
   const nav = [
     ["tools", `${up}tools/`, "Tools"],
     ["builder", `${up}tools/#builder`, "Toolsets"],
@@ -54,13 +66,26 @@ export function layout(site, { depth, current, title, description, body, script,
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${tpl`${title}`}</title>
 <meta name="description" content="${tpl`${description}`}">
+${tpl`<link rel="canonical" href="${canonical}">
+<meta property="og:type" content="${ogType}">
+<meta property="og:site_name" content="discord-mcp">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${description}">
+<meta property="og:url" content="${canonical}">
+<meta property="og:image" content="${SITE_URL}${og.path}">
+<meta property="og:image:width" content="${og.width}">
+<meta property="og:image:height" content="${og.height}">
+<meta property="og:image:alt" content="${og.alt}">
+<meta name="twitter:card" content="summary_large_image">`}
 <meta name="color-scheme" content="light dark">
 <link rel="icon" href="${tpl`${site.favicon}`}">
+<link rel="apple-touch-icon" href="${up}${site.touchIcon}">
 <link rel="preload" href="${up}${FONTS.text}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${up}${FONTS.mono}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="${up}assets/site.css">
 <script>try{var t=localStorage.getItem("dmcp-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <script defer src="${up}assets/${script}"></script>
+${ld}
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -83,7 +108,7 @@ ${body}
 </main>
 ${tpl`<footer class="foot">
   <div class="wrap foot-in">
-    <p>discord-mcp ${site.version} is open source under the MIT license: <a href="${REPO}">GitHub</a>, <a href="${NPM}">npm</a>. Tool counts and token figures come from the server's own <code>tools/list</code>: <span data-total>${site.totals.tools}</span> tools in ${site.totals.toolsets} toolsets. Fonts: Bricolage Grotesque and JetBrains Mono, under the <a href="${up}assets/fonts/OFL.txt">SIL Open Font License</a>.</p>
+    <p>discord-mcp ${site.version} is open source under the MIT license: <a href="${REPO}">GitHub</a>, <a href="${NPM}">npm</a>. Tool counts and token figures come from the server's own <code>tools/list</code>: <span data-total>${site.totals.tools}</span> tools in ${site.totals.toolsets} toolsets, also published as <a href="${up}tools.json">tools.json</a> and <a href="${up}llms.txt">llms.txt</a>. Fonts: Bricolage Grotesque and JetBrains Mono, under the <a href="${up}assets/fonts/OFL.txt">SIL Open Font License</a>.</p>
     <p>Not affiliated with Discord.</p>
   </div>
 </footer>`}

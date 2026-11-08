@@ -18,7 +18,7 @@ const RISKS = ["read", "write", "destructive"];
 /** A catalog row. The client moves these between groups and the ranked list. */
 export function toolRow(tool) {
   return tpl`<li class="row-li" id="${tool.name}" data-tool="${tool.name}" data-risk="${tool.risk}" data-set="${tool.toolset}"${tool.dryRunDefault ? raw(" data-dry") : ""}>
-<a class="row" href="#${tool.name}" data-tool="${tool.name}">
+<a class="row" href="${tool.name}/" data-tool="${tool.name}">
   ${riskBadge(tool.risk)}
   <span class="row-main">
     <span class="row-head"><span class="row-title">${tool.title}</span>${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}</span>
@@ -152,6 +152,7 @@ function payload(site) {
         purpose,
         dryRunDefault,
         crossReferences,
+        permissions,
         bytes,
         tokens,
         definition,
@@ -163,6 +164,7 @@ function payload(site) {
         purpose,
         dryRunDefault,
         crossReferences,
+        permissions,
         bytes,
         tokens,
         definition,
@@ -212,7 +214,8 @@ export function renderCatalog(site) {
 </dialog>
 <script type="application/json" id="catalog-data">${payload(site)}</script>`;
   return layout(site, {
-    depth: 1,
+    path: "tools/",
+    ogType: "article",
     current: "tools",
     title: "discord-mcp tool catalog",
     description: `All ${totals.tools} tools of the discord-mcp server, with what each one can change, its parameters and declared output, and a toolset builder that estimates context cost.`,

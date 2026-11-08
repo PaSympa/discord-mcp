@@ -59,9 +59,14 @@ test("permissions come from requires-the-X-permission clauses, with the subject 
   const { permissionsOf } = await site();
   const names = (description: string) =>
     permissionsOf(description).map((p: { name: string }) => p.name);
+  const only = (name: string, condition: string | null = null, alternativeTo = null) => ({
+    name,
+    condition,
+    alternativeTo,
+  });
   assert.deepEqual(
     permissionsOf("Ban someone. Requires the Ban Members permission, and a higher role."),
-    [{ name: "Ban Members", when: null }],
+    [only("Ban Members")],
   );
   assert.deepEqual(
     names("Requires the View Channel and Read Message History permissions; without it, nothing."),
@@ -85,7 +90,36 @@ test("permissions come from requires-the-X-permission clauses, with the subject 
     permissionsOf(
       "Delete it. The bot can always delete its own; deleting another user's message requires the Manage Messages permission.",
     ),
-    [{ name: "Manage Messages", when: "deleting another user's message" }],
+    [only("Manage Messages", "when deleting another user's message")],
+  );
+  assert.deepEqual(
+    permissionsOf(
+      "Requires the Send Messages permission (and Manage Messages for messages authored by others).",
+    ),
+    [only("Send Messages"), only("Manage Messages", "for messages authored by others")],
+  );
+  assert.deepEqual(
+    permissionsOf(
+      "Requires the Manage Nicknames permission (or Change Nickname for the bot itself).",
+    ),
+    [
+      only("Manage Nicknames"),
+      {
+        name: "Change Nickname",
+        condition: "for the bot itself",
+        alternativeTo: "Manage Nicknames",
+      },
+    ],
+  );
+  assert.deepEqual(permissionsOf("Requires the Manage Channels permission (or Manage Server)."), [
+    only("Manage Channels"),
+    { name: "Manage Server", condition: null, alternativeTo: "Manage Channels" },
+  ]);
+  assert.deepEqual(
+    names(
+      "Requires the Pin Messages permission (a dedicated permission, separate from Manage Messages).",
+    ),
+    ["Pin Messages"],
   );
   for (const none of [
     "Requires the original webhook token.",
@@ -242,14 +276,17 @@ test("site data from dist/index.js: every tool in one toolset, every derived fie
     );
   const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
   const invite = BigInt(/oauth2\/authorize\?[^\s)]*permissions=(\d+)/.exec(readme)![1]);
+  type Permission = { name: string; condition: string | null; alternativeTo: string | null };
   let parsed = 0;
   for (const t of tools)
-    for (const p of t.permissions as { name: string; when: string | null }[]) {
+    for (const p of t.permissions as Permission[]) {
       parsed++;
       const bit = flagOf(p.name);
       assert.ok(bit !== undefined, `${t.name}: "${p.name}" is not a Discord permission`);
-      assert.equal(invite & bit!, bit, `${t.name}: the README invite link omits ${p.name}`);
-      if (p.when) assert.match(p.when, /^[a-z]+ing\b/, `${t.name}: "${p.when}" reads after "when"`);
+      const granted = flagOf(p.alternativeTo ?? p.name)!;
+      assert.equal(invite & granted, granted, `${t.name}: the README invite link omits ${p.name}`);
+      if (p.condition?.startsWith("when "))
+        assert.match(p.condition, /^when [a-z]+ing\b/, `${t.name}: "${p.condition}"`);
     }
   assert.ok(parsed > 0, "some descriptions name a permission");
 

@@ -55,36 +55,42 @@ function rangeText(min, max, unit) {
   return "";
 }
 
-function rulesFor(schema) {
+function variantRules(v) {
   const out = [];
-  const variants = flatVariants(schema);
-  const formats = uniq(variants.map((v) => v.format).filter(Boolean));
-  if (formats.length)
+  if (v.format) out.push(tpl`<span>format <code>${v.format}</code></span>`);
+  if (v.pattern)
     out.push(
-      tpl`<span>format ${formats.map((f, i) => tpl`${i ? " or " : ""}<code>${f}</code>`)}</span>`,
+      v.pattern.length <= 40
+        ? tpl`<span>pattern <code>${v.pattern}</code></span>`
+        : tpl`<details><summary>pattern (${v.pattern.length} characters)</summary><code>${v.pattern}</code></details>`,
     );
-  for (const v of variants) {
-    if (v.pattern)
-      out.push(
-        v.pattern.length <= 40
-          ? tpl`<span>pattern <code>${v.pattern}</code></span>`
-          : tpl`<details><summary>pattern (${v.pattern.length} characters)</summary><code>${v.pattern}</code></details>`,
-      );
-    const range = rangeText(v.minimum, v.maximum);
-    if (range) out.push(tpl`<span>${range}</span>`);
-    const items = rangeText(v.minItems, v.maxItems, "items");
-    if (items) out.push(tpl`<span>${items}</span>`);
-    const length = rangeText(v.minLength, v.maxLength, "characters");
-    if (length) out.push(tpl`<span>${length}</span>`);
-    if (v.enum) {
-      const values = tpl`<span class="vals">${v.enum.map((x) => tpl`<code>${JSON.stringify(x)}</code>`)}</span>`;
-      out.push(
-        v.enum.length > 10
-          ? tpl`<details><summary>one of ${v.enum.length} values</summary>${values}</details>`
-          : tpl`<span>one of ${values}</span>`,
-      );
-    }
+  const range = rangeText(v.minimum, v.maximum);
+  if (range) out.push(tpl`<span>${range}</span>`);
+  const items = rangeText(v.minItems, v.maxItems, "items");
+  if (items) out.push(tpl`<span>${items}</span>`);
+  const length = rangeText(v.minLength, v.maxLength, "characters");
+  if (length) out.push(tpl`<span>${length}</span>`);
+  if (v.enum) {
+    const values = tpl`<span class="vals">${v.enum.map((x) => tpl`<code>${JSON.stringify(x)}</code>`)}</span>`;
+    out.push(
+      v.enum.length > 10
+        ? tpl`<details><summary>one of ${v.enum.length} values</summary>${values}</details>`
+        : tpl`<span>one of ${values}</span>`,
+    );
   }
+  return out;
+}
+
+/** The rules of a schema; when it accepts several types, each type with its own rules. */
+function rulesFor(schema) {
+  const variants = flatVariants(schema).map((v) => ({ v, rules: variantRules(v) }));
+  const out =
+    variants.length > 1 && variants.some((variant) => variant.rules.length)
+      ? variants.map(
+          ({ v, rules }) =>
+            tpl`<div class="pvar"><span class="pvt">${typeLabel(v)}${rules.length ? ":" : ""}</span>${rules}</div>`,
+        )
+      : variants.flatMap((variant) => variant.rules);
   if (schema.default !== undefined)
     out.push(tpl`<span>default <code>${JSON.stringify(schema.default)}</code></span>`);
   return out;
@@ -202,20 +208,26 @@ function relatedItem(tool, href) {
 const list = (items) =>
   items.length < 2 ? items.join("") : items.slice(0, -1).join(", ") + " and " + items.at(-1);
 
-/** The Discord permissions a tool's description names, as a phrase: "Ban Members". */
-export function permissionText(permissions = []) {
-  const always = permissions.filter((p) => !p.when).map((p) => p.name);
-  const conditions = [...new Set(permissions.filter((p) => p.when).map((p) => p.when))];
-  return [
-    list(always),
-    ...conditions.map(
-      (when) =>
-        `${list(permissions.filter((p) => p.when === when).map((p) => p.name))} when ${when}`,
-    ),
-  ]
-    .filter(Boolean)
-    .join("; ");
+/**
+ * The Discord permissions a tool's description names, one requirement per line:
+ * "Manage Nicknames, or Change Nickname for the bot itself", "Manage Messages when ...".
+ */
+export function permissionLines(permissions = []) {
+  const alternatives = (name) =>
+    permissions
+      .filter((p) => p.alternativeTo === name)
+      .map((p) => `, or ${p.name}${p.condition ? " " + p.condition : ""}`)
+      .join("");
+  const main = permissions.filter((p) => !p.alternativeTo);
+  const conditions = [...new Set(main.map((p) => p.condition))];
+  return conditions.map((condition) => {
+    const names = main.filter((p) => p.condition === condition).map((p) => p.name);
+    return list(names) + alternatives(names.at(-1)) + (condition ? " " + condition : "");
+  });
 }
+
+export const permissionLabel = (permissions = []) =>
+  permissions.length > 1 ? "Discord permissions" : "Discord permission";
 
 /**
  * The full reference for one tool, as HTML: description, annotations, parameters, the
@@ -244,11 +256,11 @@ export function renderToolDetail(tool, ctx) {
   const output = definition.outputSchema
     ? tpl`<p class="note">Declared by <code>outputSchema</code>: clients receive this shape as <code>structuredContent</code>.</p>${outputTable(definition.outputSchema)}`
     : tpl`<p class="note">This tool declares no output schema. Its description says what it returns; this page shows no example rather than invent one.</p>`;
-  const permission = permissionText(tool.permissions);
+  const permission = permissionLines(tool.permissions).join("; ");
   const head = tpl`<div class="crumb"><span>${label} toolset</span><code>${tool.toolset}</code></div>
 <h2 id="dlg-title" tabindex="-1">${tool.title}</h2>
 <div class="dlg-name"><code id="dlg-name-code">${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button>${page ? tpl`<a class="btn btn-sm" href="${page}">Open the tool page</a>` : ""}</div>
-<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span>${loaded}</div>${permission ? tpl`<p class="dlg-perm">Discord permission: ${permission}</p>` : ""}`;
+<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span>${loaded}</div>${permission ? tpl`<p class="dlg-perm">${permissionLabel(tool.permissions)}: ${permission}</p>` : ""}`;
   const body = tpl`<p class="desc">${linkedText(definition.description, byName, href)}</p>${example}
 <section class="d-sec" aria-labelledby="d-anno"><${h} id="d-anno">Risk and annotations</${h}>
 <table class="anno"><tbody>${rows}</tbody></table>

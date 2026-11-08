@@ -686,6 +686,16 @@ table.schema {
   gap: var(--s1);
   min-width: 128px;
 }
+.pvar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--s2);
+}
+.pvt {
+  font: 0.75rem var(--mono);
+  color: var(--ink-2);
+}
 .prules code,
 .vals code {
   padding: 0 var(--s1);

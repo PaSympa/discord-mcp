@@ -29,6 +29,9 @@
   content: "/" / "";
   margin-right: var(--s2);
 }
+.facts .perm {
+  display: block;
+}
 .tp-id h1 {
   margin-top: var(--s3);
   font-weight: 760;

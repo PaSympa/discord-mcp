@@ -368,7 +368,7 @@ const tools = [
       channel_id: snowflake
         .optional()
         .describe(
-          "Channel (snowflake) the invite points to. Defaults to the event's own channel; REQUIRED for EXTERNAL events, which have none.",
+          "Channel (snowflake) the invite points to. Required for EXTERNAL events, which have no channel of their own. Omit it for VOICE and STAGE_INSTANCE events: they always use their own channel, and passing one fails.",
         ),
       max_age: intIn(0, 604800)
         .default(86400)

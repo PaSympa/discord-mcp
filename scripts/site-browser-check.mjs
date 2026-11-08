@@ -1,8 +1,9 @@
 /**
  * Opens the generated site in headless Chrome and checks what the static tests cannot see:
- * layout at 320, 390, 768 and 1440 px in light and dark mode, console errors, failed
- * requests, alt text, keyboard focus, the catalog search, the 404 suggestions and the Copy
- * buttons. _site/ is served under /discord-mcp/ with GitHub Pages' 404 behavior.
+ * layout from 320 to 1440 px in light and dark mode, console errors, failed requests, alt
+ * text, keyboard focus, the menu, the search shortcut, the catalog search, the 404
+ * suggestions and the Copy buttons. _site/ is served under /discord-mcp/ with GitHub Pages'
+ * 404 behavior.
  *
  * Run `npm run build && npm run site` first. Needs Chrome, so CI does not run it.
  * Usage: node scripts/site-browser-check.mjs [--chrome <path>] [--shots <dir>]
@@ -25,7 +26,8 @@ import { fileURLToPath } from "node:url";
 
 const SITE = fileURLToPath(new URL("../_site/", import.meta.url));
 const BASE = "/discord-mcp/";
-const WIDTHS = [320, 390, 768, 1440];
+const WIDTHS = [320, 340, 355, 380, 390, 768, 980, 1440];
+const MENU_UP_TO = 980;
 const SCHEMES = ["light", "dark"];
 const TOOL_PAGES = [
   "discord_ban_member",
@@ -50,11 +52,19 @@ const SEARCHES = [
   ["purge", "discord_bulk_delete_messages"],
   ["give a role", "discord_add_role"],
   ["schedule an event", "discord_create_scheduled_event"],
+  ["dm", "discord_send_dm"],
+  ["event", "discord_create_scheduled_event"],
+  ["webhook", "discord_create_webhook"],
+  ["invite", "discord_create_invite"],
 ];
 const MISSPELLED = [
   ["tools/discord_ban_membr/", "discord_ban_member"],
   ["tools/discord_send_mesage/", "discord_send_message"],
   ["tools/discord-timeout-memebr", "discord_timeout_member"],
+  ["tools/discord_list_threads/", "discord_list_channel_threads"],
+  ["tools/discord_purge_messages/", "discord_bulk_delete_messages"],
+  ["tools/discord_mute_member/", "discord_timeout_member"],
+  ["tools/discord_create_event/", "discord_create_scheduled_event"],
 ];
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -201,20 +211,26 @@ function check(label, ok, detail) {
   return ok;
 }
 
-// Runs in the page: elements wider than the viewport, and boxes that scroll or clip sideways.
+// Runs in the page: elements wider than the viewport, boxes that scroll or clip sideways, and
+// content that spills out of its box onto its neighbor. Truncation with an ellipsis is intended.
 const OVERFLOW = `(() => {
   for (const d of document.querySelectorAll("details")) d.open = true;
   const vw = document.documentElement.clientWidth;
   const out = [];
   if (document.documentElement.scrollWidth > vw) out.push("page " + document.documentElement.scrollWidth + " > " + vw);
   const visible = (el) => el.getClientRects().length && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], dialog:not([open]), .vh");
+  const what = (el) => el.tagName.toLowerCase() + "." + el.className + (el.closest("[data-set]") ? " in " + el.closest("[data-set]").dataset.set : "");
   for (const el of document.querySelectorAll("main *, header *, footer *")) {
     if (!visible(el)) continue;
     const r = el.getBoundingClientRect();
-    if (r.right > vw + 1 || r.left < -1) out.push(el.tagName.toLowerCase() + "." + el.className + " spans " + Math.round(r.left) + " to " + Math.round(r.right));
+    if (r.right > vw + 1 || r.left < -1) out.push(what(el) + " spans " + Math.round(r.left) + " to " + Math.round(r.right));
     const cs = getComputedStyle(el);
-    if (/^(table|pre|code|dl|ul|ol|div|p|section|figure)$/i.test(el.tagName) && el.scrollWidth > el.clientWidth + 1 && /auto|scroll|hidden|clip/.test(cs.overflowX) && el.clientWidth > 0)
-      out.push(el.tagName.toLowerCase() + "." + el.className + " scrolls sideways (" + el.scrollWidth + " > " + el.clientWidth + ")");
+    if (el.clientWidth === 0 || el.scrollWidth <= el.clientWidth + 1 || cs.textOverflow === "ellipsis") continue;
+    if (/auto|scroll|hidden|clip/.test(cs.overflowX)) {
+      if (/^(table|pre|code|dl|ul|ol|div|p|section|figure)$/i.test(el.tagName))
+        out.push(what(el) + " scrolls sideways (" + el.scrollWidth + " > " + el.clientWidth + ")");
+    } else if (!cs.display.startsWith("inline") && cs.display !== "contents")
+      out.push(what(el) + " spills out of its box (" + el.scrollWidth + " > " + el.clientWidth + ")");
     if (out.length > 5) break;
   }
   return out;
@@ -309,14 +325,21 @@ async function main() {
     await sleep(120);
     counts.loads++;
   };
-  const pressTab = async () => {
-    for (const type of ["keyDown", "keyUp"])
+  const press = async (key, code, keyCode, modifiers = 0) => {
+    for (const type of ["rawKeyDown", "keyUp"])
       await send("Input.dispatchKeyEvent", {
         type,
-        key: "Tab",
-        code: "Tab",
-        windowsVirtualKeyCode: 9,
+        key,
+        code,
+        windowsVirtualKeyCode: keyCode,
+        modifiers,
       });
+  };
+  const pressTab = () => press("Tab", "Tab", 9);
+  const until = async (expression, ms = 2000) => {
+    for (const start = Date.now(); Date.now() - start < ms; await sleep(50))
+      if (await evaluate(expression)) return true;
+    return false;
   };
   const click = async (selector) => {
     await evaluate(
@@ -436,6 +459,7 @@ async function main() {
 
         for (const [path, tool] of MISSPELLED) {
           await go(path);
+          await until(`!document.getElementById("nf-sug").hidden`);
           const sug = await evaluate(
             `[...document.querySelectorAll("#nf-list a")].map((a) => a.getAttribute("href"))`,
           );
@@ -496,6 +520,110 @@ async function main() {
             (await evaluate("location.pathname")) === `${BASE}tools/discord_ban_member/`,
           status,
         );
+
+        const at = `at ${width} px, ${scheme}`;
+        const focusedId = () => evaluate("document.activeElement.id");
+        await go("");
+        const apple = await evaluate(
+          `/Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent)`,
+        );
+        const shortcut = () => press("k", "KeyK", 75, apple ? 4 : 2);
+        const hints = await evaluate(
+          `[...document.querySelectorAll("kbd[data-shortcut]")].map((kbd) => kbd.textContent)`,
+        );
+        check(
+          `search hints read ${apple ? "⌘K" : "Ctrl K"} ${at}`,
+          hints.length > 0 && hints.every((hint) => hint === (apple ? "⌘K" : "Ctrl K")),
+          hints,
+        );
+        let arrived = loaded();
+        await click(".search-btn");
+        await arrived;
+        await sleep(200);
+        check(
+          `the header search lands on the focused search field ${at}`,
+          (await evaluate("location.hash")) === "#q" && (await focusedId()) === "q",
+          await focusedId(),
+        );
+        await go("tools/discord_ban_member/");
+        arrived = loaded();
+        await shortcut();
+        await arrived;
+        await sleep(200);
+        check(
+          `the shortcut on a tool page opens the catalog with its field focused ${at}`,
+          (await evaluate("location.pathname")) === `${BASE}tools/` && (await focusedId()) === "q",
+          await focusedId(),
+        );
+        await evaluate("document.activeElement.blur()");
+        await press("/", "Slash", 191);
+        check(`a single "/" no longer moves focus ${at}`, (await focusedId()) === "");
+        await shortcut();
+        check(`the shortcut focuses the catalog field ${at}`, (await focusedId()) === "q");
+        await go("tools/no_such_page/");
+        await shortcut();
+        check(`the shortcut focuses the 404 search field ${at}`, (await focusedId()) === "nf-q");
+
+        await go("");
+        const shown = `(el) => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden"`;
+        const menu = () =>
+          evaluate(`(() => {
+            const shown = ${shown};
+            const button = document.getElementById("menu-btn");
+            return {
+              button: shown(button),
+              expanded: button.getAttribute("aria-expanded"),
+              links: [...document.querySelectorAll("#site-nav a")].filter(shown).length,
+            };
+          })()`);
+        if (width <= MENU_UP_TO) {
+          const closed = await menu();
+          check(
+            `the menu button replaces the links ${at}`,
+            closed.button && closed.links === 0,
+            closed,
+          );
+          await click("#menu-btn");
+          const open = await menu();
+          check(
+            `the menu opens with the site links ${at}`,
+            open.expanded === "true" && open.links === 5,
+            open,
+          );
+          await evaluate(`document.getElementById("menu-btn").focus()`);
+          await pressTab();
+          check(
+            `Tab moves from the menu button to its first link ${at}`,
+            await evaluate(`document.activeElement === document.querySelector("#site-nav a")`),
+          );
+          await press("Escape", "Escape", 27);
+          const after = await menu();
+          check(
+            `Escape closes the menu and returns focus to its button ${at}`,
+            after.expanded === "false" && after.links === 0 && (await focusedId()) === "menu-btn",
+            after,
+          );
+        } else {
+          const wide = await menu();
+          check(`the links show without a menu ${at}`, !wide.button && wide.links === 4, wide);
+        }
+
+        for (const [path, list] of [
+          ["tools/", "#ts-list"],
+          ["", ".pfs"],
+        ]) {
+          await go(path);
+          await click(path ? ".builder .switch" : ".ro-box .switch");
+          await sleep(100);
+          const text = await evaluate(
+            `document.querySelector(${JSON.stringify(list)}).textContent.replace(/\\s+/g, " ")`,
+          );
+          check(
+            `read-only counts say "1 tool" on /${path} ${at}`,
+            !/(^|[^\d])1 tools\b/.test(text),
+            text.slice(0, 120),
+          );
+        }
       }
     }
   } finally {

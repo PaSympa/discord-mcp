@@ -87,17 +87,25 @@ export function initCommon({ onSearch }) {
 
   const menu = $("#menu-btn");
   const nav = $("#site-nav");
+  const isOpen = () => nav.classList.contains("open");
   const setMenu = (open) => {
     menu.setAttribute("aria-expanded", String(open));
     nav.classList.toggle("open", open);
   };
-  menu.addEventListener("click", () => setMenu(menu.getAttribute("aria-expanded") !== "true"));
+  const outside = (event) => !event.target.closest("#site-nav, #menu-btn");
+  menu.addEventListener("click", () => setMenu(!isOpen()));
+  // In-page links ("Install", "Toolsets") keep the page, so the menu must close itself.
+  nav.addEventListener("click", (event) => {
+    if (event.target.closest("a")) setMenu(false);
+  });
   document.addEventListener("click", (event) => {
-    if (nav.classList.contains("open") && !event.target.closest("#site-nav, #menu-btn"))
-      setMenu(false);
+    if (isOpen() && outside(event)) setMenu(false);
+  });
+  document.addEventListener("focusin", (event) => {
+    if (isOpen() && outside(event)) setMenu(false);
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape" || !nav.classList.contains("open")) return;
+    if (event.key !== "Escape" || !isOpen()) return;
     setMenu(false);
     menu.focus();
   });

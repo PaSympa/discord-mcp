@@ -41,7 +41,7 @@ Then stop. Apply only the numbers the user approves.
 
 ## Apply
 
-- Pass a `reason` on every call. It goes to the audit log.
+- Pass a `reason` on every call that takes one. It goes to the audit log. `discord_bulk_delete_messages` has no `reason` field.
 - `discord_bulk_delete_messages` deletes the N most recent messages, not chosen ones. Use it only when all N are flagged. Call it first without `dry_run`, which previews the count. Right before the call with `dry_run: false`, read the last N messages again. If a new message arrived, stop and plan again.
 - `discord_bulk_ban` also previews by default. Show its list, then call it with `dry_run: false` after a yes.
 - If write tools are missing, the server runs in read-only mode or with fewer toolsets. Stop at the report and say so.

@@ -15,7 +15,7 @@ Read a channel, then summarize it. Post nothing unless the user asks.
 ## Read
 
 1. Call `discord_read_messages` with the `channel_id`, `since` set to the start of the period, and `limit: 100`.
-2. While a page comes back full, call it again with `after` set to the newest message ID received.
+2. While a page comes back full, call it again with `after` set to the newest message ID received, in place of `since`.
 3. Stop at 500 messages, and say that the digest covers only those.
 4. For threads, call `discord_list_channel_threads` and read the active ones the same way.
 

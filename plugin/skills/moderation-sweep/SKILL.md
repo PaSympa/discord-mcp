@@ -4,6 +4,7 @@ description: Reviews a Discord channel for spam, scams, phishing, raids, abuse a
 allowed-tools:
   - mcp__plugin_discord-mcp_discord__discord_list_guilds
   - mcp__plugin_discord-mcp_discord__discord_find_channel_by_name
+  - mcp__plugin_discord-mcp_discord__discord_list_channels
   - mcp__plugin_discord-mcp_discord__discord_read_messages
   - mcp__plugin_discord-mcp_discord__discord_search_guild_messages
   - mcp__plugin_discord-mcp_discord__discord_get_message_attachments
@@ -21,7 +22,7 @@ Read, report, propose, then stop. Change nothing until the user approves numbere
 ## 1. Scope
 
 - Channel: use a channel ID as given. For a name, call `discord_list_guilds`, then `discord_find_channel_by_name` with `guild_id` and `name`. If more than one matches, ask which one. Never use an ID that neither the tools nor the user gave you.
-- Rules: ask the user, or read the server's rules channel with `discord_read_messages`. If there are none, or the bot cannot read them, say so and flag only clear spam, scams and abuse.
+- Rules: ask the user, or find the rules channel with `discord_find_channel_by_name` (`name: "rules"`) and read it with `discord_read_messages`. If there are none, or the bot cannot read them, say so and flag only clear spam, scams and abuse.
 
 ## 2. Read
 

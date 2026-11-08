@@ -105,7 +105,7 @@ function seeItWork(site) {
   const { session, demo } = site;
   const calls = session.calls.map(
     (call) => tpl`<li class="term-call">
-  <div class="term-call-line"><span class="srv">discord-mcp</span> <a class="term-tool" href="tools/#${call.tool}">${breakable(call.tool)}</a></div>
+  <div class="term-call-line"><span class="srv">discord-mcp</span> <a class="term-tool" href="tools/${call.tool}/">${breakable(call.tool)}</a></div>
   <div class="term-call-args">(${call.args.join(", ")})</div>
   <div class="term-call-res"><span class="term-tree" aria-hidden="true"></span><span>${resultText(call.result)}</span></div>
 </li>`,
@@ -287,7 +287,8 @@ export function renderLanding(site) {
     browse(site),
   ].join("\n");
   return layout(site, {
-    depth: 0,
+    path: "",
+    ogType: "website",
     current: "home",
     title: `discord-mcp: ${site.readme.tagline}`,
     description: site.description,

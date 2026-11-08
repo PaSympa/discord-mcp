@@ -136,7 +136,9 @@ test("nothing on the pages loads from another host", () => {
       ...[...html.matchAll(/<(?:script|img|iframe|video|audio|source)\b[^>]*\ssrc="([^"]+)"/g)].map(
         (m) => m[1],
       ),
-      ...[...html.matchAll(/<link\b[^>]*\shref="([^"]+)"/g)].map((m) => m[1]),
+      ...[...html.matchAll(/<link\b[^>]*\shref="([^"]+)"/g)]
+        .filter(([tag]) => !/rel="canonical"/.test(tag))
+        .map((m) => m[1]),
     ];
     for (const url of loaded) assert.ok(!/^(https?:)?\/\//.test(url), `${page} loads ${url}`);
   }

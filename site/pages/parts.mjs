@@ -17,7 +17,7 @@ export const LANDING_IDS = new Set([
 export function toolChip(site, name, up) {
   const tool = site.byName.get(name);
   if (!tool) throw new Error(`Unknown tool in the site content: ${name}.`);
-  return tpl`<a class="tool" href="${up}tools/#${name}" data-risk="${tool.risk}">${glyph()}<code>${breakable(name)}</code><span class="vh"> (${RISK_LABEL[tool.risk].toLowerCase()})</span></a>`;
+  return tpl`<a class="tool" href="${up}tools/${name}/" data-risk="${tool.risk}">${glyph()}<code>${breakable(name)}</code><span class="vh"> (${RISK_LABEL[tool.risk].toLowerCase()})</span></a>`;
 }
 
 /** README links: anchors the landing has stay on the site, the rest go to GitHub. */

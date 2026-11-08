@@ -373,7 +373,7 @@ $("#show-sel").addEventListener("click", () => {
 const dialog = $("#tool");
 let current = null;
 let lastFocus = null;
-const href = (name) => "#" + name;
+const href = (name) => name + "/";
 
 function loadedSlot(tool) {
   const ro = readOnly.checked && tool.risk !== "read";
@@ -391,6 +391,7 @@ function renderDetail(tool) {
     byName,
     href,
     loaded: loadedSlot(tool),
+    page: href(tool.name),
   });
   $("#dlg-head").innerHTML = String(head);
   $("#dlg-body").innerHTML = String(body);

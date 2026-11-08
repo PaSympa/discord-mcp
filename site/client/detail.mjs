@@ -199,17 +199,38 @@ function relatedItem(tool, href) {
 </a></li>`;
 }
 
+const list = (items) =>
+  items.length < 2 ? items.join("") : items.slice(0, -1).join(", ") + " and " + items.at(-1);
+
+/** The Discord permissions a tool's description names, as a phrase: "Ban Members". */
+export function permissionText(permissions = []) {
+  const always = permissions.filter((p) => !p.when).map((p) => p.name);
+  const conditions = [...new Set(permissions.filter((p) => p.when).map((p) => p.when))];
+  return [
+    list(always),
+    ...conditions.map(
+      (when) =>
+        `${list(permissions.filter((p) => p.when === when).map((p) => p.name))} when ${when}`,
+    ),
+  ]
+    .filter(Boolean)
+    .join("; ");
+}
+
 /**
  * The full reference for one tool, as HTML: description, annotations, parameters, the
  * declared output and related tools. Pure, so pages can render it at build time too.
- * `ctx` gives the toolset labels, a name-to-tool map, a link builder and an optional
- * `loaded` slot for the catalog's toolset status.
+ * `ctx` gives the toolset labels, a name-to-tool map, a link builder, the heading level
+ * of the sections, an optional `example` block after the description, and for the
+ * catalog's panel a `loaded` slot and the relative URL of the tool's own page.
  */
 export function renderToolDetail(tool, ctx) {
-  const { labels, byName, href, loaded = "" } = ctx;
+  const { labels, byName, href, loaded = "", level = 3, example = "", page } = ctx;
   const definition = tool.definition;
   const annotations = definition.annotations || {};
   const label = labels[tool.toolset];
+  const h = raw(`h${level}`);
+  const sub = raw(`h${level + 1}`);
   const rows = ANNOTATIONS.map(([key, name, means, absent]) => {
     const has = Object.prototype.hasOwnProperty.call(annotations, key);
     const value = has ? !!annotations[key] : null;
@@ -219,23 +240,24 @@ export function renderToolDetail(tool, ctx) {
   const same = [...byName.values()].filter(
     (t) => t.toolset === tool.toolset && t.name !== tool.name,
   );
+  const others = same.filter((t) => !mentioned.includes(t));
   const output = definition.outputSchema
     ? tpl`<p class="note">Declared by <code>outputSchema</code>: clients receive this shape as <code>structuredContent</code>.</p>${outputTable(definition.outputSchema)}`
     : tpl`<p class="note">This tool declares no output schema. Its description says what it returns; this page shows no example rather than invent one.</p>`;
+  const permission = permissionText(tool.permissions);
   const head = tpl`<div class="crumb"><span>${label} toolset</span><code>${tool.toolset}</code></div>
 <h2 id="dlg-title" tabindex="-1">${tool.title}</h2>
-<div class="dlg-name"><code id="dlg-name-code">${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button></div>
-<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span>${loaded}</div>`;
-  const body = tpl`<p class="desc">${linkedText(definition.description, byName, href)}</p>
-<section class="d-sec" aria-labelledby="d-anno"><h3 id="d-anno">Risk and annotations</h3>
+<div class="dlg-name"><code id="dlg-name-code">${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button>${page ? tpl`<a class="btn btn-sm" href="${page}">Open the tool page</a>` : ""}</div>
+<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span>${loaded}</div>${permission ? tpl`<p class="dlg-perm">Discord permission: ${permission}</p>` : ""}`;
+  const body = tpl`<p class="desc">${linkedText(definition.description, byName, href)}</p>${example}
+<section class="d-sec" aria-labelledby="d-anno"><${h} id="d-anno">Risk and annotations</${h}>
 <table class="anno"><tbody>${rows}</tbody></table>
 <p class="note">Annotations are hints the server declares. Clients use them to decide when to ask you before a call.</p></section>
-<section class="d-sec" aria-labelledby="d-in"><h3 id="d-in">Parameters</h3>${inputTable(definition.inputSchema)}</section>
-<section class="d-sec" aria-labelledby="d-out"><h3 id="d-out">Output</h3>${output}</section>
-<section class="d-sec" aria-labelledby="d-rel"><h3 id="d-rel">Related tools</h3>
-${mentioned.length ? tpl`<h4>Named in its description</h4><ul class="rel">${mentioned.map((t) => relatedItem(t, href))}</ul>` : ""}
-<h4>${same.length ? `Also in ${label}` : `${label} has no other tool`}</h4>
-${same.length ? tpl`<ul class="rel">${same.map((t) => relatedItem(t, href))}</ul>` : ""}</section>
+<section class="d-sec" aria-labelledby="d-in"><${h} id="d-in">Parameters</${h}>${inputTable(definition.inputSchema)}</section>
+<section class="d-sec" aria-labelledby="d-out"><${h} id="d-out">Output</${h}>${output}</section>
+<section class="d-sec" aria-labelledby="d-rel"><${h} id="d-rel">Related tools</${h}>
+${mentioned.length ? tpl`<${sub}>Named in its description</${sub}><ul class="rel">${mentioned.map((t) => relatedItem(t, href))}</ul>` : ""}
+${others.length ? tpl`<${sub}>Also in ${label}</${sub}><ul class="rel">${others.map((t) => relatedItem(t, href))}</ul>` : same.length ? "" : tpl`<${sub}>${label} has no other tool</${sub}>`}</section>
 <details class="d-sec raw"><summary>Raw definition (${formatInt(tool.bytes)} bytes)</summary><pre><code>${JSON.stringify(definition, null, 2)}</code></pre></details>`;
   return { head, body };
 }

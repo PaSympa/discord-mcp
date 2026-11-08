@@ -8,7 +8,7 @@ const tools = [
   defineTool({
     name: "discord_get_server_stats",
     description:
-      "Get a snapshot of server metrics: total members (humans vs cached bots), channel breakdown (text/voice/category), role count, boost tier and count, and creation date. Read-only. Returns a JSON object. Note: bots are counted from the member cache only, so botsInCache is a lower bound and humans (total minus cached bots) an upper bound.",
+      "Get a snapshot of server metrics: total members (humans vs cached bots), channel breakdown (text/voice/category), role count, boost tier and count, and creation date. Note: bots are counted from the member cache only, so botsInCache is a lower bound and humans (total minus cached bots) an upper bound. The roles count excludes @everyone. In channels, total covers every channel type, while text, voice and categories count only their own. For the server's owner and description, use discord_get_guild_info.",
     annotations: { title: "Get server stats", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

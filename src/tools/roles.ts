@@ -68,7 +68,7 @@ const tools = [
   defineTool({
     name: "discord_create_role",
     description:
-      "Create a new role in a server. Requires the Manage Roles permission; the new role is placed below the bot's highest role. Use discord_add_role to then assign it to members. Returns the new role's name and ID.",
+      "Create a new role in a server. Requires the Manage Roles permission; the new role is placed below the bot's highest role. Use discord_add_role to then assign it to members. Returns the new role's name and ID. To change an existing role, use discord_edit_role.",
     annotations: {
       title: "Create role",
       readOnlyHint: false,

@@ -194,7 +194,7 @@ const tools = [
   defineTool({
     name: "discord_list_forum_threads",
     description:
-      "List posts in a forum channel. Returns { threads: [...], hasMore, nextBefore }. The first call (no `before`) includes all active posts plus the first page of archived posts; archived posts are paginated, so if hasMore is true pass nextBefore back as `before` to fetch older archived posts. Read-only. Use discord_get_forum_post to read one post's messages.",
+      "List posts in a forum channel. Returns { threads: [...], hasMore, nextBefore }. The first call (no `before`) includes all active posts plus the first page of archived posts; archived posts are paginated, so if hasMore is true pass nextBefore back as `before` to fetch older archived posts. Use discord_get_forum_post to read one post's messages. For threads in a text or announcement channel, use discord_list_channel_threads.",
     annotations: { title: "List forum threads", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       forum_channel_id: snowflake.describe(
@@ -290,7 +290,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_tags",
     description:
-      "List the tags available on a forum channel (id, name, emoji, moderated flag). Read-only. Use these IDs with discord_create_forum_post or discord_update_forum_post; manage the tag set with discord_set_forum_tags.",
+      "List the tags available on a forum channel (id, name, emoji, moderated flag). Use these IDs with discord_create_forum_post or discord_update_forum_post; manage the tag set with discord_set_forum_tags. The emoji field holds a unicode emoji, or null when the tag has none or uses a custom server emoji. Fails when the channel is not a forum.",
     annotations: { title: "Get forum tags", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       forum_channel_id: snowflake.describe(
@@ -367,7 +367,7 @@ const tools = [
   defineTool({
     name: "discord_update_forum_post",
     description:
-      "Update a forum post's title, archived/locked state, or applied tags. Only provided fields change; passing applied_tags replaces the post's tags. Set archived:true to close a post without deleting it. Requires the Manage Threads permission.",
+      "Update a forum post's title, archived/locked state, or applied tags. Only provided fields change; passing applied_tags replaces the post's tags. Set archived:true to close a post without deleting it. Requires the Manage Threads permission. To change which tags the forum offers, use discord_set_forum_tags; this tool picks among the forum's existing tags for one post.",
     annotations: {
       title: "Update forum post",
       readOnlyHint: false,

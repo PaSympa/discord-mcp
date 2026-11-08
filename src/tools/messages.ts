@@ -159,7 +159,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag, and the text of any embeds. Use discord_search_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions; without Read Message History Discord returns an empty list, not an error. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag, and the text of any embeds. Use discord_search_messages or discord_search_guild_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({
@@ -636,7 +636,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, and the text of any embeds. Matching checks message content only, so a word that appears only in an embed is not found. Use discord_read_messages to fetch recent messages without filtering.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, and the text of any embeds. Matching checks message content only, so a word that appears only in an embed is not found. Use discord_read_messages to fetch recent messages without filtering. To search full history, in one channel or the whole server, use discord_search_guild_messages.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -666,7 +666,7 @@ const tools = [
   defineTool({
     name: "discord_search_guild_messages",
     description:
-      "Search for messages across all channels in a guild using Discord's native search API. Returns messages matching the query with channel context. Requires READ_MESSAGE_HISTORY permission. Use discord_search_messages for channel-specific search.",
+      "Search for messages across all channels in a guild using Discord's native search API. Returns messages matching the query with channel context. Requires READ_MESSAGE_HISTORY permission. While Discord is still building the server's search index, the call fails and says how many seconds to wait. Use discord_search_messages for a substring scan of one channel's last 100 messages. To read the messages around a hit, use discord_read_messages with around.",
     annotations: { title: "Search guild messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -848,7 +848,7 @@ const tools = [
   defineTool({
     name: "discord_get_reactions",
     description:
-      "List the users who reacted to a message with a specific emoji. Returns { reactions: [...] } with id, username, bot flag. Read-only.",
+      "List the users who reacted to a message with a specific emoji. Returns { reactions: [...] } with id, username, bot flag. At most 100 users come back, with no cursor for the rest. Super reactions are not listed. Fails when no one reacted with that emoji.",
     annotations: { title: "Get reactions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(
@@ -924,7 +924,7 @@ const tools = [
   defineTool({
     name: "discord_fetch_pinned_messages",
     description:
-      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt, and the text of any embeds. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires the View Channel and Read Message History permissions; without Read Message History Discord returns an empty list, not an error. Read-only. Use discord_pin_message to change which messages are pinned.",
+      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt, and the text of any embeds. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires the View Channel and Read Message History permissions; without Read Message History Discord returns an empty list, not an error. Use discord_pin_message to change which messages are pinned, or discord_read_messages to read the whole channel.",
     annotations: { title: "Fetch pinned messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to list pins from."),

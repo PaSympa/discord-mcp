@@ -11,6 +11,7 @@
 ### Changed
 
 - The npm, MCP Registry and Docker image descriptions name Codex next to Claude, Cursor and VS Code
+- 23 tool descriptions name the tool to use instead and state behavior the schemas do not show, so an agent picks the right tool among similar ones. Examples: `discord_get_guild_info` and `discord_get_server_stats` point at each other, `discord_update_membership_screening` warns that `form_fields` deletes question fields, and `discord_find_channel_by_name` describes its `{ matches }` result instead of a JSON array
 
 ## [2.3.0] - 2026-11-07
 

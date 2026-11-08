@@ -29,6 +29,7 @@ export function renderNotFound(site) {
   return layout(site, {
     path: "404.html",
     base,
+    indexed: false,
     current: "",
     title: "Page not found | discord-mcp",
     description: `No page at this address on the discord-mcp site. The closest tool names, and a search over all ${site.totals.tools} tools.`,

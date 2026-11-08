@@ -29,6 +29,9 @@
   content: "/" / "";
   margin-right: var(--s2);
 }
+.crumbs li[aria-current] {
+  color: var(--ink-2);
+}
 .facts .perm {
   display: block;
 }

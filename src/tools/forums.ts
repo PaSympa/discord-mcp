@@ -321,7 +321,7 @@ const tools = [
   defineTool({
     name: "discord_set_forum_tags",
     description:
-      "Replace the full set of available tags on a forum channel with the provided list. This overwrites existing tags, so include every tag you want to keep. Requires the Manage Channels permission. Returns a confirmation.",
+      "Replace the full set of available tags on a forum channel with the provided list. Include every tag you want to keep: a listed tag whose name matches an existing tag (case-insensitive) keeps its ID and stays on posts, while a tag left out is deleted and disappears from every post. Requires the Manage Channels permission. Returns a confirmation.",
     annotations: {
       title: "Set forum tags",
       readOnlyHint: false,
@@ -348,11 +348,21 @@ const tools = [
     }),
     handle: async ({ forum_channel_id, tags }) => {
       const forum = await getForumChannel(forum_channel_id);
-      const mapped = tags.map((t) => ({
-        name: t.name,
-        emoji: t.emoji_name ? { name: t.emoji_name, id: null } : undefined,
-        moderated: t.moderated ?? false,
-      }));
+      // A tag sent without its ID is recreated under a new one and drops off every post.
+      // Discord rejects names that differ only by case (40061), so this key is
+      // unambiguous; a repeated name goes without an ID and Discord rejects it.
+      const unclaimed = new Map(forum.availableTags.map((t) => [t.name.toLowerCase(), t.id]));
+      const mapped = tags.map((t) => {
+        const key = t.name.toLowerCase();
+        const id = unclaimed.get(key);
+        unclaimed.delete(key);
+        return {
+          id,
+          name: t.name,
+          emoji: t.emoji_name ? { name: t.emoji_name, id: null } : undefined,
+          moderated: t.moderated ?? false,
+        };
+      });
       await forum.setAvailableTags(mapped);
       return {
         content: [

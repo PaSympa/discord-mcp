@@ -17,10 +17,10 @@ const GITHUB_ASSETS = join(ROOT, ".github", "assets");
 
 const STYLES = ["base", "landing", "catalog", "tool"];
 const BUNDLES = {
-  "landing.js": ["tpl", "common", "landing"],
-  "catalog.js": ["tpl", "common", "search", "detail", "catalog"],
-  "page.js": ["common", "page"],
-  "notfound.js": ["tpl", "common", "suggest", "notfound"],
+  "landing.js": ["tpl", "keys", "common", "landing"],
+  "catalog.js": ["tpl", "keys", "common", "search", "detail", "catalog"],
+  "page.js": ["keys", "common", "page"],
+  "notfound.js": ["tpl", "keys", "common", "suggest", "notfound"],
 };
 const OG_IMAGE = "assets/social-preview.png";
 const TOUCH_ICON = "assets/apple-touch-icon.png";

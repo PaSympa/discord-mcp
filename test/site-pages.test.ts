@@ -614,6 +614,35 @@ test("search puts a sensible tool first for task words and name fragments", asyn
   assert.equal(search(index, "zzzz").results.length, 0);
 });
 
+test("the header search leads to the search input itself, with Ctrl+K or Cmd+K as its shortcut", async () => {
+  const { isSearchShortcut } = await import("../site/client/keys.mjs");
+  for (const page of pages) {
+    const html = read(page);
+    assert.doesNotMatch(html, /<kbd>\/<\/kbd>/, `${page}: no single-key hint`);
+    for (const [hint] of html.matchAll(/<kbd\b[^>]*>[^<]*<\/kbd>/g))
+      assert.equal(hint, '<kbd data-shortcut aria-hidden="true">Ctrl K</kbd>', page);
+    const control = /<(a|button) class="search-btn"[^>]*>/.exec(html)![0];
+    assert.equal(attr(control, "aria-keyshortcuts"), "Control+K", `${page}: ${control}`);
+    if (page === "tools/index.html") continue;
+    const hit = resolve(page, attr(control, "href")!)!;
+    assert.deepEqual(hit, { target: "tools/index.html", fragment: "q" }, page);
+  }
+  const catalogHtml = read("tools/index.html");
+  assert.match(catalogHtml, /<input id="q" type="search"[^>]* aria-keyshortcuts="Control\+K">/);
+  const key = (key: string, mods: Record<string, boolean> = {}) => ({ key, ...mods });
+  assert.equal(isSearchShortcut(key("k", { ctrlKey: true }), false), true);
+  assert.equal(isSearchShortcut(key("K", { ctrlKey: true }), false), true);
+  assert.equal(isSearchShortcut(key("k", { metaKey: true }), true), true);
+  assert.equal(isSearchShortcut(key("k", { metaKey: true }), false), false);
+  assert.equal(
+    isSearchShortcut(key("k", { ctrlKey: true }), true),
+    false,
+    "Ctrl+K edits text on macOS",
+  );
+  assert.equal(isSearchShortcut(key("k", { ctrlKey: true, shiftKey: true }), false), false);
+  for (const single of ["/", "k", "s"]) assert.equal(isSearchShortcut(key(single), false), false);
+});
+
 test("permission lines keep the bracketed clauses, and the label follows the count", () => {
   const facts = (name: string) =>
     /<dt>(Discord permissions?)<\/dt><dd>((?:<span class="perm">[^<]*<\/span>)+)<\/dd>/
@@ -666,4 +695,16 @@ test("a parameter that accepts several types shows each type with its own rules"
   assert.match(number[1], /^one of \d+ values/);
   assert.deepEqual(integer, ["integer:", "at least 1"]);
   assert.deepEqual(rest, []);
+});
+
+test("every page has a menu button that shows the site links on narrow screens", () => {
+  for (const page of pages) {
+    const html = read(page);
+    const button = /<button class="icon-btn menu-btn"[^>]*>/.exec(html)?.[0];
+    assert.ok(button, `${page}: menu button`);
+    assert.equal(attr(button!, "aria-expanded"), "false", page);
+    assert.equal(attr(button!, "aria-controls"), "site-nav", page);
+    assert.ok(attr(button!, "aria-label"), page);
+    assert.match(html, /<nav class="nav" id="site-nav" aria-label="Site">/, page);
+  }
 });

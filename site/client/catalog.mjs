@@ -205,6 +205,10 @@ $("#empty-clear").addEventListener("click", () => {
   input.focus();
 });
 function focusSearch() {
+  if (dialog.open) {
+    lastFocus = null;
+    dialog.close();
+  }
   const top = input.getBoundingClientRect().top;
   if (top < 70 || top > window.innerHeight - 80)
     $("#search").scrollIntoView({
@@ -214,7 +218,7 @@ function focusSearch() {
   input.focus({ preventScroll: true });
 }
 $("#search-jump").addEventListener("click", focusSearch);
-initCommon({ onSlash: focusSearch });
+initCommon({ onSearch: focusSearch });
 
 const selected = new Set(SETS);
 const readOnly = $("#b-ro");
@@ -470,7 +474,7 @@ if (initial) {
   history.replaceState(null, "", location.pathname + location.search);
   history.pushState({ dlg: 1 }, "", "#" + initial);
   openTool(initial);
-} else if (q0 || location.hash === "#search") {
+} else if (q0 || location.hash === "#q") {
   $("#search").scrollIntoView({ block: "start" });
   input.focus({ preventScroll: true });
 }

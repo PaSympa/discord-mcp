@@ -43,7 +43,7 @@ export default tseslint.config(
     },
   },
   {
-    // Browser code, bundled into _site/assets/. search.mjs, detail.mjs and suggest.mjs also run in Node.
+    // Browser code, bundled into _site/assets/. search, detail, suggest and keys also run in Node.
     files: ["site/client/**/*.mjs"],
     languageOptions: {
       globals: {

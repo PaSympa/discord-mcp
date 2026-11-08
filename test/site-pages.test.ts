@@ -606,6 +606,7 @@ test("search puts a sensible tool first for task words and name fragments", asyn
     ["webhook", "discord_create_webhook"],
     ["invite", "discord_create_invite"],
     ["message", "discord_send_message"],
+    ["who reacted to a message", "discord_get_reactions"],
   ];
   for (const [q, name] of first) assert.equal(top(q)[0], name, `"${q}"`);
   // Both deletion tools fit these; either may lead.

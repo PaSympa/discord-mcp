@@ -47,9 +47,12 @@ const PHRASES = [
 
 const WEIGHT = { name: 10, title: 8, purpose: 4, params: 3, toolset: 2, description: 2 };
 // The last word of a tool name is what it acts on: "create event" wants create_scheduled_event,
-// not create_event_invite, while "ban" (a verb) still wants ban_member before bulk_ban. A query
-// with no verb ("invite") first gets the tools that make the thing, then those that read it.
+// not create_event_invite, while "ban" (a verb) still wants ban_member before bulk_ban. A lone
+// noun ("invite") first gets the tools that make the thing, then those that read it. A longer
+// query whose every word, as typed, is in a tool's purpose is a strong match that outranks
+// that: "who reacted to a message" wants get_reactions, not add_reaction.
 const OBJECT = 6;
+const PHRASE = 3;
 const MAKES = {
   creat: 2,
   send: 2,
@@ -204,9 +207,13 @@ export function search(index, query) {
   const terms = parseQuery(query);
   if (terms.length === 0) return { terms, mode: "all", results: [] };
   const verbs = new Set(index.map((entry) => entry.fields.name[0].stem));
-  const bare = terms.every(
-    (t) => !t.fragment && !verbs.has(t.stem) && !t.alts.some((alt) => verbs.has(alt.split("_")[0])),
-  );
+  const bare =
+    terms.length === 1 &&
+    terms.every(
+      (t) =>
+        !t.fragment && !verbs.has(t.stem) && !t.alts.some((alt) => verbs.has(alt.split("_")[0])),
+    );
+  const phrase = terms.length > 1 && terms.every((t) => !t.fragment);
   const objects = terms.filter((t) => !verbs.has(t.stem)).flatMap(keysOf);
   const scored = index.map((entry) => {
     const hits = terms.map((term) => termScore(entry, term));
@@ -221,6 +228,8 @@ export function search(index, query) {
       score += (2 * named) / name.length;
       if (objects.includes(name.at(-1).stem)) score += OBJECT;
       if (bare) score += MAKES[name[0].stem] ?? 0;
+      const purpose = entry.fields.purpose;
+      if (phrase && terms.every((t) => purpose.some((w) => w.stem === t.stem))) score += PHRASE;
     }
     const hidden = [
       ...new Set(hits.filter((hit) => hit.field && !VISIBLE.has(hit.field)).map((h) => h.field)),

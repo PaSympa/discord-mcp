@@ -19,7 +19,7 @@ const STYLES = ["base", "landing", "catalog", "tool"];
 const BUNDLES = {
   "landing.js": ["tpl", "common", "landing"],
   "catalog.js": ["tpl", "common", "search", "detail", "catalog"],
-  "page.js": ["tpl", "common", "page"],
+  "page.js": ["common", "page"],
   "notfound.js": ["tpl", "common", "suggest", "notfound"],
 };
 const OG_IMAGE = "assets/social-preview.png";

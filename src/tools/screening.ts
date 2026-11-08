@@ -53,7 +53,7 @@ const tools = [
   defineTool({
     name: "discord_update_membership_screening",
     description:
-      "Update the server's membership screening form: set the welcome description and the rules new members must agree to. Only provided fields change. Requires the Community feature and the Manage Server permission. Returns the updated form.",
+      "Update the server's membership screening form: set the welcome description and the rules new members must agree to. Only provided fields change. Passing form_fields replaces every existing field with TERMS rule blocks, which deletes any question field. Read the form first with discord_get_membership_screening. Requires the Community feature and the Manage Server permission. Returns the updated form.",
     annotations: {
       title: "Update membership screening",
       readOnlyHint: false,

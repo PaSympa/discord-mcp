@@ -108,7 +108,7 @@ const tools = [
   defineTool({
     name: "discord_get_scheduled_event",
     description:
-      "Get full details for one scheduled event: name, description, status, type, channel/location, start/end times, creator, and interested-user count. Read-only. Returns a JSON object.",
+      "Get full details for one scheduled event: name, description, status, type, channel/location, start/end times, creator, and interested-user count. Status is SCHEDULED, ACTIVE, COMPLETED or CANCELED, and entity_type is VOICE, STAGE_INSTANCE or EXTERNAL. Find the event_id with discord_list_scheduled_events; list the interested users with discord_get_event_subscribers.",
     annotations: { title: "Get scheduled event", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -124,7 +124,7 @@ const tools = [
   defineTool({
     name: "discord_create_scheduled_event",
     description:
-      "Create a scheduled event. For 'VOICE'/'STAGE_INSTANCE' events provide channel_id; for 'EXTERNAL' events provide location AND scheduled_end_time. Requires the Manage Events permission. Returns the new event's name and ID.",
+      "Create a scheduled event. For 'VOICE'/'STAGE_INSTANCE' events provide channel_id; for 'EXTERNAL' events provide location AND scheduled_end_time. Requires the Manage Events permission. Returns the new event's name and ID. To change, start or cancel an existing event, use discord_edit_scheduled_event.",
     annotations: {
       title: "Create scheduled event",
       readOnlyHint: false,
@@ -354,7 +354,7 @@ const tools = [
   defineTool({
     name: "discord_create_event_invite",
     description:
-      "Create a shareable invite URL that points to a scheduled event, so recipients land on the event when joining. Requires the Create Instant Invite permission. Returns the invite URL.",
+      "Create a shareable invite URL that points to a scheduled event, so recipients land on the event when joining. Requires the Create Instant Invite permission. Returns the invite URL. EXTERNAL events need channel_id; other events reject it and use their own channel. For a plain channel invite with no event attached, use discord_create_invite.",
     annotations: {
       title: "Create event invite",
       readOnlyHint: false,

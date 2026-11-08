@@ -149,7 +149,7 @@ const tools = [
   defineTool({
     name: "discord_delete_webhook",
     description:
-      "Permanently delete a webhook by its ID, invalidating its token. IRREVERSIBLE: any integrations using the old token will stop working. Requires the Manage Webhooks permission.",
+      "Permanently delete a webhook by its ID, invalidating its token. IRREVERSIBLE: any integrations using the old token will stop working. Requires the Manage Webhooks permission. To remove one message the webhook sent, use discord_delete_webhook_message instead; discord_list_webhooks finds the ID.",
     annotations: {
       title: "Delete webhook",
       readOnlyHint: false,
@@ -176,7 +176,7 @@ const tools = [
   defineTool({
     name: "discord_list_webhooks",
     description:
-      "List the webhooks in a single channel or across a whole server (id, name, channel, token when visible, creator). Provide exactly one of channel_id or guild_id. Requires the Manage Webhooks permission. Read-only.",
+      "List the webhooks in a single channel or across a whole server (id, name, channel, token when visible, creator). Provide exactly one of channel_id or guild_id. Requires the Manage Webhooks permission. SECURITY: a returned token lets anyone post as that webhook; treat it as a secret. Pass the id and token to discord_send_webhook_message, or create a webhook with discord_create_webhook.",
     annotations: { title: "List webhooks", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake
@@ -225,7 +225,7 @@ const tools = [
   defineTool({
     name: "discord_edit_webhook_message",
     description:
-      "Edit a message previously sent through a webhook, using the webhook's ID and token. Replaces the provided fields. Requires the original webhook token. Returns a confirmation.",
+      "Edit a message previously sent through a webhook, using the webhook's ID and token. Replaces the provided fields. No bot permission is needed: the token authorizes the edit. For a message the bot sent itself, use discord_edit_message or discord_edit_embed. Returns a confirmation.",
     annotations: {
       title: "Edit webhook message",
       readOnlyHint: false,
@@ -271,7 +271,7 @@ const tools = [
   defineTool({
     name: "discord_delete_webhook_message",
     description:
-      "Permanently delete a message that was sent through a webhook, using the webhook's ID and token. IRREVERSIBLE. Requires the original webhook token.",
+      "Permanently delete a message that was sent through a webhook, using the webhook's ID and token. IRREVERSIBLE. No bot permission is needed: the token authorizes the call. To delete the webhook itself, use discord_delete_webhook.",
     annotations: {
       title: "Delete webhook message",
       readOnlyHint: false,

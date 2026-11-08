@@ -99,7 +99,7 @@ const tools = [
   defineTool({
     name: "discord_edit_dm_embed",
     description:
-      "Replace the embed on a DM message previously sent by this bot. Only the bot's own messages can be edited. Full replace, not merge: provided fields are applied and omitted fields are dropped. Returns a confirmation.",
+      "Replace the embed on a DM message previously sent by this bot. Full replace, not merge: provided fields are applied and omitted fields are dropped. Omitting content keeps the message's current text. Use discord_edit_dm to change only the text, or discord_edit_embed for a message in a server channel. Returns a confirmation.",
     annotations: {
       title: "Edit DM embed",
       readOnlyHint: false,

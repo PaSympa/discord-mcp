@@ -40,7 +40,7 @@ const tools = [
   defineTool({
     name: "discord_get_guild_info",
     description:
-      "Get details about one server: name, description, member/channel/role counts, boost tier, owner, and creation date. Read-only. Use discord_get_server_stats for a finer breakdown (humans vs bots, channel types).",
+      "Get details about one server: name, description, member/channel/role counts, boost tier, owner, and creation date. The owner field is a user ID. roleCount includes the @everyone role. Use discord_get_server_stats for a finer breakdown (humans vs bots, channel types).",
     annotations: { title: "Get server info", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -110,7 +110,7 @@ const tools = [
   defineTool({
     name: "discord_find_channel_by_name",
     description:
-      "Find channels whose name contains a substring (case-insensitive). Returns matching channels (id, name, type) as a JSON array. Read-only. Useful for resolving a channel_id when you only know the channel's name.",
+      "Find channels whose name contains a substring (case-insensitive). Returns { matches: [...] } with the id, name and type of every match, active threads included. The list is empty when nothing matches. Useful for resolving a channel_id when you only know the channel's name. Use discord_list_channels to see every channel grouped by category.",
     annotations: { title: "Find channel by name", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

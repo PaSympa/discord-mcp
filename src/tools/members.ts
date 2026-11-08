@@ -51,7 +51,7 @@ const tools = [
   defineTool({
     name: "discord_get_member_info",
     description:
-      "Get full details for one server member: roles, effective permissions, account/join dates, bot flag, and current timeout status. Read-only. Returns a JSON object.",
+      "Get full details for one server member: roles, effective permissions, account/join dates, bot flag, and current timeout status. Permissions come from the member's roles, server-wide: channel overwrites are not applied. The owner and Administrators list every flag. To find a member by name use discord_search_members; to page through members use discord_list_members.",
     annotations: { title: "Get member info", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

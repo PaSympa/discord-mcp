@@ -5,6 +5,7 @@
 ### Added
 
 - `server.json` declares every environment variable the server reads, so MCP Registry clients can prompt for them. `DISCORD_MCP_TOOLSETS`, `DISCORD_ALLOWED_GUILDS`, `DISCORD_MESSAGE_CONTENT` and `DISCORD_GUILD_MEMBERS` join `DISCORD_TOKEN` on both the npm and Docker packages
+- `DISCORD_MCP_READ_ONLY=true` exposes only the 35 tools annotated `readOnlyHint: true`. Write tools are absent from `tools/list`, and `tools/call` rejects them as unknown tools. The mode narrows `DISCORD_MCP_TOOLSETS`. An invalid value, or a selection with no read-only tool left, stops the server at startup
 
 ### Changed
 

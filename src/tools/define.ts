@@ -23,6 +23,13 @@ export const guildId = snowflake
  */
 export const intIn = (min: number, max: number) => z.int().min(min).max(max);
 
+/** Output fields naming who sent a message. Discord also sets a webhook ID on an app's reply to a command. */
+export const messageAuthorShape = { author_id: z.string(), webhook_id: z.string().optional() };
+
+export function messageAuthor(authorId: string, webhookId: string | null | undefined) {
+  return { author_id: authorId, ...(webhookId ? { webhook_id: webhookId } : {}) };
+}
+
 /**
  * An http(s)-only URL. Bare `z.url()` accepts any WHATWG scheme (javascript:,
  * ftp:, mailto:…) that Discord rejects for clickable/image links. The protocol

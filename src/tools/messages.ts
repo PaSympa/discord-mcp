@@ -27,7 +27,16 @@ import {
   embedSummary,
   embedField,
 } from "../embeds.js";
-import { defineModule, defineTool, snowflake, guildId, intIn, structured } from "./define.js";
+import {
+  defineModule,
+  defineTool,
+  snowflake,
+  guildId,
+  intIn,
+  structured,
+  messageAuthor,
+  messageAuthorShape,
+} from "./define.js";
 
 const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
 const messageId = snowflake.describe("ID of the message.");
@@ -84,8 +93,7 @@ function cursorForInstant(iso: string): string {
 const messageSummary = z.object({
   id: z.string(),
   author: z.string(),
-  author_id: z.string(),
-  webhook_id: z.string().optional(),
+  ...messageAuthorShape,
   content: z.string(),
   timestamp: z.string(),
   embeds: z.array(embedSummary).optional(),
@@ -197,8 +205,7 @@ const tools = [
         .map((m) => ({
           id: m.id,
           author: m.author.tag,
-          author_id: m.author.id,
-          ...(m.webhookId ? { webhook_id: m.webhookId } : {}),
+          ...messageAuthor(m.author.id, m.webhookId),
           content: m.content,
           timestamp: m.createdAt.toISOString(),
           ...embedField(m.embeds),
@@ -661,8 +668,7 @@ const tools = [
         .map((m) => ({
           id: m.id,
           author: m.author.tag,
-          author_id: m.author.id,
-          ...(m.webhookId ? { webhook_id: m.webhookId } : {}),
+          ...messageAuthor(m.author.id, m.webhookId),
           content: m.content,
           timestamp: m.createdAt.toISOString(),
           ...embedField(m.embeds),
@@ -730,8 +736,7 @@ const tools = [
       const matches = data.messages.flat().map((m) => ({
         id: m.id,
         author: userTag(m.author),
-        author_id: m.author.id,
-        ...(m.webhook_id ? { webhook_id: m.webhook_id } : {}),
+        ...messageAuthor(m.author.id, m.webhook_id),
         content: m.content,
         timestamp: m.timestamp,
         ...embedField(m.embeds ?? []),
@@ -960,8 +965,7 @@ const tools = [
       const messages = pinned.items.map(({ message: m, pinnedAt }) => ({
         id: m.id,
         author: m.author.tag,
-        author_id: m.author.id,
-        ...(m.webhookId ? { webhook_id: m.webhookId } : {}),
+        ...messageAuthor(m.author.id, m.webhookId),
         content: m.content,
         timestamp: m.createdAt.toISOString(),
         ...embedField(m.embeds),

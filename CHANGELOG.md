@@ -8,6 +8,7 @@
 - `DISCORD_MCP_READ_ONLY=true` exposes only the 35 tools annotated `readOnlyHint: true`. Write tools are absent from `tools/list`, and `tools/call` rejects them as unknown tools. The mode narrows `DISCORD_MCP_TOOLSETS`. An invalid value, or a selection with no read-only tool left, stops the server at startup
 - A Claude Desktop bundle, `discord-mcp.mcpb`, is attached to each GitHub Release and listed in the MCP Registry. Opening it installs the server and asks for the bot token; it runs on the Node.js built into Claude Desktop
 - `DISCORD_MCP_TRANSPORT=http` serves MCP over Streamable HTTP on `/mcp`, for remote clients such as the OpenAI Responses API, Codex and n8n. Every request must carry the `DISCORD_MCP_HTTP_TOKEN` bearer token. The server listens on `127.0.0.1:3000` by default and refuses a foreign `Host` header and any `Origin`. stdio stays the default
+- A Claude Code plugin, served from this repository as a plugin marketplace. In a session, run `/plugin marketplace add PaSympa/discord-mcp`, then `/plugin install discord-mcp@pasympa`; the install asks for the bot token. The plugin runs the npm release of the same version and adds two skills: a channel digest, and a moderation sweep that applies nothing before you confirm
 
 ### Changed
 

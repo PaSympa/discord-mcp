@@ -21,7 +21,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --import tsx --test test/*.test.ts",
-    "site:data": "node site/generate.mjs",
+    "site": "node site/generate.mjs",
     "bundle": "node scripts/bundle.mjs",
     "version": "node scripts/sync-version.js && git add server.json manifest.json",
     "prepublishOnly": "npm run build"

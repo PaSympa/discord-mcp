@@ -1,0 +1,130 @@
+{
+  "toolsets": {
+    "discovery": {
+      "label": "Discovery",
+      "blurb": "Find servers and channels, and the IDs most other tools need."
+    },
+    "messages": {
+      "label": "Messages",
+      "blurb": "Read, search, send, edit, react to, pin, forward and delete messages, and manage threads."
+    },
+    "channels": {
+      "label": "Channels",
+      "blurb": "Create, edit, move, clone, follow and delete channels."
+    },
+    "permissions": {
+      "label": "Permissions",
+      "blurb": "Inspect, set, copy and reset channel permission overwrites."
+    },
+    "members": {
+      "label": "Members",
+      "blurb": "List and search members, set nicknames, and kick, ban, time out or prune."
+    },
+    "roles": {
+      "label": "Roles",
+      "blurb": "Create, edit, assign, order and delete roles."
+    },
+    "moderation": {
+      "label": "Moderation",
+      "blurb": "Read the audit log."
+    },
+    "screening": {
+      "label": "Screening",
+      "blurb": "Read and update the membership screening form."
+    },
+    "stats": {
+      "label": "Stats",
+      "blurb": "A snapshot of server metrics."
+    },
+    "forums": {
+      "label": "Forums",
+      "blurb": "Forum channels, posts, replies and tags."
+    },
+    "webhooks": {
+      "label": "Webhooks",
+      "blurb": "Create webhooks and post, edit or delete messages through them."
+    },
+    "scheduled_events": {
+      "label": "Scheduled events",
+      "blurb": "Create and manage events, see who is interested, and invite people to them."
+    },
+    "invites": {
+      "label": "Invites",
+      "blurb": "List, inspect, create and revoke invites."
+    },
+    "dm": {
+      "label": "Direct messages",
+      "blurb": "Send, read, edit and delete direct messages."
+    }
+  },
+  "clients": {
+    "Claude Desktop": "Claude Desktop",
+    "Claude Code": "Claude Code",
+    "Cursor": "Cursor",
+    "VS Code / GitHub Copilot": "VS Code",
+    "Windsurf": "Windsurf",
+    "Codex CLI": "Codex CLI",
+    "Cline": "Cline",
+    "Docker": "Docker",
+    "From source": "From source"
+  },
+  "asks": {
+    "Catch up on a busy channel": {
+      "recorded": true,
+      "tools": ["discord_list_channels", "discord_read_messages", "discord_send_embed"]
+    },
+    "Turn feedback into a tracker": {
+      "recorded": true,
+      "tools": [
+        "discord_create_forum_channel",
+        "discord_set_forum_tags",
+        "discord_get_forum_tags",
+        "discord_create_forum_post"
+      ]
+    },
+    "Stop a spam raid safely": {
+      "recorded": true,
+      "tools": ["discord_read_messages", "discord_bulk_delete_messages"]
+    },
+    "Run community events": {
+      "recorded": true,
+      "tools": [
+        "discord_create_scheduled_event",
+        "discord_create_event_invite",
+        "discord_send_message"
+      ]
+    },
+    "Audit permissions": {
+      "recorded": false,
+      "tools": ["discord_audit_permissions"]
+    },
+    "Welcome people": {
+      "recorded": false,
+      "tools": ["discord_create_invite"]
+    },
+    "Automate notifications": {
+      "recorded": false,
+      "tools": ["discord_create_webhook", "discord_send_webhook_message"]
+    }
+  },
+  "session": {
+    "prompt": "A spam raid just hit #general. Preview the cleanup, then remove it.",
+    "calls": [
+      {
+        "tool": "discord_read_messages",
+        "args": ["#general", "limit: 10"],
+        "result": "7 messages, the last 4 are spam"
+      },
+      {
+        "tool": "discord_bulk_delete_messages",
+        "args": ["count: 4"],
+        "result": "Dry run: 4 of the 4 most recent messages in #general would be deleted"
+      },
+      {
+        "tool": "discord_bulk_delete_messages",
+        "args": ["count: 4", "dry_run: false"],
+        "result": "Deleted 4 messages in #general"
+      }
+    ]
+  }
+}

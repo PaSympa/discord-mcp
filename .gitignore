@@ -1,6 +1,7 @@
 node_modules/
 dist/
 _site/
+*.mcpb
 .env
 
 # OS / editor cruft

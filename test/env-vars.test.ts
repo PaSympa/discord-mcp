@@ -30,9 +30,17 @@ function envReads(): Map<string, string> {
 }
 
 type Package = { registryType: string; environmentVariables?: { name: string }[] };
+type Manifest = {
+  version: string;
+  server: { mcp_config: { env?: Record<string, string> } };
+  user_config?: Record<string, { type: string; required?: boolean; default?: unknown }>;
+};
 
 const reads = envReads();
 const packages: Package[] = JSON.parse(readFileSync(join(root, "server.json"), "utf8")).packages;
+const manifest: Manifest = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8"));
+const manifestEnv = manifest.server.mcp_config.env ?? {};
+const userConfig = manifest.user_config ?? {};
 
 test("the env var scan still matches how src/ reads env vars", () => {
   assert.ok(reads.has("DISCORD_TOKEN"), "update READ_PATTERNS: DISCORD_TOKEN is no longer found");
@@ -65,6 +73,44 @@ test("server.json packages declare identical env var lists", () => {
       `the server.json ${pkg.registryType} package env vars differ from the ${first.registryType} package`,
     );
   }
+});
+
+test("manifest.json maps every env var src/ reads, and only those", () => {
+  for (const [name, file] of reads) {
+    assert.ok(
+      name in manifestEnv,
+      `${name} is read in ${file} but not mapped in manifest.json mcp_config.env`,
+    );
+  }
+  for (const name of Object.keys(manifestEnv)) {
+    assert.ok(reads.has(name), `manifest.json mcp_config.env maps ${name}, which src/ never reads`);
+  }
+});
+
+test("each manifest.json env value references a user_config option", () => {
+  for (const [name, value] of Object.entries(manifestEnv)) {
+    const key = /^\$\{user_config\.([a-z0-9_]+)\}$/.exec(value)?.[1];
+    assert.ok(
+      key !== undefined && key in userConfig,
+      `manifest.json maps ${name} to ${value}, which names no user_config option`,
+    );
+  }
+});
+
+test("optional manifest.json options declare a default, an empty one for strings", () => {
+  // Without a default, an unset option reaches the env as the literal ${user_config.key}.
+  for (const [key, option] of Object.entries(userConfig)) {
+    if (option.required) continue;
+    assert.ok("default" in option, `user_config.${key} is optional but has no default`);
+    if (option.type === "string") {
+      assert.equal(option.default, "", `user_config.${key} is an optional string: default ""`);
+    }
+  }
+});
+
+test("manifest.json version matches package.json", () => {
+  const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.equal(manifest.version, version, "run node scripts/sync-version.js");
 });
 
 test("the README Configuration table has a row for every env var src/ reads", () => {

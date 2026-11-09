@@ -804,6 +804,71 @@ async function main() {
           const wide = await menu();
           check(`the links show without a menu ${at}`, !wide.button && wide.links === 4, wide);
         }
+        const currentLink = () =>
+          evaluate(
+            `document.querySelector('#site-nav a[aria-current="page"]')?.textContent ?? null`,
+          );
+        for (const path of ["toolsets/", "toolsets/channels/"]) {
+          await go(path);
+          const want = path === "toolsets/" ? "Toolsets" : null;
+          if (width <= MENU_UP_TO) {
+            await click("#menu-btn");
+            const open = { ...(await menu()), current: await currentLink() };
+            check(
+              `the menu opens on /${path} with the site links ${at}`,
+              open.expanded === "true" && open.links === 5 && open.current === want,
+              open,
+            );
+            await press("Escape", "Escape", 27);
+            const shut = await menu();
+            check(
+              `Escape closes the menu on /${path} ${at}`,
+              shut.expanded === "false" && shut.links === 0 && (await focusedId()) === "menu-btn",
+              shut,
+            );
+          } else {
+            const wide = { ...(await menu()), current: await currentLink() };
+            check(
+              `the links show without a menu on /${path} ${at}`,
+              !wide.button && wide.links === 4 && wide.current === want,
+              wide,
+            );
+          }
+        }
+
+        await go("tools/");
+        await click('#presets [data-preset="1"]');
+        await click("#show-sel");
+        await sleep(150);
+        const filtered = await evaluate(`document.getElementById("count").textContent`);
+        check(
+          `the builder's selection filters the catalog ${at}`,
+          filtered === "Showing 25 of 100 tools",
+          filtered,
+        );
+        await go("tools/");
+        await click('#presets [data-preset="1"]');
+        await click('a.row[data-tool="discord_ban_member"]');
+        await sleep(300);
+        const slot = () =>
+          evaluate(`({
+            loaded: document.querySelector("#dlg-head .loaded")?.textContent,
+            ticked: document.querySelector('#ts-list [data-set="members"] input').checked,
+            env: [...document.querySelectorAll("#b-env .term-code .l")].map((l) => l.textContent).join(" "),
+          })`);
+        const before = await slot();
+        await click('#dlg-head [data-add-set="members"]');
+        await sleep(150);
+        const added = await slot();
+        check(
+          `the panel's Add button adds the toolset to the builder ${at}`,
+          before.loaded?.startsWith("Not in your toolset line") &&
+            !before.ticked &&
+            added.loaded === "Loaded by your configuration" &&
+            added.ticked &&
+            added.env === "DISCORD_MCP_TOOLSETS=discovery,messages,members",
+          { before, added },
+        );
 
         for (const [path, list] of [
           ["tools/", "#ts-list"],

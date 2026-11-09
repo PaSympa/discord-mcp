@@ -95,6 +95,38 @@ function summarize(tools) {
 }
 
 /**
+ * A toolset with no read-only tool may point to reads in another toolset, as "To <task>,
+ * <toolset> has the read-only tools <tools>". Every word of that sentence must hold:
+ * the tools are read-only and share one other toolset, and each title is a verb of the
+ * task followed by its object, as "List channels" or "Find channel by name" for "list or
+ * find channels". Any other title, such as "List channel threads", is refused.
+ */
+function checkReadsElsewhere(set, { task, tools: names }, byName) {
+  if (set.risk.read > 0)
+    fail(`content.json points ${set.name} to reads elsewhere, but it has read-only tools.`);
+  const phrase =
+    /^([a-z]+(?: or [a-z]+)*) ([a-z]+)$/.exec(task) ??
+    fail(`content.json: the task for ${set.name} must read "<verb> or <verb> <things>".`);
+  const verbs = phrase[1].split(" or ");
+  const things = [phrase[2], phrase[2].replace(/s$/, "")];
+  const tools = names.map(
+    (name) => byName.get(name) ?? fail(`content.json names unknown tool ${name}.`),
+  );
+  for (const tool of tools) {
+    if (tool.risk !== "read" || tool.toolset === set.name)
+      fail(`${tool.name} is not a read-only tool of another toolset than ${set.name}.`);
+    if (tool.toolset !== tools[0].toolset)
+      fail(`content.json: the reads named for ${set.name} must share one toolset.`);
+    const [verb, thing, next] = tool.title.toLowerCase().split(" ");
+    if (!verbs.includes(verb) || !things.includes(thing) || (next !== undefined && next !== "by"))
+      fail(`content.json says ${tool.name} can ${task}, but its title is "${tool.title}".`);
+  }
+  for (const verb of verbs)
+    if (!tools.some((tool) => tool.title.toLowerCase().startsWith(verb + " ")))
+      fail(`content.json says the reads named for ${set.name} can ${verb}; none of them does.`);
+}
+
+/**
  * Joins the tools/list catalog, README.md and site/content.json into what the pages
  * render, and refuses any count or name that disagrees between them.
  */
@@ -112,15 +144,7 @@ export function siteModel(catalog, readme, content) {
   const toolsets = catalog.toolsets.map((s) => {
     const text =
       content.toolsets[s.name] ?? fail(`content.json has no label for toolset ${s.name}.`);
-    for (const name of text.readsElsewhere ?? []) {
-      const tool = byName.get(name) ?? fail(`content.json names unknown tool ${name}.`);
-      if (byName.get(text.readsElsewhere[0]).toolset !== tool.toolset)
-        fail(`content.json: the reads named for ${s.name} must share one toolset.`);
-      if (s.risk.read > 0)
-        fail(`content.json points ${s.name} to reads elsewhere, but it has read-only tools.`);
-      if (tool.risk !== "read" || tool.toolset === s.name)
-        fail(`${name} is not a read-only tool of another toolset than ${s.name}.`);
-    }
+    if (text.readsElsewhere) checkReadsElsewhere(s, text.readsElsewhere, byName);
     return { ...s, ...text };
   });
 

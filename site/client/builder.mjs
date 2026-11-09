@@ -85,7 +85,11 @@ export function initBuilder(data, { onRender } = {}) {
       $("[data-n]", li).textContent = String(inSet.length);
       $("[data-unit]", li).textContent = inSet.length === 1 ? " tool" : " tools";
       $("[data-tok]", li).textContent = formatTokens(inSet.reduce((n, t) => n + t.tokens, 0));
+      // Read-only mode loads no destructive tool, so the count would describe tools left out.
+      const de = $(".ts-de", li);
+      if (de) de.hidden = ro;
     }
+    $("#de-legend").hidden = ro;
     $("#ro-legend").hidden = !emptied;
     for (const button of presets) {
       const p = data.profiles[Number(button.dataset.preset)];

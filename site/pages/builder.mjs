@@ -58,7 +58,7 @@ export function builder(site, { up, showInCatalog = false }) {
     <h3 class="ts-title" id="ts-title">Toolsets</h3>
     <div class="ts-cols" aria-hidden="true"><span></span><span>Name</span><span>Tools</span><span>Tokens</span></div>
     <ul class="ts-list" id="ts-list" aria-labelledby="ts-title">${rows}</ul>
-    <p class="ts-legend" aria-hidden="true"><span class="ts-de" data-risk="destructive">${glyph()}3</span> Destructive tools in the toolset</p>
+    <p class="ts-legend" id="de-legend" aria-hidden="true"><span class="ts-de" data-risk="destructive">${glyph()}3</span> Destructive tools in the toolset</p>
     <p class="ts-legend" id="ro-legend" hidden>Crossed out: the toolset has no read-only tool, so read-only mode leaves it out.</p>
   </div>
   ${showInCatalog ? raw('<button class="btn show-sel" type="button" id="show-sel">Show these tools in the catalog</button>') : ""}

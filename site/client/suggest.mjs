@@ -25,7 +25,7 @@ export function requestedName(pathname, base = "/") {
   return lastSegment(pathname, base).replace(/^discord_/, "");
 }
 
-function lastSegment(pathname, base) {
+function segments(pathname, base) {
   let path = pathname;
   try {
     path = decodeURIComponent(pathname);
@@ -33,11 +33,16 @@ function lastSegment(pathname, base) {
     // A malformed escape: match on the raw path.
   }
   if (path.startsWith(base)) path = path.slice(base.length);
+  return path
+    .split("/")
+    .map((segment) => segment.replace(/\.html?$/i, ""))
+    .filter(Boolean);
+}
+
+function lastSegment(pathname, base) {
   const last =
-    path
-      .split("/")
-      .map((segment) => segment.replace(/\.html?$/i, ""))
-      .filter((segment) => segment && !/^(tools|toolsets|index)$/i.test(segment))
+    segments(pathname, base)
+      .filter((segment) => !/^(tools|toolsets|index)$/i.test(segment))
       .at(-1) ?? "";
   return last
     .toLowerCase()
@@ -47,10 +52,13 @@ function lastSegment(pathname, base) {
 
 /**
  * Up to `limit` toolsets whose name or label is within a few edits of a missing address
- * under toolsets/, closest first: "/discord-mcp/toolsets/mesages/" gives messages.
+ * under toolsets/, or under a folder a few edits from it, closest first:
+ * "/discord-mcp/toolsets/mesages/" and "/discord-mcp/toolset/messages/" give messages.
+ * tools/ is three edits away, so its addresses keep their tool suggestions.
  */
 export function suggestToolsets(pathname, toolsets, { base = "/", limit = 3 } = {}) {
-  if (!pathname.slice(base.length).toLowerCase().startsWith("toolsets/")) return [];
+  const folder = (segments(pathname, base)[0] ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (editDistance(folder, "toolsets") > 2) return [];
   const wanted = lastSegment(pathname, base);
   if (wanted.length < 2) return [];
   const near = Math.max(2, Math.floor(wanted.length / 3));

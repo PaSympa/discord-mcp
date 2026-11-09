@@ -70,6 +70,7 @@ const MISSPELLED = [
 ];
 const MISSPELLED_SETS = [
   ["toolsets/mesages/", "messages"],
+  ["toolset/messages/", "messages"],
   ["toolsets/scheduled-event/", "scheduled_events"],
   ["toolsets/direct-messages", "dm"],
 ];
@@ -243,6 +244,67 @@ const OVERFLOW = `(() => {
   return out;
 })()`;
 
+// Runs in the page: the WCAG contrast of every text inside notes, hints and legends, against
+// the backgrounds it sits on, blended down to the first opaque one. AA asks 4.5:1, or 3:1 for
+// text of 24 px, or 18.66 px in bold.
+const CONTRAST = String.raw`(() => {
+  const parse = (value) => {
+    let m = /rgba?\(([^)]+)\)/.exec(value);
+    if (m) {
+      const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+      return [p[0], p[1], p[2], p[3] ?? 1];
+    }
+    m = /color\(srgb ([^)]+)\)/.exec(value);
+    if (m) {
+      const p = m[1].split(/[\s/]+/).filter(Boolean).map(Number);
+      return [p[0] * 255, p[1] * 255, p[2] * 255, p[3] ?? 1];
+    }
+    return null;
+  };
+  const over = (top, bottom) => [0, 1, 2].map((i) => top[i] * top[3] + bottom[i] * (1 - top[3])).concat(1);
+  const background = (el) => {
+    const layers = [];
+    for (let node = el; node; node = node.parentElement) {
+      const c = parse(getComputedStyle(node).backgroundColor);
+      if (!c) return null;
+      if (c[3] > 0) layers.push(c);
+      if (c[3] >= 1) break;
+    }
+    return layers.reverse().reduce((base, layer) => over(layer, base), [255, 255, 255, 1]);
+  };
+  const lum = ([r, g, b]) => {
+    const f = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+  };
+  const ratio = (a, b) => {
+    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return (x + 0.05) / (y + 0.05);
+  };
+  const shown = (el) => el.getClientRects().length && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], dialog:not([open]), .vh");
+  const fails = [];
+  let checked = 0;
+  for (const box of document.querySelectorAll(".tsp-note, .note, .hint, .ts-legend, .method, .tsx-ro, .tsx-none, .tsx-key, .fine")) {
+    if (!shown(box)) continue;
+    for (const el of [box, ...box.querySelectorAll("*")]) {
+      if (!shown(el) || ![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+      const cs = getComputedStyle(el);
+      const bg = background(el);
+      const fg = parse(cs.color);
+      if (!bg || !fg) {
+        fails.push("unreadable color " + cs.color + " on " + cs.backgroundColor);
+        continue;
+      }
+      const size = parseFloat(cs.fontSize);
+      const large = size >= 24 || (size >= 18.66 && Number(cs.fontWeight) >= 700);
+      const r = ratio(over(fg, bg), bg);
+      checked++;
+      if (r < (large ? 3 : 4.5))
+        fails.push(el.tagName.toLowerCase() + "." + el.className + " in ." + box.className.split(" ")[0] + ' "' + el.textContent.trim().slice(0, 30) + '" ' + r.toFixed(2) + ":1");
+    }
+  }
+  return { checked, fails };
+})()`;
+
 // Runs in the page: what Tab should reach, in document order, each with a stable key.
 const FOCUSABLES = `(() => {
   const all = [...document.querySelectorAll("a[href], button, input, select, textarea, summary, [tabindex]")];
@@ -283,7 +345,15 @@ async function main() {
   });
   const tab = await connect(port);
   const { send, evaluate, listeners } = tab;
-  const counts = { loads: 0, tabStops: 0, searches: 0, suggestions: 0, copies: 0, builds: 0 };
+  const counts = {
+    loads: 0,
+    tabStops: 0,
+    searches: 0,
+    suggestions: 0,
+    copies: 0,
+    builds: 0,
+    contrasts: 0,
+  };
   let log = [];
   let current = "";
   listeners.add((method, params) => {
@@ -458,6 +528,13 @@ async function main() {
             overflow.length === 0,
             overflow,
           );
+          const contrast = await evaluate(CONTRAST);
+          counts.contrasts += contrast.checked;
+          check(
+            `${where}: text in notes, hints and legends meets the AA contrast`,
+            contrast.fails.length === 0,
+            contrast.fails.slice(0, 5),
+          );
           check(`${where}: no console error or failed request`, log.length === 0, log.slice(0, 5));
         }
 
@@ -524,6 +601,10 @@ async function main() {
                 none: [...document.querySelectorAll("#ts-list .ts-row.none")].map((li) => li.dataset.set),
                 pressed: [...document.querySelectorAll("#presets [aria-pressed=true]")].map((b) => b.textContent),
                 hint: document.getElementById("b-hint").textContent,
+                badges: document.querySelectorAll("#ts-list .ts-de").length,
+                shownBadges: [...document.querySelectorAll("#ts-list .ts-de")].filter((el) => el.getClientRects().length).length,
+                legend: document.getElementById("de-legend").getClientRects().length > 0,
+                contrast: ${CONTRAST}.fails,
               };
             })()`);
           const steps = [];
@@ -545,7 +626,16 @@ async function main() {
           counts.builds++;
           check(
             `the builder on /${path} composes a toolset line at ${width} px, ${scheme}`,
-            steps[0].env === "DISCORD_MCP_TOOLSETS=discovery,messages" &&
+            steps.every((step, i) => {
+              const ro = i === 1 || i === 2;
+              return (
+                step.badges > 0 &&
+                step.shownBadges === (ro ? 0 : step.badges) &&
+                step.legend === !ro &&
+                step.contrast.length === 0
+              );
+            }) &&
+              steps[0].env === "DISCORD_MCP_TOOLSETS=discovery,messages" &&
               steps[0].tools === "25" &&
               steps[0].pressed.length === 1 &&
               steps[1].env ===
@@ -900,7 +990,7 @@ async function main() {
 
   console.log(
     `${results.pass} passed, ${results.fail} failed. ${counts.loads} page loads over ${WIDTHS.length} widths and ${SCHEMES.length} color schemes, ` +
-      `${counts.tabStops} Tab stops, ${counts.searches} searches, ${counts.suggestions} 404 suggestions, ${counts.copies} copies, ${counts.builds} builder runs.`,
+      `${counts.tabStops} Tab stops, ${counts.searches} searches, ${counts.suggestions} 404 suggestions, ${counts.copies} copies, ${counts.builds} builder runs, ${counts.contrasts} text contrasts.`,
   );
   for (const failure of results.failures) console.log("FAIL " + failure);
   process.exitCode = results.fail ? 1 : 0;

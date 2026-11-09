@@ -140,6 +140,9 @@
   background: var(--write-wash);
   border-radius: var(--r2);
 }
+.tsp-note a:not(.tool) {
+  color: var(--ink);
+}
 .tsp-profiles {
   list-style: none;
   margin: 0;

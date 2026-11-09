@@ -928,6 +928,43 @@ async function main() {
           }
         }
 
+        // The headers count the rows listed under them, whatever the builder's switch says.
+        await go("tools/");
+        const heads = () =>
+          evaluate(`[...document.querySelectorAll(".group")].filter((g) => g.getClientRects().length).map((g) => {
+            const shown = (sel) => [...g.querySelectorAll(sel)].filter((el) => el.getClientRects().length);
+            const rows = shown(".row-li").map((li) => li.dataset.risk).sort().join();
+            return {
+              set: g.id,
+              rows,
+              same: rows === shown(".group-head .strip i").map((i) => i.dataset.risk).sort().join(),
+              text: g.querySelector("[data-meta]").textContent,
+            };
+          })`);
+        const mixOk = (list) =>
+          list.every((h) => {
+            const n = (risk) => h.rows.split(",").filter((r) => r === risk).length;
+            const text = ["read", "write", "destructive"]
+              .filter(n)
+              .map((risk) => n(risk) + " " + (risk === "read" ? "read-only" : risk))
+              .join(", ");
+            return h.same && h.text.includes(": " + text + ", ");
+          });
+        await click("#builder .switch");
+        const switched = await heads();
+        await click('.chip[data-risk="destructive"]');
+        await sleep(150);
+        const pressed = await heads();
+        check(
+          `the catalog headers show one bar per listed row with read-only mode on ${at}`,
+          switched.length === 14 &&
+            mixOk(switched) &&
+            pressed.length > 0 &&
+            pressed.every((h) => /^destructive(,destructive)*$/.test(h.rows)) &&
+            mixOk(pressed),
+          { switched: switched.filter((h) => !h.same), pressed: pressed.filter((h) => !h.same) },
+        );
+
         await go("tools/");
         await click('#presets [data-preset="1"]');
         await click("#show-sel");

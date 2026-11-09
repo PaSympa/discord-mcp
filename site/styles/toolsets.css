@@ -80,7 +80,14 @@
   overflow-wrap: anywhere;
 }
 .tsp-mix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
   margin-top: var(--s4);
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
 }
 .tsp .row-purpose {
   white-space: normal;

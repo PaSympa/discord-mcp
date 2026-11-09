@@ -281,8 +281,7 @@ main {
   border: 1px solid var(--line);
   border-radius: var(--r3);
 }
-.demo-frame > img,
-.demo-frame > canvas {
+.demo-frame > video {
   grid-area: 1 / 1;
   display: block;
   width: 100%;

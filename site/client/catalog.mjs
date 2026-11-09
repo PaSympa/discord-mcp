@@ -280,9 +280,11 @@ function renderBuilder() {
         tpl`<span data-risk="${risk}"><span class="glyph" aria-hidden="true"><i></i><i></i><i></i></span>${counts[risk]} ${RISK_WORD[risk]}</span>`,
     )}`,
   );
+  let emptied = false;
   for (const s of SETS) {
     const li = tsRows.get(s);
     const inSet = TOOLS.filter((t) => t.toolset === s && (!ro || t.risk === "read"));
+    emptied ||= inSet.length === 0;
     li.classList.toggle("on", selected.has(s));
     li.classList.toggle("none", inSet.length === 0);
     $("input", li).checked = selected.has(s);
@@ -290,6 +292,7 @@ function renderBuilder() {
     $("[data-unit]", li).textContent = inSet.length === 1 ? " tool" : " tools";
     $("[data-tok]", li).textContent = formatTokens(inSet.reduce((n, t) => n + t.tokens, 0));
   }
+  $("#ro-legend").hidden = !emptied;
   for (const button of presets) {
     const p = DATA.profiles[Number(button.dataset.preset)];
     const sets = p.all ? SETS : p.sets;

@@ -1,6 +1,7 @@
 import { esc } from "../client/tpl.mjs";
 import { REPO, SITE_URL } from "./layout.mjs";
 import { toolPath } from "./tool.mjs";
+import { TOOLSETS_PATH, toolsetPath } from "./toolsets.mjs";
 
 const RISK = { read: "read-only", write: "writes", destructive: "destructive" };
 
@@ -16,11 +17,21 @@ export function renderLlms(site) {
       });
     return `## ${set.label} (\`${set.name}\`)\n\n${lines.join("\n")}\n`;
   });
+  const sets = site.toolsets.map((set) => {
+    const kept = set.risk.read ? `${set.risk.read} read-only` : "none read-only";
+    return `- [${set.label}](${SITE_URL}${toolsetPath(set.name)}): \`${set.name}\`, ${set.tools} ${set.tools === 1 ? "tool" : "tools"}, ${kept}, about ${(set.tokens / 1000).toFixed(1)}k tokens.`;
+  });
   return `# discord-mcp
 
 > ${site.description}
 
-Version ${site.version}. Run it with \`npx -y @pasympa/discord-mcp\` and your bot's token in \`DISCORD_TOKEN\`. Each line below names a tool, gives its purpose (the first sentence of its description) and its risk from its annotations: read-only, writes or destructive. Toolset names in headings are the values of \`DISCORD_MCP_TOOLSETS\`. Every definition, with its input and output schemas, is in [tools.json](${SITE_URL}tools.json).
+Version ${site.version}. Run it with \`npx -y @pasympa/discord-mcp\` and your bot's token in \`DISCORD_TOKEN\`. Under each toolset heading, a line names a tool, gives its purpose (the first sentence of its description) and its risk from its annotations: read-only, writes or destructive. Toolset names in headings are the values of \`DISCORD_MCP_TOOLSETS\`. Every definition, with its input and output schemas, is in [tools.json](${SITE_URL}tools.json).
+
+## Toolsets
+
+One page per toolset, with its tools, risk mix, context cost and the README profiles that include it. [All toolsets](${SITE_URL}${TOOLSETS_PATH}) also has the builder for the \`DISCORD_MCP_TOOLSETS\` line.
+
+${sets.join("\n")}
 
 ${sections.join("\n")}
 ## Optional

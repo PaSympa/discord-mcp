@@ -1,6 +1,7 @@
 import { permissionLabel, permissionLines, renderToolDetail } from "../client/detail.mjs";
 import { breakable, formatInt, raw, riskBadge, tpl } from "../client/tpl.mjs";
 import { firstFitting, layout, SITE_URL } from "./layout.mjs";
+import { breadcrumbLd, breadcrumbs, TOOLSETS_PATH, toolsetPath } from "./toolsets.mjs";
 
 const RISK_WORD = { read: "Read-only", write: "Write", destructive: "Destructive" };
 
@@ -37,11 +38,11 @@ export function toolMeta(tool, label) {
 /** The breadcrumb trail of a tool page: shown above its title and given to search engines. */
 export function toolTrail(tool, label) {
   return [
-    { name: "Tools", href: "../", url: SITE_URL + "tools/" },
+    { name: "Toolsets", href: "../../toolsets/", url: SITE_URL + TOOLSETS_PATH },
     {
       name: label,
-      href: `../#set-${tool.toolset}`,
-      url: `${SITE_URL}tools/#set-${tool.toolset}`,
+      href: `../../${toolsetPath(tool.toolset)}`,
+      url: SITE_URL + toolsetPath(tool.toolset),
     },
     { name: tool.title, url: SITE_URL + toolPath(tool.name) },
   ];
@@ -61,16 +62,12 @@ export function renderToolPage(site, tool) {
   });
   const permissions = permissionLines(tool.permissions);
   const id = tpl`<div class="tp-id">
-  <nav class="crumbs" aria-label="Breadcrumb"><ol>${trail.map((step) =>
-    step.href
-      ? tpl`<li><a href="${step.href}">${step.name}</a></li>`
-      : tpl`<li aria-current="page">${step.name}</li>`,
-  )}</ol></nav>
+  ${breadcrumbs(trail)}
   <h1>${tool.title}</h1>
   <p class="tp-name"><code>${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button></p>
   <p class="tp-badges">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}</p>
   <dl class="facts">
-    <div><dt>Toolset</dt><dd><a href="../#set-${tool.toolset}">${label}</a> <code>${tool.toolset}</code></dd></div>
+    <div><dt>Toolset</dt><dd><a href="../../${toolsetPath(tool.toolset)}">${label}</a> <code>${tool.toolset}</code></dd></div>
     ${permissions.length ? tpl`<div><dt>${permissionLabel(tool.permissions)}</dt><dd>${permissions.map((line) => tpl`<span class="perm">${line}</span>`)}</dd></div>` : ""}
     <div><dt>Context cost</dt><dd>${formatInt(tool.tokens)} tokens, estimated<span class="fine">${formatInt(tool.bytes)} bytes of definition, divided by 4</span></dd></div>
   </dl>
@@ -85,15 +82,6 @@ ${id}
 </div>`),
     script: "page.js",
     ogType: "article",
-    jsonLd: {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      itemListElement: trail.map((step, i) => ({
-        "@type": "ListItem",
-        position: i + 1,
-        name: step.name,
-        item: step.url,
-      })),
-    },
+    jsonLd: breadcrumbLd(trail),
   });
 }

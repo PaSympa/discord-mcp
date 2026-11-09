@@ -239,7 +239,7 @@ function profiles(site) {
   return section(
     "expose-only-what-you-need",
     "Load only what you need",
-    tpl`<p>${md(site, lead.text, UP)}</p><a class="btn" href="tools/#builder">Open the toolset builder</a>`,
+    tpl`<p>${md(site, lead.text, UP)}</p><a class="btn" href="toolsets/#builder">Open the toolset builder</a>`,
     tpl`<fieldset class="pfs">
   <legend class="vh">Profiles from the README</legend>
   <div class="pf-head" aria-hidden="true"><span>Profile</span><span>Tools</span><span>Context, estimated</span></div>
@@ -260,7 +260,7 @@ function profiles(site) {
 function browse(site) {
   const sets = site.toolsets.map((s) => {
     const de = s.risk.destructive;
-    return tpl`<li><a class="set-link" href="tools/#set-${s.name}">
+    return tpl`<li><a class="set-link" href="toolsets/${s.name}/">
   <span class="set-top"><span class="set-name">${s.label}</span><span class="set-n">${plural(s.tools, "tool")}</span>${de ? tpl`<span class="set-de" data-risk="destructive">${glyph()}${de} destructive</span>` : ""}</span>
   <span class="set-blurb">${s.blurb}</span>
 </a></li>`;

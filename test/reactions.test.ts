@@ -13,7 +13,7 @@ afterEach(() => mock.restoreAll());
 
 /** Mirrors MessageManager#fetch: without `force`, it returns the cached copy, reactions and all. */
 function stubCachedMessage() {
-  const removed = { byEmoji: 0, byUser: [] as string[] };
+  const removed = { all: 0, byEmoji: 0, byUser: [] as string[], fetches: 0 };
   const reaction = {
     users: {
       fetch: async () => new Map([[USER, { id: USER, username: "someone", bot: false }]]),
@@ -25,7 +25,15 @@ function stubCachedMessage() {
       removed.byEmoji++;
     },
   };
-  const fresh = { id: MESSAGE, reactions: { cache: new Map([[EMOJI, reaction]]) } };
+  const fresh = {
+    id: MESSAGE,
+    reactions: {
+      cache: new Map([[EMOJI, reaction]]),
+      removeAll: async () => {
+        removed.all++;
+      },
+    },
+  };
   const cached = { id: MESSAGE, reactions: { cache: new Map() } };
   const channel = {
     name: "chan",
@@ -36,7 +44,10 @@ function stubCachedMessage() {
       fetch: async ({ force }: { force?: boolean }) => (force ? fresh : cached),
     },
   };
-  mock.method(discord.channels, "fetch", async () => channel as never);
+  mock.method(discord.channels, "fetch", async () => {
+    removed.fetches++;
+    return channel as never;
+  });
   return removed;
 }
 
@@ -61,4 +72,34 @@ test("remove_reactions removes one user's reaction missing from the cached messa
   const removed = stubCachedMessage();
   await handler("discord_remove_reactions")({ ...target, user_id: USER });
   assert.deepEqual(removed.byUser, [USER]);
+});
+
+test("remove_reactions with no emoji and no user_id still removes every reaction", async () => {
+  const removed = stubCachedMessage();
+  await handler("discord_remove_reactions")({ channel_id: CHANNEL, message_id: MESSAGE });
+  assert.equal(removed.all, 1);
+});
+
+test("remove_reactions rejects user_id without emoji before any request", async () => {
+  const removed = stubCachedMessage();
+  await assert.rejects(
+    () =>
+      handler("discord_remove_reactions")({
+        channel_id: CHANNEL,
+        message_id: MESSAGE,
+        user_id: USER,
+      }),
+    /user_id requires emoji/,
+  );
+  await assert.rejects(() =>
+    handler("discord_remove_reactions")({ ...target, emoji: "", user_id: USER }),
+  );
+  assert.deepEqual(removed, { all: 0, byEmoji: 0, byUser: [], fetches: 0 });
+});
+
+test("remove_reactions rejects an empty emoji instead of removing every reaction", async () => {
+  const removed = stubCachedMessage();
+  await assert.rejects(() => handler("discord_remove_reactions")({ ...target, emoji: "" }));
+  assert.equal(removed.all, 0);
+  assert.equal(removed.fetches, 0);
 });

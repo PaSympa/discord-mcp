@@ -221,7 +221,7 @@ const tools = [
   defineTool({
     name: "discord_edit_scheduled_event",
     description:
-      "Update a scheduled event; only provided fields change. Use the status field to start ('ACTIVE'), end ('COMPLETED'), or cancel ('CANCELED') an event; Discord only allows certain status transitions. Discord ignores location on VOICE and STAGE_INSTANCE events. An ACTIVE voice or stage event ends on its own a few minutes after its channel empties. Requires the Manage Events permission, or Create Events for an event the bot created, plus the same channel permissions as creating it.",
+      "Update a scheduled event; only provided fields change. Use the status field to start ('ACTIVE'), end ('COMPLETED'), or cancel ('CANCELED') an event; Discord only allows certain status transitions. Discord rejects a location on VOICE and STAGE_INSTANCE events. An ACTIVE voice or stage event ends on its own a few minutes after its channel empties. Requires the Manage Events permission, or Create Events for an event the bot created, plus the same channel permissions as creating it.",
     annotations: {
       title: "Edit scheduled event",
       readOnlyHint: false,
@@ -359,7 +359,7 @@ const tools = [
   defineTool({
     name: "discord_create_event_invite",
     description:
-      "Create a shareable invite URL that points to a scheduled event, so recipients land on the event when joining. Requires the Create Instant Invite permission. Returns the invite URL; Discord may reuse a similar existing invite instead of creating a new one. EXTERNAL events need channel_id; other events reject it and use their own channel. For a plain channel invite with no event attached, use discord_create_invite.",
+      "Create a shareable invite URL that points to a scheduled event, so recipients land on the event when joining. Requires the Create Instant Invite permission. Returns the invite URL; Discord may reuse a similar existing invite instead of creating a new one. EXTERNAL events need channel_id; other events reject it and use their own channel. The URL is an ordinary channel invite with ?event=<event ID> appended. Use discord_create_invite for a channel invite with the unique or temporary options.",
     annotations: {
       title: "Create event invite",
       readOnlyHint: false,

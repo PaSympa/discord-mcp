@@ -95,7 +95,7 @@ const tools = [
   defineTool({
     name: "discord_edit_channel",
     description:
-      "Update a channel's name, topic, slowmode, or NSFW flag. Only provided fields change. This tool sends topic and slowmode for text channels only and ignores them on other channel types without an error. Requires the Manage Channels permission. Returns a confirmation.",
+      "Update a channel's name, topic, slowmode, or NSFW flag. Only provided fields change. This tool sends topic and slowmode for plain text channels only; on every other type, announcement channels included, it ignores them without an error. Requires the Manage Channels permission. Returns a confirmation.",
     annotations: {
       title: "Edit channel",
       readOnlyHint: false,
@@ -106,7 +106,10 @@ const tools = [
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to edit."),
       name: z.string().optional().describe("New channel name (max 100 characters)."),
-      topic: z.string().optional().describe("New topic/description (text channels only)."),
+      topic: z
+        .string()
+        .optional()
+        .describe("New topic/description (text channels only, not announcement)."),
       slowmode: intIn(0, 21600)
         .optional()
         .describe("Per-user message cooldown in seconds, 0–21600. 0 disables slowmode."),

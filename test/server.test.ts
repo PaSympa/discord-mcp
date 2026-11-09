@@ -95,7 +95,7 @@ test("formatToolError flattens ZodError paths and surfaces Discord hints", () =>
   );
   assert.match(
     formatToolError(banErr),
-    /Failed to ban users\. None of the users were banned\. One known cause: each user is already banned\.$/,
+    /Failed to ban users\. None of the users were banned\. Known causes: IDs that match no user, or users already banned\.$/,
   );
 
   assert.equal(formatToolError(new Error("boom")), "boom");

@@ -213,7 +213,7 @@ const tools = [
   defineTool({
     name: "discord_reply_dm",
     description:
-      "Reply to a specific message in a DM, attaching a quoted reply reference. Unlike the edit/delete DM tools, this works on any message in the conversation (the bot's or the user's) except system messages, which Discord refuses as reply targets. Use discord_send_dm for a standalone DM with no reference. Returns the new reply's message ID.",
+      "Reply to a specific message in a DM, attaching a quoted reply reference. Unlike the edit/delete DM tools, this works on the bot's messages and the user's alike, though Discord refuses some system messages as reply targets. Use discord_send_dm for a standalone DM with no reference. Returns the new reply's message ID.",
     annotations: {
       title: "Reply to DM",
       readOnlyHint: false,

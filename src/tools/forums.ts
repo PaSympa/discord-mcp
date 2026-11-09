@@ -352,7 +352,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_tags",
     description:
-      "List the tags available on a forum channel (id, name, emoji, moderated flag). Use these IDs with discord_create_forum_post or discord_update_forum_post; manage the tag set with discord_set_forum_tags. The emoji field holds a unicode emoji, or null when the tag has none or uses a custom server emoji. Fails when the channel is not a forum.",
+      "List the tags available on a forum channel (id, name, emoji, emoji_id, moderated flag). Use these IDs with discord_create_forum_post or discord_update_forum_post; manage the tag set with discord_set_forum_tags. The emoji field holds a unicode emoji, or null when the tag has none or uses a custom server emoji. Fails when the channel is not a forum.",
     annotations: { title: "Get forum tags", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       forum_channel_id: snowflake.describe(

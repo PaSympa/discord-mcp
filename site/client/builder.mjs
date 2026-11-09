@@ -4,13 +4,14 @@ import { formatInt, formatTokens, mixText, plural, riskCounts, RISKS, tpl } from
 /**
  * The toolset builder, on the catalog and on /toolsets/. `data` holds the totals, toolsets,
  * README profiles and, per tool, its toolset, risk and tokens. `onRender` runs after each
- * update with the selected toolsets and whether read-only mode is on. Returns the selection, the read-only switch and a
+ * update with the selected toolsets. Returns the selection, the read-only switch and a
  * function that renders the builder again after the selection changes from outside.
  */
 export function initBuilder(data, { onRender } = {}) {
   const tools = data.tools;
   const sets = data.toolsets.map((s) => s.name);
   const total = data.totals;
+  const maxTokens = Math.max(...data.toolsets.map((s) => s.tokens));
   const selected = new Set(sets);
   const readOnly = $("#b-ro");
   const env = $("#b-env");
@@ -83,7 +84,9 @@ export function initBuilder(data, { onRender } = {}) {
       $("input", li).checked = selected.has(s);
       $("[data-n]", li).textContent = String(inSet.length);
       $("[data-unit]", li).textContent = inSet.length === 1 ? " tool" : " tools";
-      $("[data-tok]", li).textContent = formatTokens(inSet.reduce((n, t) => n + t.tokens, 0));
+      const cost = inSet.reduce((n, t) => n + t.tokens, 0);
+      $("[data-tok]", li).textContent = formatTokens(cost);
+      $(".ts-bar i", li).style.width = ((cost / maxTokens) * 100).toFixed(1) + "%";
       $("[data-mix]", li).textContent = mixText(countRisks(inSet));
     }
     $("#ro-legend").hidden = !emptied;
@@ -132,7 +135,7 @@ export function initBuilder(data, { onRender } = {}) {
     }
     setTerminalLines(env, usable ? configLines(list) : ["# Nothing to copy yet"]);
     copy.disabled = !usable;
-    onRender?.(list, ro);
+    onRender?.(list);
   }
 
   for (const [s, li] of tsRows)

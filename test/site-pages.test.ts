@@ -902,8 +902,9 @@ function readsClaim(
     (t) =>
       `<a class="tool" href="${up}tools/${t.name}/" data-risk="read"><span class="glyph" aria-hidden="true"><i></i><i></i><i></i></span><code>${t.name.replace(/_/g, "_<wbr>")}</code><span class="vh"> (read-only)</span></a>`,
   );
+  chips.push(`<span class="tool-end">${chips.pop()}.</span>`);
   const list = chips.length < 2 ? chips[0] : chips.slice(0, -1).join(", ") + " and " + chips.at(-1);
-  return `To ${reads.task}, <a href="${up}toolsets/${home}/">${text[home].label}</a> has the read-only ${tools.length === 1 ? "tool" : "tools"} ${list}.`;
+  return `To ${reads.task}, <a href="${up}toolsets/${home}/">${text[home].label}</a> has the read-only ${tools.length === 1 ? "tool" : "tools"} ${list}`;
 }
 
 test("/toolsets/ shows every toolset with its label, blurb, counts and cost from tools.json", async () => {
@@ -1003,13 +1004,13 @@ test("each toolset page lists its tools from tools.json, and every tool appears 
     assert.ok(html.includes(`<h1>${esc(text[set.name].label)}</h1>`), `${page}: h1`);
     assert.ok(html.includes(`<p class="desc">${esc(text[set.name].blurb)}</p>`), `${page}: blurb`);
     assert.ok(
-      html.includes(
-        `<dt>Tools</dt><dd>${plural(set.tools, "tool")}<span class="fine">${mixOf(set.risk)}</span>`,
-      ),
-      `${page}: counts`,
+      html.includes(`<dt>Tools</dt><dd>${plural(set.tools, "tool")}</dd>`),
+      `${page}: count`,
     );
     assert.ok(html.includes(`${formatInt(set.tokens)} tokens, estimated`), `${page}: tokens`);
-    assert.deepEqual(stripOf(/<p class="tsp-mix">[\s\S]*?<\/p>/.exec(html)![0]), set.risk, page);
+    const mix = /<p class="tsp-mix">[\s\S]*?<\/p>/.exec(html)![0];
+    assert.deepEqual(stripOf(mix), set.risk, page);
+    assert.ok(mix.endsWith(`</span><span>${mixOf(set.risk)}</span></p>`), `${page}: mix text`);
 
     const rows = [
       ...html.matchAll(
@@ -1215,9 +1216,10 @@ test("a toolset's risk mix is the same strip on the landing, the catalog and the
     ).exec(landing)![1];
     assert.deepEqual(stripOf(card), set.risk, `landing: ${set.name}`);
     assert.ok(card.includes(`<span class="vh">${mixOf(set.risk)}</span>`), `landing: ${set.name}`);
-    assert.equal(
-      card.includes(`${set.risk.destructive} destructive</span>`),
-      set.risk.destructive > 0,
+    assert.ok(
+      card.endsWith(
+        `<span class="set-de"${set.risk.destructive ? ' data-risk="destructive"' : ""} aria-hidden="true">${set.risk.destructive} destructive</span></span>`,
+      ),
       `landing: ${set.name} destructive count`,
     );
 
@@ -1229,6 +1231,12 @@ test("a toolset's risk mix is the same strip on the landing, the catalog and the
       head,
       new RegExp(`<a href="\\.\\./toolsets/${set.name}/">`),
       `catalog: ${set.name}`,
+    );
+    assert.ok(
+      head.includes(
+        `data-meta>${set.tools} ${set.tools === 1 ? "tool" : "tools"}: ${mixOf(set.risk)}, `,
+      ),
+      `catalog: ${set.name} mix text`,
     );
 
     for (const page of ["tools/index.html", "toolsets/index.html"]) {
@@ -1248,6 +1256,19 @@ test("a toolset's risk mix is the same strip on the landing, the catalog and the
       /<p class="strip-key [a-z-]+" aria-hidden="true">One bar per tool:/,
       page,
     );
+});
+
+test("the builder's read-only switch leaves the catalog's group headers to the filters", () => {
+  const js = read("assets/catalog.js");
+  const css = read("assets/site.css");
+  assert.doesNotMatch(js, /groupsEl\.classList/, "no class set on the groups");
+  assert.doesNotMatch(css, /#groups\.ro/, "no read-only rule on the groups");
+  assert.match(
+    css,
+    /\.ts-list\.ro \.strip i:not\(\[data-risk="read"\]\)/,
+    "the builder rows keep theirs",
+  );
+  assert.match(js, /mixText\(left\)/, "the header text follows the rows shown");
 });
 
 test("the risk levels have one name each on every page and in llms.txt", () => {

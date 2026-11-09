@@ -131,10 +131,6 @@
 .group-head .strip {
   align-self: center;
 }
-.ts-list.ro .strip i:not([data-risk="read"]),
-#groups.ro .group-head .strip i:not([data-risk="read"]) {
-  display: none;
-}
 .group-head .meta {
   margin-left: auto;
   font-size: 0.8125rem;
@@ -386,7 +382,7 @@
   padding: 0;
 }
 .ts-row label {
-  grid-template-rows: auto auto auto;
+  grid-template-rows: auto auto;
   align-items: center;
   row-gap: var(--s1);
   padding: 6px var(--s2);
@@ -397,7 +393,7 @@
   background: var(--surface-2);
 }
 .ts-row input {
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 2;
   width: 18px;
   height: 18px;
   margin: 0;
@@ -418,9 +414,15 @@
   overflow-wrap: anywhere;
 }
 .ts-mix {
-  grid-column: 2 / -1;
+  grid-column: 2 / 4;
   display: flex;
   min-height: 11px;
+}
+.ts-list.ro .strip i:not([data-risk="read"]) {
+  display: none;
+}
+.ts-row:not(.on) .strip i {
+  background: var(--bar-off);
 }
 .ts-n,
 .ts-tok {
@@ -430,14 +432,22 @@
   font-variant-numeric: tabular-nums;
 }
 .ts-bar {
-  grid-column: 2 / -1;
+  grid-column: 4;
+  align-self: center;
   display: block;
   height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line);
+}
+.ts-row.on:not(.none) .ts-bar {
+  background: var(--brand-track);
 }
 .ts-bar i {
   display: block;
+  min-width: 2px;
   height: 100%;
-  border-radius: 0 2px 2px 0;
+  border-radius: 2px;
   background: var(--bar-off);
   transition: background-color 0.15s;
 }

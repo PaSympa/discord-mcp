@@ -2,7 +2,7 @@ import { $, $$, announce, initCommon, reduceMotion } from "./common.mjs";
 import { initBuilder } from "./builder.mjs";
 import { renderToolDetail } from "./detail.mjs";
 import { createIndex, matchRanges, search } from "./search.mjs";
-import { breakable, formatTokens, marked, plural, RISKS, tpl } from "./tpl.mjs";
+import { breakable, formatTokens, marked, mixText, plural, RISKS, tpl } from "./tpl.mjs";
 
 const DATA = JSON.parse($("#catalog-data").textContent);
 const TOOLS = DATA.tools;
@@ -110,15 +110,18 @@ function applyFilters() {
       const inSet = shown.filter((t) => t.toolset === s);
       const n = inSet.length;
       g.el.hidden = n === 0;
-      // The strip keeps one bar per row left in the group.
-      for (const risk of RISKS) {
-        const left = inSet.filter((t) => t.risk === risk).length;
+      // The strip and its text keep one bar per row left in the group.
+      const left = Object.fromEntries(
+        RISKS.map((risk) => [risk, inSet.filter((t) => t.risk === risk).length]),
+      );
+      for (const risk of RISKS)
         $$(`.group-head .strip [data-risk="${risk}"]`, g.el).forEach((bar, i) => {
-          bar.hidden = i >= left;
+          bar.hidden = i >= left[risk];
         });
-      }
       g.meta.textContent =
         (n === set.tools ? plural(set.tools, "tool") : `${n} of ${set.tools} tools`) +
+        ": " +
+        mixText(left) +
         ", " +
         formatTokens(set.tokens) +
         " tokens";
@@ -227,9 +230,8 @@ $("#search-jump").addEventListener("click", focusSearch);
 initCommon({ onSearch: focusSearch });
 
 const builder = initBuilder(DATA, {
-  onRender: (list, ro) => {
+  onRender: (list) => {
     $("#show-sel").disabled = !list.length;
-    groupsEl.classList.toggle("ro", ro);
   },
 });
 const { selected, readOnly } = builder;

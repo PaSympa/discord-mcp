@@ -629,6 +629,16 @@ kbd {
 .tool:hover {
   border-color: var(--brand);
 }
+/* A chip and the period after it: the chip gives way so the period never wraps alone. */
+.tool-end {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.tool-end .tool {
+  min-width: 0;
+}
 .tool:hover code {
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -833,5 +843,33 @@ kbd {
   .strip i {
     background: CanvasText !important;
     forced-color-adjust: none;
+  }
+  .chip[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+  .chip[aria-pressed="true"] .n {
+    color: HighlightText;
+  }
+  .chip[aria-pressed="true"] .glyph i {
+    background: HighlightText !important;
+  }
+  .meter,
+  .pf-bar,
+  .ts-bar {
+    forced-color-adjust: none;
+    background: Canvas !important;
+    outline: 1px solid CanvasText;
+  }
+  .meter i,
+  .pf-bar i,
+  .ts-bar i {
+    background: CanvasText !important;
+  }
+  .ts-row:not(.on) .ts-bar i,
+  .ts-row:not(.on) .strip i {
+    background: GrayText !important;
   }
 }

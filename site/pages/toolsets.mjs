@@ -69,7 +69,7 @@ function readsElsewhere(site, set, up) {
   if (!set.readsElsewhere) return "";
   const { task, tools } = set.readsElsewhere;
   const home = site.toolsets.find((s) => s.name === site.byName.get(tools[0]).toolset);
-  return tpl` To ${task}, <a href="${up}${toolsetPath(home.name)}">${home.label}</a> has the read-only ${tools.length === 1 ? "tool" : "tools"} ${listOf(tools.map((name) => toolChip(site, name, up)))}.`;
+  return tpl` To ${task}, <a href="${up}${toolsetPath(home.name)}">${home.label}</a> has the read-only ${tools.length === 1 ? "tool" : "tools"} ${listOf(tools.map((name, i) => (i === tools.length - 1 ? tpl`<span class="tool-end">${toolChip(site, name, up)}.</span>` : toolChip(site, name, up))))}`;
 }
 
 function readOnlySection(site) {
@@ -150,9 +150,9 @@ export function renderToolsetPage(site, set) {
   ${breadcrumbs(trail)}
   <h1>${set.label}</h1>
   <p class="tp-name"><code>${set.name}</code></p>
-  <p class="tsp-mix">${strip(set.risk)}</p>
+  <p class="tsp-mix">${strip(set.risk)}<span>${mixText(set.risk)}</span></p>
   <dl class="facts">
-    ${fact("Tools", tpl`${plural(set.tools, "tool")}<span class="fine">${mixText(set.risk)}</span>`)}
+    ${fact("Tools", plural(set.tools, "tool"))}
     ${fact("Context cost", tpl`${formatInt(set.tokens)} tokens, estimated<span class="fine">${formatInt(set.bytes)} bytes of definitions, divided by 4</span>`)}
     ${fact("Read-only mode", roFact)}
     ${dry ? fact("Dry run by default", plural(dry, "tool")) : ""}

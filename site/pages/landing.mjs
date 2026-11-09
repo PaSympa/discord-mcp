@@ -271,7 +271,7 @@ function browse(site) {
   const sets = site.toolsets.map((s) => {
     const de = s.risk.destructive;
     return tpl`<li><a class="set-link" href="toolsets/${s.name}/">
-  <span class="set-top"><span class="set-name">${s.label}</span><span class="set-n">${plural(s.tools, "tool")}</span><span class="set-mix">${strip(s.risk)}<span class="vh">${mixText(s.risk)}</span>${de ? tpl`<span class="set-de" aria-hidden="true">${de} destructive</span>` : ""}</span></span>
+  <span class="set-top"><span class="set-name">${s.label}</span><span class="set-n">${plural(s.tools, "tool")}</span><span class="set-mix">${strip(s.risk)}<span class="vh">${mixText(s.risk)}</span><span class="set-de"${de ? raw(' data-risk="destructive"') : ""} aria-hidden="true">${de} destructive</span></span></span>
   <span class="set-blurb">${s.blurb}</span>
 </a></li>`;
   });

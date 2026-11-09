@@ -603,8 +603,14 @@ main {
   margin-top: var(--s3);
 }
 .set-de {
+  min-width: 6.5em;
+  text-align: right;
   font-size: 0.75rem;
   font-weight: 600;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.set-de[data-risk] {
   color: var(--destructive-ink);
 }
 .set-blurb {

@@ -3,6 +3,7 @@ import {
   formatInt,
   formatTokens,
   glyph,
+  mixText,
   plural,
   raw,
   RISK_LABEL,
@@ -42,7 +43,7 @@ function group(site, set) {
     <h2 id="set-${set.name}-h"><a href="${UP}toolsets/${set.name}/">${set.label}</a></h2>
     <code>${set.name}</code>
     ${strip(set.risk)}
-    <span class="meta" data-meta>${plural(set.tools, "tool")}, ${formatTokens(set.tokens)} tokens</span>
+    <span class="meta" data-meta>${plural(set.tools, "tool")}: ${mixText(set.risk)}, ${formatTokens(set.tokens)} tokens</span>
   </div>
   <p class="group-blurb">${set.blurb}</p>
   <ol class="rows" role="list">${tools.map((tool) => toolRow(tool))}</ol>

@@ -1,7 +1,7 @@
 import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { Collection, PermissionFlagsBits } from "discord.js";
-import { discord } from "../src/client.js";
+import { ChannelFlagsBitField, Collection, PermissionFlagsBits } from "discord.js";
+import { discord, isObfuscated } from "../src/client.js";
 import messages from "../src/tools/messages.js";
 import forums from "../src/tools/forums.js";
 import permissions from "../src/tools/permissions.js";
@@ -32,6 +32,10 @@ const UNVIEWABLE = "200000000000000013";
 const TARGET = "200000000000000014";
 const CLEAN_GUILD = "200000000000000020";
 const CLEAN_CHANNEL = "200000000000000021";
+const KEY_GUILD = "200000000000000030";
+const KEY_CATEGORY = "200000000000000031";
+const KEY_CHANNEL = "200000000000000032";
+const KEY_HIDDEN = "200000000000000033";
 
 const OBFUSCATED_FLAG = 1 << 17;
 
@@ -199,8 +203,35 @@ asAdder(discord.guilds)._add(
     [],
   ),
 );
+asAdder(discord.guilds)._add(
+  rawGuild(
+    KEY_GUILD,
+    [
+      { id: KEY_CATEGORY, type: 4, name: "hiddenChannels", position: 0, permission_overwrites: [] },
+      {
+        id: KEY_CHANNEL,
+        type: 0,
+        name: "inside",
+        position: 0,
+        parent_id: KEY_CATEGORY,
+        permission_overwrites: [],
+      },
+      obfuscated(KEY_HIDDEN, 0, 1),
+    ],
+    [],
+  ),
+);
 
 afterEach(() => mock.restoreAll());
+
+test("isObfuscated is true on the hidden flag alone and on the placeholder name alone", () => {
+  const flags = (bits: number) => new ChannelFlagsBitField(bits);
+  assert.equal(isObfuscated({ flags: flags(OBFUSCATED_FLAG), name: "general" }), true);
+  assert.equal(isObfuscated({ flags: flags(0), name: "___hidden___" }), true);
+  assert.equal(isObfuscated({ flags: null, name: "___hidden___" }), true);
+  assert.equal(isObfuscated({ flags: flags(0), name: "general" }), false);
+  assert.equal(isObfuscated({ flags: null, name: "general" }), false);
+});
 
 const cached = <T>(id: string) => discord.channels.cache.get(id) as unknown as T;
 
@@ -430,10 +461,10 @@ const list = async (guild_id: string) => {
   return result.structuredContent as Record<string, unknown>;
 };
 
-test("list_channels leaves obfuscated placeholders out and counts them", async () => {
+test("list_channels leaves obfuscated placeholders out", async () => {
   stubChannelRefresh(GUILD);
   const result = await list(GUILD);
-  assert.equal(result.hiddenChannels, 2);
+  assert.ok(!("hiddenChannels" in result));
   assert.ok(!("___hidden___" in result), "a hidden category must not become a key");
   const names = Object.values(result)
     .filter(Array.isArray)
@@ -450,11 +481,37 @@ test("list_channels leaves obfuscated placeholders out and counts them", async (
   );
 });
 
-test("list_channels has no hiddenChannels key when nothing is hidden", async () => {
+test("list_channels lists a clean guild unchanged", async () => {
   stubChannelRefresh(CLEAN_GUILD);
   const result = await list(CLEAN_GUILD);
-  assert.ok(!("hiddenChannels" in result));
-  assert.deepEqual(result["No Category"], [
-    { id: CLEAN_CHANNEL, name: "clean", type: "GuildText" },
-  ]);
+  assert.deepEqual(result, {
+    "No Category": [{ id: CLEAN_CHANNEL, name: "clean", type: "GuildText" }],
+  });
+});
+
+test("list_channels lists a real category named hiddenChannels and validates", async () => {
+  stubChannelRefresh(KEY_GUILD);
+  const result = await list(KEY_GUILD);
+  assert.deepEqual(result, {
+    "No Category": [],
+    hiddenChannels: [{ id: KEY_CHANNEL, name: "inside", type: "GuildText" }],
+  });
+});
+
+type Lockable = { edit: (...args: unknown[]) => Promise<unknown> };
+
+const lockPermissions = (channel_id: string) =>
+  channels.handlers.get("discord_lock_channel_permissions")!({ channel_id });
+
+test("lock_channel_permissions refuses a channel under an obfuscated category, with zero writes", async () => {
+  const edit = mock.method(cached<Lockable>(UNDER_HIDDEN), "edit", async () => ({}));
+  await assert.rejects(lockPermissions(UNDER_HIDDEN), cannotView(OBFUSCATED_CATEGORY));
+  assert.equal(edit.mock.callCount(), 0);
+});
+
+test("lock_channel_permissions syncs a channel under a category the bot can view", async () => {
+  const edit = mock.method(cached<Lockable>(READABLE), "edit", async () => ({}));
+  assert.ok(!(await lockPermissions(READABLE)).isError);
+  assert.equal(edit.mock.callCount(), 1);
+  assert.deepEqual(edit.mock.calls[0].arguments, [{ permissionOverwrites: [] }]);
 });

@@ -469,7 +469,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_delete_messages",
     description:
-      "Permanently delete multiple recent messages in one call. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Discord only allows bulk-deleting messages younger than 14 days; older ones are skipped. Requires the Manage Messages and Read Message History permissions, and refuses to run without Read Message History. Returns the number deleted.",
+      "Permanently delete multiple recent messages in one call. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Discord only allows bulk-deleting messages younger than 14 days; older ones are skipped. Requires the Manage Messages permission, and refuses to run without Read Message History. Returns the number deleted.",
     annotations: {
       title: "Bulk delete messages",
       readOnlyHint: false,

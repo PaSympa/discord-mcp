@@ -8,6 +8,7 @@ import {
   PermissionFlagsBits,
   PermissionsBitField,
   type ChannelFlagsBitField,
+  type Collection,
   type GuildTextBasedChannel,
   type ThreadChannel,
 } from "discord.js";
@@ -234,6 +235,13 @@ export function isObfuscated(channel: {
     ((channel.flags?.bitfield ?? 0) & OBFUSCATED_CHANNEL_FLAG) !== 0 ||
     channel.name === "___hidden___"
   );
+}
+
+export function splitObfuscated<C extends Parameters<typeof isObfuscated>[0]>(
+  channels: Collection<string, C>,
+): { visible: Collection<string, C>; hidden: number } {
+  const visible = channels.filter((c) => !isObfuscated(c));
+  return { visible, hidden: channels.size - visible.size };
 }
 
 /**

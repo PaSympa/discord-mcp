@@ -254,6 +254,7 @@ const tools = [
     }),
     handle: async ({ channel_id }) => {
       const channel = await getGuildChannel(channel_id);
+      if (channel.parent) assertCanCopyFrom(channel.parent);
       await channel.lockPermissions();
       return {
         content: [

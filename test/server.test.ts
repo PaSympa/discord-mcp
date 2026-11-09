@@ -85,5 +85,15 @@ test("formatToolError flattens ZodError paths and surfaces Discord hints", () =>
   assert.match(dmsg, /50013/);
   assert.match(dmsg, /Missing permissions; the bot lacks/);
 
+  const banErr = new DiscordAPIError(
+    { code: 500000, message: "Failed to ban users" },
+    500000,
+    500,
+    "POST",
+    "https://discord.com/api/v10/guilds/1/bulk-ban",
+    {},
+  );
+  assert.match(formatToolError(banErr), /Failed to ban users\. None of the users were banned\./);
+
   assert.equal(formatToolError(new Error("boom")), "boom");
 });

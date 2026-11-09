@@ -13,7 +13,8 @@ const DISCORD_ERROR_HINTS: Record<number, string> = {
     "Missing access; the bot is not in the guild, cannot see this channel, or lacks Read Message History to fetch a single message.",
   50013: "Missing permissions; the bot lacks the permission this action requires.",
   50035: "Invalid form body; one or more arguments are invalid.",
-  500000: "None of the users were banned. One known cause: each user is already banned.",
+  500000:
+    "None of the users were banned. Known causes: IDs that match no user, or users already banned.",
 };
 
 /** Formats an error for the MCP client, surfacing DiscordAPIError code/status and an actionable hint. */

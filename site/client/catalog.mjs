@@ -1,15 +1,13 @@
-import { $, $$, announce, initCommon, reduceMotion, setTerminalLines } from "./common.mjs";
+import { $, $$, announce, initCommon, reduceMotion } from "./common.mjs";
+import { initBuilder } from "./builder.mjs";
 import { renderToolDetail } from "./detail.mjs";
 import { createIndex, matchRanges, search } from "./search.mjs";
-import { breakable, formatInt, formatTokens, marked, plural, tpl } from "./tpl.mjs";
+import { breakable, formatTokens, marked, plural, tpl } from "./tpl.mjs";
 
 const DATA = JSON.parse($("#catalog-data").textContent);
 const TOOLS = DATA.tools;
 const SETS = DATA.toolsets.map((s) => s.name);
 const LABELS = Object.fromEntries(DATA.toolsets.map((s) => [s.name, s.label]));
-const TOTAL = DATA.totals;
-const RISKS = ["read", "write", "destructive"];
-const RISK_WORD = { read: "read-only", write: "writes", destructive: "destructive" };
 const byName = new Map(TOOLS.map((t) => [t.name, t]));
 const index = createIndex(TOOLS, LABELS);
 
@@ -220,150 +218,12 @@ function focusSearch() {
 $("#search-jump").addEventListener("click", focusSearch);
 initCommon({ onSearch: focusSearch });
 
-const selected = new Set(SETS);
-const readOnly = $("#b-ro");
-const env = $("#b-env");
-const tsRows = new Map($$("#ts-list .ts-row").map((li) => [li.dataset.set, li]));
-const presets = $$("#presets [data-preset]");
-let format = "env";
-let shownTokens = TOTAL.tokens;
-
-const fmtBig = (n) => (n < 1000 ? String(Math.round(n)) : (n / 1000).toFixed(1) + "k");
-function tween(to) {
-  const el = $("#b-tokens");
-  const from = shownTokens;
-  shownTokens = to;
-  if (reduceMotion.matches || Math.abs(to - from) < 1) {
-    el.textContent = fmtBig(to);
-    return;
-  }
-  const start = performance.now();
-  const step = (now) => {
-    const k = Math.min(1, (now - start) / 260);
-    el.textContent = fmtBig(from + (to - from) * (1 - Math.pow(1 - k, 3)));
-    if (k < 1 && shownTokens === to) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
-function configLines(list) {
-  const lines = [];
-  const all = list.length === SETS.length;
-  if (!all || !readOnly.checked) lines.push(["DISCORD_MCP_TOOLSETS", all ? "all" : list.join(",")]);
-  if (readOnly.checked) lines.push(["DISCORD_MCP_READ_ONLY", "true"]);
-  return format === "json"
-    ? lines.map(([k, v], i) => `"${k}": "${v}"${i < lines.length - 1 ? "," : ""}`)
-    : lines.map(([k, v]) => `${k}=${v}`);
-}
-
-function renderBuilder() {
-  const list = SETS.filter((s) => selected.has(s));
-  const ro = readOnly.checked;
-  const keep = (t) => selected.has(t.toolset) && (!ro || t.risk === "read");
-  const picked = TOOLS.filter(keep);
-  const tokens = picked.reduce((n, t) => n + t.tokens, 0);
-  tween(tokens);
-  const big = $("#b-tokens");
-  big.dataset.tokens = String(Math.round(tokens));
-  big.dataset.tools = String(picked.length);
-  const pct = (tokens / TOTAL.tokens) * 100;
-  $("#b-meter-fill").style.width = pct.toFixed(2) + "%";
-  $("#b-meter").setAttribute(
-    "aria-label",
-    `${formatInt(tokens)} of ${formatInt(TOTAL.tokens)} estimated tokens selected (${Math.round(pct)}%)`,
-  );
-  const counts = { read: 0, write: 0, destructive: 0 };
-  for (const t of picked) counts[t.risk]++;
-  $("#b-mix").innerHTML = String(
-    tpl`<span><b>${picked.length}</b> ${picked.length === 1 ? "tool" : "tools"}</span>${RISKS.map(
-      (risk) =>
-        tpl`<span data-risk="${risk}"><span class="glyph" aria-hidden="true"><i></i><i></i><i></i></span>${counts[risk]} ${RISK_WORD[risk]}</span>`,
-    )}`,
-  );
-  let emptied = false;
-  for (const s of SETS) {
-    const li = tsRows.get(s);
-    const inSet = TOOLS.filter((t) => t.toolset === s && (!ro || t.risk === "read"));
-    emptied ||= inSet.length === 0;
-    li.classList.toggle("on", selected.has(s));
-    li.classList.toggle("none", inSet.length === 0);
-    $("input", li).checked = selected.has(s);
-    $("[data-n]", li).textContent = String(inSet.length);
-    $("[data-unit]", li).textContent = inSet.length === 1 ? " tool" : " tools";
-    $("[data-tok]", li).textContent = formatTokens(inSet.reduce((n, t) => n + t.tokens, 0));
-  }
-  $("#ro-legend").hidden = !emptied;
-  for (const button of presets) {
-    const p = DATA.profiles[Number(button.dataset.preset)];
-    const sets = p.all ? SETS : p.sets;
-    button.setAttribute(
-      "aria-pressed",
-      String(sets.length === list.length && sets.every((s) => selected.has(s))),
-    );
-  }
-
-  const hint = $("#b-hint");
-  hint.classList.remove("warn");
-  const copy = $("[data-copy-term]", env);
-  let usable = true;
-  if (!list.length) {
-    usable = false;
-    hint.textContent = `An empty DISCORD_MCP_TOOLSETS loads all ${TOOLS.length} tools, so there is nothing to copy yet. Pick at least one toolset.`;
-    hint.classList.add("warn");
-  } else if (ro && picked.length === 0) {
-    usable = false;
-    hint.textContent =
-      "No read-only tool in this selection: the server would stop at startup. Add a toolset with read tools, such as discovery.";
-    hint.classList.add("warn");
-  } else if (!selected.has("discovery")) {
-    hint.textContent =
-      "Tip: keep discovery. Its discord_list_guilds finds the guild_id most other tools need.";
-    hint.classList.add("warn");
-  } else if (ro) {
-    const sensitive = [
-      ["webhooks", "discord_list_webhooks", "returns webhook tokens"],
-      ["dm", "discord_read_dms", "reads the bot's direct messages"],
-    ].filter(([s]) => selected.has(s));
-    hint.innerHTML = sensitive.length
-      ? String(
-          tpl`Still sensitive in read-only mode: ${sensitive.map(([, name, what], i) => tpl`${i ? "; " : ""}<code>${name}</code> ${what}`)}. Leave ${sensitive.map(([s]) => s).join(" and ")} out to hide ${sensitive.length > 1 ? "them" : "it"}.`,
-        )
-      : "Read-only: no tool in this selection can change your server.";
-  } else if (list.length === SETS.length) {
-    hint.textContent = "Same as leaving DISCORD_MCP_TOOLSETS unset: every toolset loads.";
-  } else {
-    hint.textContent = counts.destructive
-      ? `Includes ${plural(counts.destructive, "destructive tool")}: a toolset always brings its whole module.`
-      : "No destructive tool in this selection.";
-  }
-  setTerminalLines(env, usable ? configLines(list) : ["# Nothing to copy yet"]);
-  copy.disabled = !usable;
-  $("#show-sel").disabled = !list.length;
-}
-
-for (const [s, li] of tsRows)
-  $("input", li).addEventListener("change", (event) => {
-    if (event.target.checked) selected.add(s);
-    else selected.delete(s);
-    renderBuilder();
-  });
-readOnly.addEventListener("change", () => {
-  renderBuilder();
-  announce(readOnly.checked ? "Read-only mode on" : "Read-only mode off");
+const builder = initBuilder(DATA, {
+  onRender: (list) => {
+    $("#show-sel").disabled = !list.length;
+  },
 });
-for (const button of presets)
-  button.addEventListener("click", () => {
-    const p = DATA.profiles[Number(button.dataset.preset)];
-    selected.clear();
-    (p.all ? SETS : p.sets).forEach((s) => selected.add(s));
-    renderBuilder();
-    announce(p.label + " profile selected");
-  });
-for (const radio of $$('input[name="fmt"]'))
-  radio.addEventListener("change", () => {
-    format = radio.value;
-    renderBuilder();
-  });
+const { selected, readOnly } = builder;
 $("#show-sel").addEventListener("click", () => {
   state.sets = new Set(selected.size === SETS.length ? [] : selected);
   state.risks = new Set(readOnly.checked ? ["read"] : []);
@@ -377,7 +237,6 @@ $("#show-sel").addEventListener("click", () => {
   });
   announce("Catalog filtered to your toolsets");
 });
-
 const dialog = $("#tool");
 let current = null;
 let lastFocus = null;
@@ -437,7 +296,7 @@ dialog.addEventListener("click", (event) => {
   const add = event.target.closest("[data-add-set]");
   if (add) {
     selected.add(add.dataset.addSet);
-    renderBuilder();
+    builder.render();
     renderDetail(current);
     announce(add.dataset.addSet + " added to your toolset line");
   }
@@ -471,7 +330,6 @@ if (q0) {
   state.q = q0;
 }
 applyFilters();
-renderBuilder();
 if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 const initial = toolFromHash();
 if (initial) {

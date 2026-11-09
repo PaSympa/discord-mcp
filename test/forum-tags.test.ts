@@ -12,7 +12,7 @@ afterEach(() => mock.restoreAll());
 interface SentTag {
   id?: string;
   name: string;
-  emoji?: { id: string | null; name: string } | null;
+  emoji?: { id: string | null; name: string | null } | null;
   moderated: boolean;
 }
 
@@ -111,6 +111,31 @@ test("set_forum_tags keeps the emoji and moderated flag of a tag listed by name 
   assert.equal(sent[0][0].moderated, true, "a moderator-only tag must not open to everyone");
   assert.deepEqual(sent[0][1].emoji, { id: CUSTOM_EMOJI, name: null }, "a custom emoji survives");
   assert.match(replyOf(result), /No tag changed\./);
+});
+
+test("set_forum_tags writes a kept custom emoji by its ID alone, even when read with a name", async () => {
+  const sent = stubForum([
+    { id: "10", name: "custom", emoji: { id: CUSTOM_EMOJI, name: "party" } },
+    { id: "11", name: "again", emoji: { id: CUSTOM_EMOJI, name: "party" } },
+  ]);
+  const result = await setTags([{ name: "custom" }, { name: "again", emoji_id: CUSTOM_EMOJI }]);
+  assert.deepEqual(sent[0][0].emoji, { id: CUSTOM_EMOJI, name: null });
+  assert.deepEqual(sent[0][1].emoji, { id: CUSTOM_EMOJI, name: null });
+  assert.match(replyOf(result), /No tag changed\./, "the same emoji ID is not a change");
+});
+
+test("set_forum_tags clears a custom emoji with emoji_id null", async () => {
+  const sent = stubForum([{ id: "10", name: "custom", emoji: { id: CUSTOM_EMOJI, name: null } }]);
+  const result = await setTags([{ name: "custom", emoji_id: null }]);
+  assert.equal(sent[0][0].emoji, null);
+  assert.match(replyOf(result), /^Changed: custom \(emoji\)$/m);
+});
+
+test("set_forum_tags rejects an empty emoji_name before any request", async () => {
+  const sent = stubForum([{ id: "10", name: "alpha" }]);
+  await assert.rejects(() => setTags([{ name: "alpha", emoji_name: "" }]), /emoji_name/);
+  assert.equal(sent.fetchOptions.length, 0);
+  assert.equal(sent.length, 0);
 });
 
 test("set_forum_tags reads a fresh copy of the forum before writing tags back", async () => {

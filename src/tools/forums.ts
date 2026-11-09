@@ -43,9 +43,36 @@ async function getForumChannel(channelId: string, { force = false } = {}): Promi
   return channel as ForumChannel;
 }
 
-interface TagInput {
-  emoji_name?: string | null;
-  emoji_id?: string | null;
+const tagInput = z.strictObject({
+  name: z.string().describe("Tag label (max 20 characters)."),
+  emoji_name: z
+    .string()
+    .min(1)
+    .nullable()
+    .optional()
+    .describe(
+      "Unicode emoji shown on the tag. On an existing tag, omit to keep its emoji; null removes it.",
+    ),
+  emoji_id: snowflake
+    .nullable()
+    .optional()
+    .describe(
+      "ID (snowflake) of a custom server emoji shown on the tag, instead of emoji_name. On an existing tag, omit to keep its emoji; null removes it.",
+    ),
+  moderated: z
+    .boolean()
+    .optional()
+    .describe(
+      "If true, only members with Manage Threads can apply this tag. On an existing tag, omit to keep its value; a new tag defaults to false.",
+    ),
+});
+
+type TagInput = z.infer<typeof tagInput>;
+
+/** Discord rejects a tag emoji with both fields set, and discord.js writes back both as read. */
+function oneEmojiField(emoji: GuildForumTagEmoji | null | undefined): GuildForumTagEmoji | null {
+  if (emoji?.id) return { id: emoji.id, name: null };
+  return emoji?.name ? { id: null, name: emoji.name } : null;
 }
 
 /** A string sets the emoji, null removes it, and omitting both keeps the existing tag's emoji. */
@@ -53,11 +80,13 @@ function tagEmoji(input: TagInput, existing?: GuildForumTag): GuildForumTagEmoji
   if (input.emoji_id) return { id: input.emoji_id, name: null };
   if (input.emoji_name) return { id: null, name: input.emoji_name };
   if (input.emoji_id === null || input.emoji_name === null) return null;
-  return existing?.emoji ?? null;
+  return oneEmojiField(existing?.emoji);
 }
 
-const sameEmoji = (a: GuildForumTagEmoji | null, b: GuildForumTagEmoji | null) =>
-  (a?.id ?? null) === (b?.id ?? null) && (a?.name ?? null) === (b?.name ?? null);
+function sameEmoji(a: GuildForumTagEmoji | null, b: GuildForumTagEmoji | null): boolean {
+  const [x, y] = [oneEmojiField(a), oneEmojiField(b)];
+  return x?.id === y?.id && x?.name === y?.name;
+}
 
 /**
  * Fetches a channel by ID and guarantees it is a thread channel.
@@ -366,34 +395,10 @@ const tools = [
       forum_channel_id: snowflake.describe("ID (snowflake) of the forum channel to set tags on."),
       tags: z
         .array(
-          z
-            .strictObject({
-              name: z.string().describe("Tag label (max 20 characters)."),
-              emoji_name: z
-                .string()
-                .min(1)
-                .nullable()
-                .optional()
-                .describe(
-                  "Unicode emoji shown on the tag. On an existing tag, omit to keep its emoji; null removes it.",
-                ),
-              emoji_id: snowflake
-                .nullable()
-                .optional()
-                .describe(
-                  "ID (snowflake) of a custom server emoji shown on the tag, instead of emoji_name. On an existing tag, omit to keep its emoji; null removes it.",
-                ),
-              moderated: z
-                .boolean()
-                .optional()
-                .describe(
-                  "If true, only members with Manage Threads can apply this tag. On an existing tag, omit to keep its value; a new tag defaults to false.",
-                ),
-            })
-            .refine(
-              (t) => !(t.emoji_name && t.emoji_id),
-              "Pass emoji_name or emoji_id, not both: a tag shows one emoji.",
-            ),
+          tagInput.refine(
+            (t) => !(t.emoji_name && t.emoji_id),
+            "Pass emoji_name or emoji_id, not both: a tag shows one emoji.",
+          ),
         )
         .describe("Complete list of tags to set (replaces all existing tags)."),
     }),

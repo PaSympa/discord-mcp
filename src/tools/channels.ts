@@ -112,7 +112,9 @@ const tools = [
         .describe("New topic/description (text channels only, not announcement)."),
       slowmode: intIn(0, 21600)
         .optional()
-        .describe("Per-user message cooldown in seconds, 0–21600. 0 disables slowmode."),
+        .describe(
+          "Per-user message cooldown in seconds, 0–21600. 0 disables slowmode (text channels only, not announcement).",
+        ),
       nsfw: z
         .boolean()
         .optional()

@@ -1261,6 +1261,13 @@ test("the risk levels have one name each on every page and in llms.txt", () => {
     assert.ok(read(page).includes(counts), `${page}: risk counts`);
 });
 
+test("the landing states the cost of the full set as tools.json measures it", () => {
+  const k = Math.round(catalog.totals.tokens / 1000);
+  const said = /costs about (\d+)k tokens/.exec(read("index.html"));
+  assert.ok(said, "the sentence is on the landing");
+  assert.equal(Number(said![1]), k);
+});
+
 test("the risk marks use one color token each, defined for both themes", () => {
   const css = read("assets/site.css");
   for (const level of ["read", "write", "destructive"]) {

@@ -180,6 +180,13 @@ export function siteModel(catalog, readme, content) {
       paragraphs.find((b) => b.text.includes("DISCORD_MCP_READ_ONLY")) ??
       fail("README has no read-only paragraph."),
   };
+  // The README rounds a figure measured at its last release; the page states today's.
+  const fullCost = /about \d+k tokens/;
+  if (!fullCost.test(expose.lead.text)) fail("README no longer gives the cost of the full set.");
+  expose.lead = {
+    ...expose.lead,
+    text: expose.lead.text.replace(fullCost, `about ${Math.round(totals.tokens / 1000)}k tokens`),
+  };
   const claims = [
     [/full set of (\d+) tools/, expose.lead.text, totals.tools, "the total"],
     [

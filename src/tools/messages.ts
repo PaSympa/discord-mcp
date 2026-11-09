@@ -241,7 +241,7 @@ const tools = [
   defineTool({
     name: "discord_reply_message",
     description:
-      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages and Read Message History permissions. Returns the new reply's message ID.",
+      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages and Read Message History permissions. Discord refuses system messages as reply targets. Returns the new reply's message ID.",
     annotations: {
       title: "Reply to message",
       readOnlyHint: false,
@@ -308,7 +308,7 @@ const tools = [
   defineTool({
     name: "discord_add_reaction",
     description:
-      "Add a single emoji reaction to a message as the bot. Requires the Read Message History permission, plus Add Reactions when no one has reacted with that emoji yet. Use discord_remove_reactions to undo. Idempotent: re-adding the bot's existing reaction has no effect.",
+      "Add a single emoji reaction to a message as the bot. Requires the Read Message History permission to look the message up, plus Add Reactions when no one has reacted with that emoji yet. Use discord_remove_reactions to undo. Idempotent: re-adding the bot's existing reaction has no effect.",
     annotations: {
       title: "Add reaction",
       readOnlyHint: false,
@@ -684,7 +684,7 @@ const tools = [
   defineTool({
     name: "discord_search_guild_messages",
     description:
-      "Search for messages across all channels in a guild using Discord's native search API. Returns at most 25 messages matching the query with channel context, with no way to page past them. Age-restricted (NSFW) channels are left out. Requires READ_MESSAGE_HISTORY permission and the MESSAGE_CONTENT privileged intent. While Discord is still building the server's search index, the call fails and says how many seconds to wait. Use discord_search_messages for a substring scan of one channel's last 100 messages. To read the messages around a hit, use discord_read_messages with around.",
+      "Search for messages across all channels in a guild using Discord's native search API. Returns at most 25 messages matching the query with channel context, with no way to page past them. Age-restricted (NSFW) channels are left out. Requires the Read Message History permission and the Message Content privileged intent, enabled in the Developer Portal. While Discord is still building the server's search index, the call fails and says how many seconds to wait. Use discord_search_messages for a substring scan of one channel's last 100 messages. To read the messages around a hit, use discord_read_messages with around.",
     annotations: { title: "Search guild messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -911,7 +911,7 @@ const tools = [
   defineTool({
     name: "discord_get_message_attachments",
     description:
-      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Without the Message Content intent enabled in the Developer Portal, Discord returns no attachments for other users' messages unless they mention the bot. A forwarded message's files sit in its snapshot and are not listed. Read-only. Use discord_read_messages to find messages with attachments.",
+      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Without the Message Content privileged intent, enabled in the Developer Portal, Discord returns no attachments for other users' messages unless they mention the bot. A forwarded message's files sit in its snapshot and are not listed. Read-only. Use discord_read_messages to find messages with attachments.",
     annotations: { title: "Get message attachments", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(

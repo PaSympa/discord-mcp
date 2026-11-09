@@ -47,7 +47,7 @@ const tools = [
   defineTool({
     name: "discord_set_role_permission",
     description:
-      "Add or update a per-channel permission overwrite for a role, allowing and/or denying specific permissions. Merges with the role's existing overwrite (does not reset it). Denying View Channel to @everyone also locks the bot out unless it holds an allow overwrite of its own; grant that with discord_set_member_permission before the deny. Requires the Manage Roles permission. Use discord_set_member_permission to target a single member instead.",
+      "Add or update a per-channel permission overwrite for a role, allowing and/or denying specific permissions. Merges with the role's existing overwrite (does not reset it). Denying View Channel to @everyone on a channel also hides it from the bot, unless the bot has Administrator or a View Channel allow overwrite there, on its own member or on one of its roles. Grant that allow first, for example with discord_set_member_permission, then deny. Requires the Manage Roles permission. Use discord_set_member_permission to target a single member instead.",
     annotations: {
       title: "Set role channel permission",
       readOnlyHint: false,

@@ -12,12 +12,13 @@
 
 ### Changed
 
-- `discord_edit_message` and `discord_edit_embed` name the permissions they need: View Channel and Read Message History, plus Embed Links for `discord_edit_embed`. Without Embed Links, Discord keeps the old embed and the edit reports no error
+- `discord_edit_message` and `discord_edit_embed` name the permissions they need: View Channel and Read Message History, plus Embed Links for `discord_edit_embed`
 - The npm, MCP Registry and Docker image descriptions name Codex next to Claude, Cursor and VS Code
 - 23 tool descriptions name the tool to use instead and state behavior the schemas do not show, so an agent picks the right tool among similar ones. Examples: `discord_get_guild_info` and `discord_get_server_stats` point at each other, `discord_update_membership_screening` warns that `form_fields` deletes question fields, and `discord_find_channel_by_name` describes its `{ matches }` result instead of a JSON array
 
 ### Fixed
 
+- `discord_send_embed`, `discord_send_multiple_embeds` and `discord_edit_embed` refuse to run in a channel or thread where the bot lacks Embed Links, and the error names the permission and the channel. Discord used to post the text of a multi-embed message without its embeds, and leave an edited embed unchanged, while the tool reported success
 - `discord_set_forum_tags` keeps the ID of each existing tag it lists again, matched by name case-insensitively as Discord itself does, so posts keep that tag. Every call used to recreate all tags under new IDs, which stripped them from existing posts
 - `discord_get_scheduled_event` returns the interested count instead of `null`. It read the cached gateway copy of the event, which never carries `user_count`, while `discord_list_scheduled_events` already asked the API
 

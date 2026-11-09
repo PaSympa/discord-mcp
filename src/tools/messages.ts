@@ -12,7 +12,13 @@ import {
   DiscordAPIError,
 } from "discord.js";
 import { z } from "zod";
-import { discord, getTextChannel, fetchChannelChecked, validateId } from "../client.js";
+import {
+  discord,
+  getTextChannel,
+  fetchChannelChecked,
+  validateId,
+  assertCanEmbed,
+} from "../client.js";
 import {
   MAX_FETCH_LIMIT,
   MAX_PINS_LIMIT,
@@ -521,6 +527,7 @@ const tools = [
     }),
     handle: async ({ channel_id, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
+      assertCanEmbed(channel);
       const sent = await channel.send({ embeds: [buildEmbed(embedArgs)] });
       return {
         content: [{ type: "text", text: `✅ Embed sent (id: ${sent.id}) in #${channel.name}.` }],
@@ -530,7 +537,7 @@ const tools = [
   defineTool({
     name: "discord_edit_embed",
     description:
-      "Replace the embed on a message previously sent by this bot. Only this bot's messages can be edited. This is a full replace, not a merge: provided fields are applied and omitted fields are dropped from the embed. Requires the View Channel, Read Message History and Embed Links permissions; without Embed Links Discord keeps the old embed and reports no error. Returns a confirmation.",
+      "Replace the embed on a message previously sent by this bot. Only this bot's messages can be edited. This is a full replace, not a merge: provided fields are applied and omitted fields are dropped from the embed. Requires the View Channel, Read Message History and Embed Links permissions. Returns a confirmation.",
     annotations: {
       title: "Edit embed",
       readOnlyHint: false,
@@ -549,6 +556,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
+      assertCanEmbed(channel);
       const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only edit embeds sent by the bot.");
@@ -578,6 +586,7 @@ const tools = [
     }),
     handle: async ({ channel_id, content, embeds }) => {
       const channel = await getTextChannel(channel_id);
+      assertCanEmbed(channel);
       const built = embeds.map((e) => buildEmbed(e));
       const sent = await channel.send({ content: content || undefined, embeds: built });
       return {

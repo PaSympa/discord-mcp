@@ -5,6 +5,7 @@ import {
   GatewayIntentBits,
   GuildChannel,
   Options,
+  PermissionFlagsBits,
   PermissionsBitField,
   type GuildTextBasedChannel,
 } from "discord.js";
@@ -183,6 +184,20 @@ export async function getTextChannel(channelId: string): Promise<GuildTextBasedC
   if (!channel || channel.isDMBased() || !channel.isTextBased())
     throw new Error(`Channel ${id} is not a message-capable guild channel or doesn't exist.`);
   return channel;
+}
+
+/**
+ * Refuses an embed send or edit where the bot lacks Embed Links: Discord can answer
+ * it with success while it drops the new embeds, or keeps the old embed on an edit.
+ * A thread resolves through its parent. Unresolvable permissions let the call through.
+ */
+export function assertCanEmbed(channel: GuildTextBasedChannel): void {
+  const me = channel.guild.members.me;
+  const permissions = me ? channel.permissionsFor(me) : null;
+  if (permissions && !permissions.has(PermissionFlagsBits.EmbedLinks))
+    throw new Error(
+      `The bot lacks the Embed Links permission in #${channel.name} (${channel.id}). Without it, Discord drops the embeds from a message that has text and keeps the old embed on an edit, with no error. The call stopped before reaching Discord. Grant the bot Embed Links in this channel, or in the parent channel of a thread, then retry.`,
+    );
 }
 
 /**

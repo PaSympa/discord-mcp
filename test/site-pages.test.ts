@@ -32,6 +32,13 @@ type Tool = {
   tokens: number;
   definition: { outputSchema?: object };
 };
+type Toolset = {
+  name: string;
+  tools: number;
+  bytes: number;
+  tokens: number;
+  risk: Record<string, number>;
+};
 let out = "";
 let files: string[] = [];
 let pages: string[] = [];
@@ -39,7 +46,8 @@ let siteUrl = "";
 let base = "";
 let catalog: {
   tools: Tool[];
-  totals: { tools: number; toolsets: number; risk: Record<string, number> };
+  toolsets: Toolset[];
+  totals: { tools: number; toolsets: number; tokens: number; risk: Record<string, number> };
 };
 
 before(async () => {
@@ -75,6 +83,7 @@ const links = (html: string, rel: string) =>
     .filter((tag) => attr(tag, "rel") === rel)
     .map((tag) => attr(tag, "href")!);
 const toolPage = (name: string) => `tools/${name}/index.html`;
+const toolsetPage = (name: string) => `toolsets/${name}/index.html`;
 const urlPath = (page: string) => page.replace(/index\.html$/, "");
 const pageOf = (url: string) => {
   assert.ok(url.startsWith(siteUrl), `${url} is outside ${siteUrl}`);
@@ -167,7 +176,7 @@ function firstLoad(page: string) {
   return [page, ...paths].reduce((sum, path) => sum + size(path), 0);
 }
 
-test("the site builds a home page, a catalog, one page per tool and a 404 page", () => {
+test("the site builds a home page, a catalog, one page per tool and per toolset, and a 404 page", () => {
   for (const page of pages) {
     assert.match(read(page), /^<!doctype html>\n<html lang="en">/, page);
     assert.match(read(page), /Not affiliated with Discord\./, page);
@@ -176,7 +185,9 @@ test("the site builds a home page, a catalog, one page per tool and a 404 page",
     "index.html",
     "tools/index.html",
     "404.html",
+    "toolsets/index.html",
     ...catalog.tools.map((t) => toolPage(t.name)),
+    ...catalog.toolsets.map((s) => toolsetPage(s.name)),
   ];
   assert.deepEqual([...pages].sort(), expected.sort());
   for (const file of ["tools.json", "llms.txt", "sitemap.xml", "robots.txt"])
@@ -281,7 +292,7 @@ test("every page has a unique title and description, its canonical URL, one h1 a
 
     assert.deepEqual(metas(html, "og:title"), title, `${page}: og:title`);
     assert.deepEqual(metas(html, "og:description"), description, `${page}: og:description`);
-    const ogType = page.startsWith("tools/") ? "article" : "website";
+    const ogType = /^tools(ets)?\//.test(page) ? "article" : "website";
     assert.deepEqual(metas(html, "og:type"), [ogType], `${page}: og:type`);
     const [ogImage] = metas(html, "og:image");
     assert.equal(pageOf(ogImage), "assets/social-preview.png", `${page}: og:image`);
@@ -307,39 +318,61 @@ test("every page has a unique title and description, its canonical URL, one h1 a
   }
 });
 
-test("tool pages carry a BreadcrumbList that matches the visible breadcrumb", () => {
+/** A page's visible breadcrumb and its BreadcrumbList, as names and absolute URLs. */
+function trails(page: string) {
+  const html = read(page);
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
+  assert.equal(blocks.length, 1, `${page}: one JSON-LD block`);
+  const ld = JSON.parse(blocks[0][1]);
+  assert.equal(ld["@context"], "https://schema.org");
+  assert.equal(ld["@type"], "BreadcrumbList");
+  const crumbs = /<nav class="crumbs" aria-label="Breadcrumb"><ol>([\s\S]*?)<\/ol><\/nav>/.exec(
+    html,
+  )![1];
+  const visible = [...crumbs.matchAll(/<li( aria-current="page")?>([\s\S]*?)<\/li>/g)].map(
+    ([, current, inner]) => {
+      const href = /<a href="([^"]+)">/.exec(inner)?.[1];
+      const url = href
+        ? new URL(href, siteUrl + urlPath(page)).href
+        : current && siteUrl + urlPath(page);
+      return { name: unescape(inner.replace(/<[^>]+>/g, "")), url };
+    },
+  );
+  const items = ld.itemListElement.map(
+    (item: { position: number; name: string; item: string }, i: number) => {
+      assert.equal(item.position, i + 1, `${page}: position`);
+      return { name: item.name, url: item.item };
+    },
+  );
+  assert.deepEqual(items, visible, `${page}: JSON-LD and visible breadcrumb`);
+  for (const { url } of visible) assert.ok(existsSync(join(out, pageOf(url.split("#")[0]))));
+  return visible;
+}
+
+test("tool and toolset pages carry a BreadcrumbList that matches the visible breadcrumb", () => {
+  const labels = new Map(
+    [...read("toolsets/index.html").matchAll(/<h2><a href="([a-z_]+)\/">([^<]+)<\/a><\/h2>/g)].map(
+      ([, name, label]) => [name, unescape(label)],
+    ),
+  );
+  assert.equal(labels.size, catalog.toolsets.length, "one label per toolset");
+  const toolsets = { name: "Toolsets", url: siteUrl + "toolsets/" };
   for (const tool of catalog.tools) {
     const page = toolPage(tool.name);
-    const html = read(page);
-    const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)];
-    assert.equal(blocks.length, 1, `${page}: one JSON-LD block`);
-    const ld = JSON.parse(blocks[0][1]);
-    assert.equal(ld["@context"], "https://schema.org");
-    assert.equal(ld["@type"], "BreadcrumbList");
-    const crumbs = /<nav class="crumbs" aria-label="Breadcrumb"><ol>([\s\S]*?)<\/ol><\/nav>/.exec(
-      html,
-    )![1];
-    const visible = [...crumbs.matchAll(/<li( aria-current="page")?>([\s\S]*?)<\/li>/g)].map(
-      ([, current, inner]) => {
-        const href = /<a href="([^"]+)">/.exec(inner)?.[1];
-        const url = href
-          ? new URL(href, siteUrl + urlPath(page)).href
-          : current && siteUrl + urlPath(page);
-        return { name: unescape(inner.replace(/<[^>]+>/g, "")), url };
-      },
-    );
-    const items = ld.itemListElement.map(
-      (item: { position: number; name: string; item: string }, i: number) => {
-        assert.equal(item.position, i + 1, `${page}: position`);
-        return { name: item.name, url: item.item };
-      },
-    );
-    assert.deepEqual(items, visible, `${page}: JSON-LD and visible breadcrumb`);
-    assert.equal(visible.at(-1)!.name, tool.title, `${page}: the trail ends at the tool`);
-    assert.equal(visible.at(-1)!.url, siteUrl + urlPath(page));
-    for (const { url } of visible) assert.ok(existsSync(join(out, pageOf(url.split("#")[0]))));
+    assert.deepEqual(trails(page), [
+      toolsets,
+      { name: labels.get(tool.toolset), url: siteUrl + urlPath(toolsetPage(tool.toolset)) },
+      { name: tool.title, url: siteUrl + urlPath(page) },
+    ]);
   }
-  for (const page of ["index.html", "tools/index.html", "404.html"])
+  for (const set of catalog.toolsets) {
+    const page = toolsetPage(set.name);
+    assert.deepEqual(trails(page), [
+      toolsets,
+      { name: labels.get(set.name), url: siteUrl + urlPath(page) },
+    ]);
+  }
+  for (const page of ["index.html", "tools/index.html", "toolsets/index.html", "404.html"])
     assert.doesNotMatch(read(page), /application\/ld\+json/, `${page} has no breadcrumb`);
 });
 
@@ -405,11 +438,13 @@ test("each tool page shows the tool's title, name, risk, permission, schemas and
   }
 });
 
-test("the first load of /, /tools/, the largest tool page and 404.html stays under 200 KB", () => {
-  const largest = catalog.tools
-    .map((t) => toolPage(t.name))
-    .sort((a, b) => statSync(join(out, b)).size - statSync(join(out, a)).size)[0];
-  for (const page of ["index.html", "tools/index.html", largest, "404.html"]) {
+test("the first load of /, /tools/, /toolsets/, the largest tool and toolset pages and 404.html stays under 200 KB", () => {
+  const largestOf = (list: string[]) =>
+    list.sort((a, b) => statSync(join(out, b)).size - statSync(join(out, a)).size)[0];
+  const largest = largestOf(catalog.tools.map((t) => toolPage(t.name)));
+  const largestSet = largestOf(catalog.toolsets.map((s) => toolsetPage(s.name)));
+  const first = ["index.html", "tools/index.html", "toolsets/index.html", largest, largestSet];
+  for (const page of [...first, "404.html"]) {
     const bytes = firstLoad(page);
     assert.ok(bytes < BUDGET, `${page}: ${bytes} bytes on first load, budget ${BUDGET}`);
   }
@@ -470,7 +505,12 @@ test("every risk badge carries a label and the three-bar glyph", () => {
     destructive: "Destructive",
   };
   let count = 0;
-  for (const page of ["tools/index.html", ...catalog.tools.map((t) => toolPage(t.name))]) {
+  const withBadges = [
+    "tools/index.html",
+    ...catalog.tools.map((t) => toolPage(t.name)),
+    ...catalog.toolsets.map((s) => toolsetPage(s.name)),
+  ];
+  for (const page of withBadges) {
     const badges = [
       ...read(page).matchAll(/<span class="risk" data-risk="(\w+)">([\s\S]*?)<\/span>(?=[\s<])/g),
     ];
@@ -484,7 +524,11 @@ test("every risk badge carries a label and the three-bar glyph", () => {
       assert.ok(inner.endsWith(label[risk]), badge);
     }
   }
-  assert.equal(count, catalog.tools.length * 2, "one badge per catalog row and per tool page");
+  assert.equal(
+    count,
+    catalog.tools.length * 3,
+    "one badge per catalog row, per tool page and per toolset page row",
+  );
 });
 
 test("llms.txt lists every tool once, with its purpose, risk and an absolute link to its page", () => {
@@ -787,4 +831,336 @@ test("every page has a menu button that shows the site links on narrow screens",
     assert.ok(attr(button!, "aria-label"), page);
     assert.match(html, /<nav class="nav" id="site-nav" aria-label="Site">/, page);
   }
+});
+
+type Content = {
+  toolsets: Record<string, { label: string; blurb: string; readsElsewhere?: string[] }>;
+};
+const content = (): Content =>
+  JSON.parse(readFileSync(join(__dirname, "..", "site", "content.json"), "utf8"));
+const RISKS = ["read", "write", "destructive"];
+const RISK_WORD: Record<string, string> = {
+  read: "read-only",
+  write: "write",
+  destructive: "destructive",
+};
+const mixOf = (risk: Record<string, number>) =>
+  RISKS.filter((r) => risk[r])
+    .map((r) => `${risk[r]} ${RISK_WORD[r]}`)
+    .join(", ");
+const stripOf = (html: string) =>
+  Object.fromEntries(RISKS.map((r) => [r, html.split(`<i data-risk="${r}"></i>`).length - 1]));
+
+/** The profiles table of the README, read here on its own rather than through site/readme.mjs. */
+function readmeProfiles() {
+  const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
+  const section = /\n## Expose only what you need\n([\s\S]*?)\n## /.exec(readme)![1];
+  const all = catalog.toolsets.map((s) => s.name);
+  const rows = [...section.matchAll(/^\| ([^|]+?) +\| ([^|]+?) +\| (\d+) +\|/gm)].map(
+    ([, label, sets, tools]) => ({
+      label: label.replace(/ \(default\)$/, ""),
+      sets: sets === "unset" ? all : sets.replace(/`/g, "").split(","),
+      unset: sets === "unset",
+      tools: Number(tools),
+    }),
+  );
+  assert.ok(rows.length >= 3, "the README has a profiles table");
+  return rows;
+}
+
+test("/toolsets/ shows every toolset with its label, blurb, counts and cost from tools.json", async () => {
+  const { formatTokens, plural, esc } = await import("../site/client/tpl.mjs");
+  const data = JSON.parse(read("tools.json"));
+  const text = content().toolsets;
+  const html = read("toolsets/index.html");
+  const entries = [...html.matchAll(/<li class="tsx" id="ts-([a-z_]+)">([\s\S]*?)<\/li>/g)];
+  assert.deepEqual(
+    entries.map(([, name]) => name),
+    data.toolsets.map((s: Toolset) => s.name),
+    "one entry per toolset, in tools/list order",
+  );
+  for (const [, name, inner] of entries) {
+    const set: Toolset = data.toolsets.find((s: Toolset) => s.name === name);
+    const tools = data.tools.filter((t: Tool) => t.toolset === name);
+    assert.equal(set.tools, tools.length, `${name}: count`);
+    for (const r of RISKS)
+      assert.equal(set.risk[r], tools.filter((t: Tool) => t.risk === r).length, `${name}: ${r}`);
+    assert.ok(inner.includes(`<h2><a href="${name}/">${esc(text[name].label)}</a></h2>`), name);
+    assert.ok(inner.includes(`<code>${name}</code>`), `${name}: value`);
+    assert.ok(inner.includes(`<p class="tsx-blurb">${esc(text[name].blurb)}</p>`), name);
+    assert.ok(inner.includes(`${formatTokens(set.tokens)} tokens`), `${name}: tokens`);
+    assert.ok(
+      inner.includes(`<span>${plural(set.tools, "tool")}: ${mixOf(set.risk)}</span>`),
+      name,
+    );
+    assert.deepEqual(stripOf(inner), set.risk, `${name}: one mark per tool`);
+    assert.equal(inner.includes("No read-only tool"), set.risk.read === 0, `${name}: read-only`);
+  }
+  const ro = /<section class="tsx-ro" id="read-only"[\s\S]*?<\/section>/.exec(html)![0];
+  assert.ok(ro.includes(`only the ${catalog.totals.risk.read} tools annotated`), "read-only count");
+  const writeOnly = data.toolsets.filter((s: Toolset) => s.risk.read === 0);
+  assert.ok(writeOnly.length > 0, "some toolset has no read-only tool");
+  for (const set of writeOnly) {
+    assert.ok(ro.includes(`<a href="../toolsets/${set.name}/">`), `${set.name} is named`);
+    for (const name of text[set.name].readsElsewhere ?? []) {
+      const tool = data.tools.find((t: Tool) => t.name === name);
+      assert.equal(tool.risk, "read", name);
+      assert.notEqual(tool.toolset, set.name, name);
+      assert.ok(ro.includes(`href="../tools/${name}/"`), `${name} is linked`);
+      assert.ok(
+        ro.includes(`<a href="../toolsets/${tool.toolset}/">`),
+        `${tool.toolset} is linked`,
+      );
+    }
+  }
+});
+
+test("/toolsets/ reuses the catalog's toolset builder, with every toolset and README profile", () => {
+  const aside = (page: string) => /<aside class="builder"[\s\S]*?<\/aside>/.exec(read(page))![0];
+  const sets = aside("toolsets/index.html");
+  const catalogBuilder = aside("tools/index.html");
+  assert.match(catalogBuilder, /id="show-sel"/, "the catalog keeps its filter button");
+  assert.doesNotMatch(sets, /id="show-sel"/, "no catalog to filter on /toolsets/");
+  assert.equal(
+    catalogBuilder.replace(/<button class="btn show-sel"[^>]*>[^<]*<\/button>/, ""),
+    sets,
+    "the same builder markup on both pages",
+  );
+  const rows = [
+    ...sets.matchAll(
+      /<li class="ts-row on" data-set="([a-z_]+)">[\s\S]*?<span data-n>(\d+)<\/span>/g,
+    ),
+  ];
+  assert.deepEqual(
+    rows.map(([, name, n]) => [name, Number(n)]),
+    catalog.toolsets.map((s) => [s.name, s.tools]),
+  );
+  const presets = [
+    ...sets.matchAll(/data-preset="\d+"[^>]*>([^<]+)<span class="n">(\d+)<\/span>/g),
+  ];
+  assert.deepEqual(
+    presets.map(([, label, n]) => [unescape(label), Number(n)]),
+    readmeProfiles().map((p) => [p.label, p.tools]),
+  );
+  const data = JSON.parse(
+    /<script type="application\/json" id="builder-data">([\s\S]*?)<\/script>/.exec(
+      read("toolsets/index.html"),
+    )![1],
+  );
+  assert.deepEqual(
+    data.tools,
+    catalog.tools.map(({ name, toolset, risk, tokens }) => ({ name, toolset, risk, tokens })),
+  );
+  assert.deepEqual(data.totals, JSON.parse(read("tools.json")).totals);
+  assert.match(read("toolsets/index.html"), /<script defer src="\.\.\/assets\/toolsets\.js">/);
+  assert.ok(files.includes("assets/toolsets.js"));
+  assert.match(read("assets/toolsets.js"), /function initBuilder\(/);
+  assert.match(read("assets/catalog.js"), /function initBuilder\(/);
+});
+
+test("each toolset page lists its tools from tools.json, and every tool appears on exactly one", async () => {
+  const { esc, formatInt, formatTokens, plural } = await import("../site/client/tpl.mjs");
+  const text = content().toolsets;
+  const seen = new Map<string, string>();
+  for (const set of catalog.toolsets) {
+    const page = toolsetPage(set.name);
+    const html = read(page);
+    const tools = catalog.tools.filter((t) => t.toolset === set.name);
+    assert.ok(html.includes(`<h1>${esc(text[set.name].label)}</h1>`), `${page}: h1`);
+    assert.ok(html.includes(`<p class="desc">${esc(text[set.name].blurb)}</p>`), `${page}: blurb`);
+    assert.ok(
+      html.includes(
+        `<dt>Tools</dt><dd>${plural(set.tools, "tool")}<span class="fine">${mixOf(set.risk)}</span>`,
+      ),
+      `${page}: counts`,
+    );
+    assert.ok(html.includes(`${formatInt(set.tokens)} tokens, estimated`), `${page}: tokens`);
+    assert.deepEqual(stripOf(/<p class="tsp-mix">[\s\S]*?<\/p>/.exec(html)![0]), set.risk, page);
+
+    const rows = [
+      ...html.matchAll(
+        /<li class="row-li" id="([a-z_]+)"[^>]*>\s*<a class="row" href="([^"]+)"[\s\S]*?<\/li>/g,
+      ),
+    ];
+    assert.deepEqual(
+      rows.map(([, name]) => name),
+      tools.map((t) => t.name),
+      `${page}: its tools, in tools/list order`,
+    );
+    for (const [row, name, href] of rows) {
+      const tool = catalog.tools.find((t) => t.name === name)!;
+      assert.equal(href, `../../tools/${name}/`, `${page}: ${name} links its page`);
+      assert.ok(row.includes(`<span class="risk" data-risk="${tool.risk}">`), `${name}: risk`);
+      assert.equal(
+        row.includes('<span class="dry">Dry run by default</span>'),
+        tool.dryRunDefault,
+        `${name}: dry run`,
+      );
+      assert.ok(row.includes(`${formatTokens(tool.tokens)} tokens</span>`), `${name}: tokens`);
+      assert.ok(!seen.has(name), `${name} is on ${seen.get(name)} and ${page}`);
+      seen.set(name, page);
+    }
+
+    const line = `DISCORD_MCP_TOOLSETS=${set.name}`;
+    const term = /<div class="term" id="tsp-line">[\s\S]*?<\/pre>/.exec(html)![0];
+    assert.ok(term.includes("data-copy-term"), `${page}: Copy button`);
+    assert.equal(
+      textOf(/<pre class="term-code">[\s\S]*?<\/pre>/.exec(term)![0]).trim(),
+      line,
+      page,
+    );
+    const note = /<div class="tsp-note" role="note">[\s\S]*?<\/div>/.exec(html)?.[0];
+    assert.equal(
+      Boolean(note),
+      set.risk.read === 0,
+      `${page}: a note only without read-only tools`,
+    );
+    if (note) {
+      assert.match(note, /No read-only tool/);
+      assert.ok(note.includes("<code>DISCORD_MCP_READ_ONLY=<wbr>true</code>"), page);
+      for (const name of text[set.name].readsElsewhere ?? [])
+        assert.ok(note.includes(`href="../../tools/${name}/"`), `${page}: links ${name}`);
+    }
+    const roFact = /<dt>Read-only mode<\/dt><dd>([^<]*)<\/dd>/.exec(html)![1];
+    assert.equal(
+      roFact,
+      set.risk.read
+        ? `Keeps ${set.risk.read} of its ${plural(set.tools, "tool")}`
+        : "Leaves it out: no read-only tool",
+      page,
+    );
+  }
+  assert.equal(seen.size, catalog.tools.length, "every tool is on a toolset page");
+  for (const tool of catalog.tools)
+    assert.ok(
+      read(toolPage(tool.name)).includes(
+        `<dt>Toolset</dt><dd><a href="../../toolsets/${tool.toolset}/">`,
+      ),
+      `${tool.name} links its toolset page`,
+    );
+});
+
+test("toolset pages show exactly the README profiles that include them", () => {
+  const profiles = readmeProfiles();
+  for (const p of profiles)
+    assert.equal(
+      catalog.tools.filter((t) => p.sets.includes(t.toolset)).length,
+      p.tools,
+      `README count for ${p.label}`,
+    );
+  for (const set of catalog.toolsets) {
+    const page = toolsetPage(set.name);
+    const list = /<ul class="tsp-profiles" role="list">([\s\S]*?)<\/ul>/.exec(read(page))![1];
+    const shown = [
+      ...list.matchAll(
+        /<li><span class="tsp-pf">([^<]+)<\/span><code>([\s\S]*?)<\/code><span class="tsp-pf-n">(\d+) tools?,/g,
+      ),
+    ].map(([, label, sets, n]) => [unescape(label), sets.replace(/<wbr>/g, ""), Number(n)]);
+    const expected = profiles
+      .filter((p) => p.sets.includes(set.name))
+      .map((p) => [p.label, p.unset ? "unset" : p.sets.join(","), p.tools]);
+    assert.ok(expected.length > 0, `${set.name}: at least the default profile`);
+    assert.deepEqual(shown, expected, page);
+  }
+});
+
+test("the header's Toolsets link leads to /toolsets/, current there only", () => {
+  for (const page of pages) {
+    const nav = /<nav class="nav" id="site-nav" aria-label="Site">([\s\S]*?)<\/nav>/.exec(
+      read(page),
+    )![1];
+    const link = /<a href="([^"]+)"( aria-current="page")?>Toolsets<\/a>/.exec(nav);
+    assert.ok(link, `${page}: Toolsets link`);
+    assert.deepEqual(
+      resolve(page, link![1]),
+      { target: "toolsets/index.html", fragment: "" },
+      page,
+    );
+    assert.equal(Boolean(link![2]), page === "toolsets/index.html", `${page}: aria-current`);
+    assert.doesNotMatch(nav, /#builder/, `${page}: Toolsets is no longer an in-page link`);
+    const tools = /<a href="([^"]+)"( aria-current="page")?>Tools<\/a>/.exec(nav)!;
+    assert.deepEqual(resolve(page, tools[1]), { target: "tools/index.html", fragment: "" }, page);
+    assert.equal(Boolean(tools[2]), page === "tools/index.html", `${page}: Tools aria-current`);
+  }
+  const home = read("index.html");
+  for (const set of catalog.toolsets)
+    assert.ok(home.includes(`<a class="set-link" href="toolsets/${set.name}/">`), set.name);
+});
+
+test("llms.txt links every toolset page once, with its counts", () => {
+  const llms = read("llms.txt");
+  const section = /\n## Toolsets\n([\s\S]*?)\n## /.exec(llms)![1];
+  assert.ok(section.includes(`](${siteUrl}toolsets/)`), "links /toolsets/");
+  const lines = [
+    ...section.matchAll(
+      /^- \[([^\]]+)\]\((\S+)\): `([a-z_]+)`, (\d+) tools?, (\d+|none) read-only, about ([\d.]+)k tokens\.$/gm,
+    ),
+  ];
+  assert.deepEqual(
+    lines.map((m) => m[3]),
+    catalog.toolsets.map((s) => s.name),
+  );
+  for (const [line, , url, name, n, readOnly, k] of lines) {
+    const set = catalog.toolsets.find((s) => s.name === name)!;
+    assert.equal(pageOf(url), toolsetPage(name), line);
+    assert.equal(Number(n), set.tools, line);
+    assert.equal(readOnly === "none" ? 0 : Number(readOnly), set.risk.read, line);
+    assert.equal(k, (set.tokens / 1000).toFixed(1), line);
+  }
+});
+
+test("a missing toolset address suggests the closest toolsets", async () => {
+  const { suggestToolsets, requestedName } = await siteSuggest();
+  const sets = catalog.toolsets.map((s) => ({
+    name: s.name,
+    label: content().toolsets[s.name].label,
+  }));
+  const near = (path: string) =>
+    suggestToolsets(path, sets, { base }).map((s: { name: string }) => s.name);
+  assert.equal(near(`${base}toolsets/mesages/`)[0], "messages");
+  assert.equal(near(`${base}toolsets/scheduled-event/`)[0], "scheduled_events");
+  assert.equal(near(`${base}toolsets/direct-messages/`)[0], "dm");
+  assert.equal(near(`${base}toolsets/chanels`)[0], "channels");
+  assert.deepEqual(near(`${base}toolsets/`), []);
+  assert.deepEqual(near(`${base}tools/mesages/`), [], "only under toolsets/");
+  assert.deepEqual(near(`${base}toolsets/zzzzzzzzzz/`), []);
+  assert.equal(requestedName(`${base}toolsets/mesages/`, base), "mesages");
+  const data = JSON.parse(
+    /<script type="application\/json" id="nf-data">([\s\S]*?)<\/script>/.exec(read("404.html"))![1],
+  );
+  assert.deepEqual(data.toolsets, sets);
+  assert.ok(read("404.html").includes(`<a href="${base}toolsets/">`), "404.html links /toolsets/");
+});
+
+test("the build refuses read pointers that are not read-only tools of another toolset", async () => {
+  const { siteModel } = await siteBuild();
+  const { parseReadme } = await import("../site/readme.mjs");
+  const readme = parseReadme(readFileSync(join(__dirname, "..", "README.md"), "utf8"));
+  const withReads = (set: string, reads: string[]) => {
+    const text = content();
+    text.toolsets[set] = { ...text.toolsets[set], readsElsewhere: reads };
+    return text;
+  };
+  assert.doesNotThrow(() => siteModel(catalog, readme, content()));
+  assert.throws(
+    () => siteModel(catalog, readme, withReads("channels", ["discord_create_channel"])),
+    /not a read-only tool of another toolset/,
+  );
+  assert.throws(
+    () => siteModel(catalog, readme, withReads("channels", ["discord_no_such_tool"])),
+    /unknown tool/,
+  );
+  assert.throws(
+    () => siteModel(catalog, readme, withReads("messages", ["discord_list_channels"])),
+    /has read-only tools/,
+  );
+  assert.throws(
+    () =>
+      siteModel(
+        catalog,
+        readme,
+        withReads("channels", ["discord_list_channels", "discord_read_messages"]),
+      ),
+    /share one toolset/,
+  );
 });

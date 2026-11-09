@@ -70,7 +70,7 @@ export function layout(
     : "";
   const nav = [
     ["tools", `${up}tools/`, "Tools"],
-    ["builder", `${up}tools/#builder`, "Toolsets"],
+    ["toolsets", `${up}toolsets/`, "Toolsets"],
     ["install", `${up}#install`, "Install"],
   ];
   const label = tpl`${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span>${searchHint()}`;

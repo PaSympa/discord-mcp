@@ -1,8 +1,8 @@
 /**
  * Opens the generated site in headless Chrome and checks what the static tests cannot see:
  * layout from 320 to 1440 px in light and dark mode, console errors, failed requests, alt
- * text, keyboard focus, the menu, the search shortcut, the catalog search, the 404
- * suggestions and the Copy buttons. _site/ is served under /discord-mcp/ with GitHub Pages'
+ * text, keyboard focus, the menu, the search shortcut, the catalog search, the toolset
+ * builder on /tools/ and /toolsets/, the 404 suggestions and the Copy buttons. _site/ is served under /discord-mcp/ with GitHub Pages'
  * 404 behavior.
  *
  * Run `npm run build && npm run site` first. Needs Chrome, so CI does not run it.
@@ -41,6 +41,7 @@ const TOOL_PAGES = [
   "discord_get_server_stats",
   "discord_update_membership_screening",
 ];
+const TOOLSET_PAGES = ["channels", "messages", "moderation", "scheduled_events", "dm"];
 const SEARCHES = [
   ["ban a member", "discord_ban_member"],
   ["bulk_delete", "discord_bulk_delete_messages"],
@@ -66,6 +67,11 @@ const MISSPELLED = [
   ["tools/discord_purge_messages/", "discord_bulk_delete_messages"],
   ["tools/discord_mute_member/", "discord_timeout_member"],
   ["tools/discord_create_event/", "discord_create_scheduled_event"],
+];
+const MISSPELLED_SETS = [
+  ["toolsets/mesages/", "messages"],
+  ["toolsets/scheduled-event/", "scheduled_events"],
+  ["toolsets/direct-messages", "dm"],
 ];
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -277,7 +283,7 @@ async function main() {
   });
   const tab = await connect(port);
   const { send, evaluate, listeners } = tab;
-  const counts = { loads: 0, tabStops: 0, searches: 0, suggestions: 0, copies: 0 };
+  const counts = { loads: 0, tabStops: 0, searches: 0, suggestions: 0, copies: 0, builds: 0 };
   let log = [];
   let current = "";
   listeners.add((method, params) => {
@@ -374,7 +380,9 @@ async function main() {
     const pages = [
       ["home", ""],
       ["catalog", "tools/"],
+      ["toolsets", "toolsets/"],
       ...TOOL_PAGES.map((name) => [name, `tools/${name}/`]),
+      ...TOOLSET_PAGES.map((name) => [`toolset-${name}`, `toolsets/${name}/`]),
       ["404", MISSPELLED[0][0]],
     ];
     for (const scheme of SCHEMES) {
@@ -486,9 +494,126 @@ async function main() {
           check(`404 for ${path} at ${width} px, ${scheme}: no error`, log.length === 0, log);
         }
 
+        for (const [path, set] of MISSPELLED_SETS) {
+          await go(path);
+          await until(`!document.getElementById("nf-sug").hidden`);
+          const sug = await evaluate(
+            `[...document.querySelectorAll("#nf-list a")].map((a) => a.getAttribute("href"))`,
+          );
+          counts.suggestions++;
+          check(
+            `404 for ${path} at ${width} px, ${scheme}: suggests the ${set} toolset first`,
+            status === 404 && sug[0] === `${BASE}toolsets/${set}/`,
+            { status, sug },
+          );
+          check(`404 for ${path} at ${width} px, ${scheme}: no error`, log.length === 0, log);
+        }
+
+        // The same steps on both builders must give the same lines, counts and states.
+        const builderRuns = {};
+        for (const path of ["tools/", "toolsets/"]) {
+          await go(path);
+          const state = () =>
+            evaluate(`(() => {
+              const big = document.getElementById("b-tokens");
+              return {
+                env: [...document.querySelectorAll("#b-env .term-code .l")].map((l) => l.textContent).join("\\n"),
+                tools: big.dataset.tools,
+                tokens: big.dataset.tokens,
+                copy: document.querySelector("#b-env [data-copy-term]").disabled,
+                none: [...document.querySelectorAll("#ts-list .ts-row.none")].map((li) => li.dataset.set),
+                pressed: [...document.querySelectorAll("#presets [aria-pressed=true]")].map((b) => b.textContent),
+                hint: document.getElementById("b-hint").textContent,
+              };
+            })()`);
+          const steps = [];
+          await click('#presets [data-preset="1"]');
+          steps.push(await state());
+          await click("#builder .switch");
+          steps.push(await state());
+          await click('#ts-list [data-set="channels"] label');
+          steps.push(await state());
+          await click("#builder .switch");
+          await click('.seg input[value="json"] + span');
+          steps.push(await state());
+          for (const li of await evaluate(
+            `[...document.querySelectorAll("#ts-list .ts-row.on")].map((li) => li.dataset.set)`,
+          ))
+            await click(`#ts-list [data-set="${li}"] label`);
+          steps.push(await state());
+          builderRuns[path] = steps;
+          counts.builds++;
+          check(
+            `the builder on /${path} composes a toolset line at ${width} px, ${scheme}`,
+            steps[0].env === "DISCORD_MCP_TOOLSETS=discovery,messages" &&
+              steps[0].tools === "25" &&
+              steps[0].pressed.length === 1 &&
+              steps[1].env ===
+                "DISCORD_MCP_TOOLSETS=discovery,messages\nDISCORD_MCP_READ_ONLY=true" &&
+              steps[1].tools === "11" &&
+              steps[1].none.includes("channels") &&
+              steps[2].env ===
+                "DISCORD_MCP_TOOLSETS=discovery,messages,channels\nDISCORD_MCP_READ_ONLY=true" &&
+              steps[2].tools === "11" &&
+              steps[3].env === '"DISCORD_MCP_TOOLSETS": "discovery,messages,channels"' &&
+              steps[3].tools === "33" &&
+              steps[4].copy === true &&
+              steps[4].tools === "0" &&
+              log.length === 0,
+            { steps, log },
+          );
+        }
+        check(
+          `both builders answer the same steps the same way at ${width} px, ${scheme}`,
+          JSON.stringify(builderRuns["tools/"]) === JSON.stringify(builderRuns["toolsets/"]),
+          builderRuns,
+        );
+
+        await go("tools/discord_ban_member/");
+        if (width <= MENU_UP_TO) await click("#menu-btn");
+        let arrivedSets = loaded();
+        await click('#site-nav a[href$="toolsets/"]');
+        await arrivedSets;
+        check(
+          `the header's Toolsets link opens /toolsets/, marked current, at ${width} px, ${scheme}`,
+          (await evaluate("location.pathname")) === `${BASE}toolsets/` &&
+            (await evaluate(
+              `document.querySelector('#site-nav a[aria-current="page"]')?.textContent`,
+            )) === "Toolsets",
+          await evaluate("location.pathname"),
+        );
+        arrivedSets = loaded();
+        await click("#ts-channels h2 a");
+        await arrivedSets;
+        const setPage = await evaluate(`({
+          path: location.pathname,
+          rows: document.querySelectorAll(".rows .row").length,
+          crumb: document.querySelector(".crumbs a")?.getAttribute("href"),
+        })`);
+        check(
+          `a toolset entry opens its page, with its tool rows at ${width} px, ${scheme}`,
+          setPage.path === `${BASE}toolsets/channels/` &&
+            setPage.rows === 8 &&
+            setPage.crumb === "../",
+          setPage,
+        );
+        arrivedSets = loaded();
+        await click('.rows a.row[data-tool="discord_delete_channel"]');
+        await arrivedSets;
+        arrivedSets = loaded();
+        await click(".crumbs li:nth-child(2) a");
+        await arrivedSets;
+        check(
+          `a tool page's breadcrumb leads back to its toolset page at ${width} px, ${scheme}`,
+          (await evaluate("location.pathname")) === `${BASE}toolsets/channels/`,
+          await evaluate("location.pathname"),
+        );
+
         const copies = [
           ["", "#install .panel:not([hidden]) [data-copy-term]", null],
           ["tools/", "#b-env [data-copy-term]", "DISCORD_MCP_TOOLSETS=all"],
+          ["toolsets/", "#b-env [data-copy-term]", "DISCORD_MCP_TOOLSETS=all"],
+          ["toolsets/channels/", "#tsp-line [data-copy-term]", "DISCORD_MCP_TOOLSETS=channels"],
           ["tools/discord_ban_member/", "[data-copy-text]", "discord_ban_member"],
         ];
         for (const [path, selector, want] of copies) {
@@ -629,9 +754,9 @@ async function main() {
             clicked,
           );
 
-          await go("tools/");
+          await go("");
           await click("#menu-btn");
-          await evaluate(`document.querySelector('#site-nav a[href$="#builder"]').focus()`);
+          await evaluate(`document.querySelector('#site-nav a[href="#install"]').focus()`);
           for (const type of ["keyDown", "keyUp"])
             await send("Input.dispatchKeyEvent", {
               type,
@@ -644,7 +769,7 @@ async function main() {
           const entered = await menu();
           check(
             `Enter on an in-page menu link closes the menu ${at}`,
-            (await evaluate("location.hash")) === "#builder" &&
+            (await evaluate("location.hash")) === "#install" &&
               entered.expanded === "false" &&
               entered.links === 0,
             entered,
@@ -682,6 +807,7 @@ async function main() {
 
         for (const [path, list] of [
           ["tools/", "#ts-list"],
+          ["toolsets/", "#ts-list"],
           ["", ".pfs"],
         ]) {
           await go(path);
@@ -709,7 +835,7 @@ async function main() {
 
   console.log(
     `${results.pass} passed, ${results.fail} failed. ${counts.loads} page loads over ${WIDTHS.length} widths and ${SCHEMES.length} color schemes, ` +
-      `${counts.tabStops} Tab stops, ${counts.searches} searches, ${counts.suggestions} 404 suggestions, ${counts.copies} copies.`,
+      `${counts.tabStops} Tab stops, ${counts.searches} searches, ${counts.suggestions} 404 suggestions, ${counts.copies} copies, ${counts.builds} builder runs.`,
   );
   for (const failure of results.failures) console.log("FAIL " + failure);
   process.exitCode = results.fail ? 1 : 0;

@@ -94,7 +94,7 @@ export function initCommon({ onSearch }) {
   };
   const outside = (event) => !event.target.closest("#site-nav, #menu-btn");
   menu.addEventListener("click", () => setMenu(!isOpen()));
-  // In-page links ("Install", "Toolsets") keep the page, so the menu must close itself.
+  // In-page links ("Install") keep the page, so the menu must close itself.
   nav.addEventListener("click", (event) => {
     if (event.target.closest("a")) setMenu(false);
   });

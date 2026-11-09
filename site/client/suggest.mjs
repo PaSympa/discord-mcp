@@ -22,6 +22,10 @@ export function editDistance(a, b) {
  * "/discord-mcp/tools/discord-ban-membr/" gives "ban_membr".
  */
 export function requestedName(pathname, base = "/") {
+  return lastSegment(pathname, base).replace(/^discord_/, "");
+}
+
+function lastSegment(pathname, base) {
   let path = pathname;
   try {
     path = decodeURIComponent(pathname);
@@ -33,13 +37,34 @@ export function requestedName(pathname, base = "/") {
     path
       .split("/")
       .map((segment) => segment.replace(/\.html?$/i, ""))
-      .filter((segment) => segment && !/^(tools|index)$/i.test(segment))
+      .filter((segment) => segment && !/^(tools|toolsets|index)$/i.test(segment))
       .at(-1) ?? "";
   return last
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .replace(/^discord_/, "");
+    .replace(/^_+|_+$/g, "");
+}
+
+/**
+ * Up to `limit` toolsets whose name or label is within a few edits of a missing address
+ * under toolsets/, closest first: "/discord-mcp/toolsets/mesages/" gives messages.
+ */
+export function suggestToolsets(pathname, toolsets, { base = "/", limit = 3 } = {}) {
+  if (!pathname.slice(base.length).toLowerCase().startsWith("toolsets/")) return [];
+  const wanted = lastSegment(pathname, base);
+  if (wanted.length < 2) return [];
+  const near = Math.max(2, Math.floor(wanted.length / 3));
+  const slug = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  return toolsets
+    .map((set, order) => ({
+      set,
+      order,
+      distance: Math.min(editDistance(wanted, set.name), editDistance(wanted, slug(set.label))),
+    }))
+    .filter((entry) => entry.distance <= near)
+    .sort((a, b) => a.distance - b.distance || a.order - b.order)
+    .slice(0, limit)
+    .map((entry) => entry.set);
 }
 
 /** Up to `limit` tools whose names are within a few edits of the requested path, closest first. */

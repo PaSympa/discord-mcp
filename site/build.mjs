@@ -9,16 +9,23 @@ import { inlineLogo } from "./pages/layout.mjs";
 import { renderNotFound } from "./pages/notfound.mjs";
 import { slug } from "./pages/parts.mjs";
 import { renderToolPage, toolPath } from "./pages/tool.mjs";
+import {
+  renderToolsetPage,
+  renderToolsets,
+  TOOLSETS_PATH,
+  toolsetPath,
+} from "./pages/toolsets.mjs";
 import { parseReadme } from "./readme.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SITE = join(ROOT, "site");
 const GITHUB_ASSETS = join(ROOT, ".github", "assets");
 
-const STYLES = ["base", "landing", "catalog", "tool"];
+const STYLES = ["base", "landing", "catalog", "tool", "toolsets"];
 const BUNDLES = {
   "landing.js": ["tpl", "keys", "common", "landing"],
   "catalog.js": ["tpl", "keys", "common", "search", "detail", "builder", "catalog"],
+  "toolsets.js": ["tpl", "keys", "common", "builder", "toolsets"],
   "page.js": ["keys", "common", "page"],
   "notfound.js": ["tpl", "keys", "common", "search", "suggest", "notfound"],
 };
@@ -105,6 +112,15 @@ export function siteModel(catalog, readme, content) {
   const toolsets = catalog.toolsets.map((s) => {
     const text =
       content.toolsets[s.name] ?? fail(`content.json has no label for toolset ${s.name}.`);
+    for (const name of text.readsElsewhere ?? []) {
+      const tool = byName.get(name) ?? fail(`content.json names unknown tool ${name}.`);
+      if (byName.get(text.readsElsewhere[0]).toolset !== tool.toolset)
+        fail(`content.json: the reads named for ${s.name} must share one toolset.`);
+      if (s.risk.read > 0)
+        fail(`content.json points ${s.name} to reads elsewhere, but it has read-only tools.`);
+      if (tool.risk !== "read" || tool.toolset === s.name)
+        fail(`${name} is not a read-only tool of another toolset than ${s.name}.`);
+    }
     return { ...s, ...text };
   });
 
@@ -250,6 +266,10 @@ export function writeSite(catalog, outDir, { date } = {}) {
   const pages = {
     "": renderLanding(site),
     "tools/": renderCatalog(site),
+    [TOOLSETS_PATH]: renderToolsets(site),
+    ...Object.fromEntries(
+      site.toolsets.map((set) => [toolsetPath(set.name), renderToolsetPage(site, set)]),
+    ),
     ...Object.fromEntries(
       site.tools.map((tool) => [toolPath(tool.name), renderToolPage(site, tool)]),
     ),

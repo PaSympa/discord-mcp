@@ -161,7 +161,7 @@ const tools = [
   defineTool({
     name: "discord_copy_permissions",
     description:
-      "Replace the target channel's permission overwrites with a copy of the source channel's. The target's existing overwrites are overwritten. Requires the Manage Roles permission, and View Channel on the source: the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. To create a new channel with the same overwrites, use discord_clone_channel; to remove them all, use discord_reset_channel_permissions.",
+      "Replace the target channel's permission overwrites with a copy of the source channel's. The target's existing overwrites are overwritten. Requires the Manage Channels and Manage Roles permissions, and View Channel on the source: the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. To create a new channel with the same overwrites, use discord_clone_channel; to remove them all, use discord_reset_channel_permissions.",
     annotations: {
       title: "Copy channel permissions",
       readOnlyHint: false,

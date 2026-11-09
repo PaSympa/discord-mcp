@@ -23,7 +23,7 @@
 - `discord_set_forum_tags` keeps the emoji and moderated flag of a tag listed again without them. It used to send them as no emoji and `moderated: false`, so a moderator-only tag opened to everyone and a custom emoji was always lost. It accepts `emoji_id` for a custom emoji, `null` on `emoji_name` or `emoji_id` removes an emoji, and the reply names the tags created, deleted and changed, with the fields that changed
 - `discord_remove_reactions` rejects `user_id` without `emoji`, and an empty `emoji`, before any request. Both used to remove every reaction from every user and report success
 - `discord_bulk_ban` returns the IDs it banned and the IDs that failed, as `banned` and `failed` in structured output, instead of two counts. `failed` includes users who were already banned
-- `discord_bulk_ban` says plainly that none of the users were banned when Discord answers error 500000, and names the usual causes: each user is already banned or outranks the bot. It used to show only Discord's "Failed to ban users"
+- `discord_bulk_ban` says plainly that none of the users were banned when Discord answers error 500000, and names one known cause: each user is already banned. It used to show only Discord's "Failed to ban users"
 - `discord_get_scheduled_event` returns the interested count instead of `null`. It read the cached gateway copy of the event, which never carries `user_count`, while `discord_list_scheduled_events` already asked the API
 
 ## [2.3.0] - 2026-11-07

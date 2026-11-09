@@ -114,7 +114,7 @@ const tools = [
   defineTool({
     name: "discord_edit_role",
     description:
-      "Update an existing role's name, color, permissions, hoist, or mentionable flag. Only provided fields change; passing permissions REPLACES the role's full permission set. Requires the Manage Roles permission, and the role must be below the bot's highest role.",
+      "Update an existing role's name, color, permissions, hoist, or mentionable flag. Only provided fields change; passing permissions REPLACES the role's full permission set, and passing color sets a single solid color, removing any gradient or holographic colors. Requires the Manage Roles permission, and the role must be below the bot's highest role.",
     annotations: {
       title: "Edit role",
       readOnlyHint: false,

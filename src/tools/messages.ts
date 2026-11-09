@@ -273,7 +273,7 @@ const tools = [
   defineTool({
     name: "discord_edit_message",
     description:
-      "Edit the text content of a message previously sent by this bot. Discord forbids editing other users' messages, so this fails for non-bot messages. Use discord_edit_embed for embed messages. Works in text channels and threads. Returns the edited message ID.",
+      "Edit the text content of a message previously sent by this bot. Discord forbids editing other users' messages, so this fails for non-bot messages. Use discord_edit_embed for embed messages. Works in text channels and threads. Requires the View Channel and Read Message History permissions. Returns the edited message ID.",
     annotations: {
       title: "Edit message",
       readOnlyHint: false,
@@ -530,7 +530,7 @@ const tools = [
   defineTool({
     name: "discord_edit_embed",
     description:
-      "Replace the embed on a message previously sent by this bot. Only this bot's messages can be edited. This is a full replace, not a merge: provided fields are applied and omitted fields are dropped from the embed. Returns a confirmation.",
+      "Replace the embed on a message previously sent by this bot. Only this bot's messages can be edited. This is a full replace, not a merge: provided fields are applied and omitted fields are dropped from the embed. Requires the View Channel, Read Message History and Embed Links permissions; without Embed Links Discord keeps the old embed and reports no error. Returns a confirmation.",
     annotations: {
       title: "Edit embed",
       readOnlyHint: false,

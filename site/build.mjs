@@ -36,7 +36,7 @@ const COPIED = {
   ),
   "assets/fonts/jetbrains-mono-latin.woff2": join(SITE, "assets/fonts/jetbrains-mono-latin.woff2"),
   "assets/fonts/OFL.txt": join(SITE, "assets/fonts/OFL.txt"),
-  "assets/demo.webp": join(GITHUB_ASSETS, "demo.webp"),
+  "assets/demo.mp4": join(SITE, "assets/demo.mp4"),
   [OG_IMAGE]: join(GITHUB_ASSETS, "social-preview.png"),
   [TOUCH_ICON]: join(GITHUB_ASSETS, "logo-512.png"),
   ...Object.fromEntries(
@@ -207,7 +207,7 @@ export function siteModel(catalog, readme, content) {
   const demo = {
     ...readme.demo,
     ...webpSize(demoFile),
-    size: (statSync(demoFile).size / 1e6).toFixed(1) + " MB",
+    size: (statSync(join(SITE, "assets/demo.mp4")).size / 1e6).toFixed(1) + " MB",
   };
 
   const logoSvg = readFileSync(join(GITHUB_ASSETS, "logo.svg"), "utf8");

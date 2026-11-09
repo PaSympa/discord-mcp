@@ -413,7 +413,14 @@ test("the first load of /, /tools/, the largest tool page and 404.html stays und
     const bytes = firstLoad(page);
     assert.ok(bytes < BUDGET, `${page}: ${bytes} bytes on first load, budget ${BUDGET}`);
   }
-  assert.doesNotMatch(read("index.html"), /<img[^>]*demo\.webp/, "the demo loads on demand only");
+  const home = read("index.html");
+  assert.doesNotMatch(home, /demo\.webp/, "the site serves the demo as a video");
+  assert.match(
+    home,
+    /<video[^>]*id="demo-video"[^>]*preload="none"/,
+    "the demo loads on demand only",
+  );
+  assert.doesNotMatch(home, /<video[^>]*\sautoplay/, "the demo never starts on its own");
 });
 
 test("no em dash, and no Claude accent, in any output file", () => {

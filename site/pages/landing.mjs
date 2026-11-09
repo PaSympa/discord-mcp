@@ -122,11 +122,13 @@ function seeItWork(site) {
 </figure>
 <div class="demo" id="demo">
   <div class="demo-act">
-    <a class="btn btn-primary" id="demo-play" href="assets/demo.webp" data-alt="${demo.alt}" data-width="${demo.width}" data-height="${demo.height}">${ICONS.play}<span>Play the recording</span></a>
-    <span class="demo-size">Animated WebP, ${demo.size}</span>
+    <a class="btn btn-primary" id="demo-play" href="assets/demo.mp4" aria-controls="demo-video">${ICONS.play}${raw(String(ICONS.pause).replace("<svg ", "<svg hidden "))}<span>Play the recording</span></a>
+    <span class="demo-size">Video, ${demo.size}</span>
     <a class="demo-full" href="${demo.video}">Watch the full one-minute demo</a>
   </div>
-  <div class="demo-frame" id="demo-frame" hidden></div>
+  <div class="demo-frame" id="demo-frame" hidden>
+    <video id="demo-video" width="${demo.width}" height="${demo.height}" muted loop playsinline preload="none" aria-label="${demo.alt}"><source src="assets/demo.mp4" type="video/mp4"></video>
+  </div>
 </div>`;
   return section(
     "see-it-work",

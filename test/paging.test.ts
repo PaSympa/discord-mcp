@@ -17,6 +17,7 @@ function captureFetches(): Record<string, unknown>[] {
   const channel = {
     name: "chan",
     guildId: GUILD,
+    guild: { members: { me: null } },
     isDMBased: () => false,
     isTextBased: () => true,
     messages: {

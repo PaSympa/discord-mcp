@@ -18,6 +18,7 @@ import {
   fetchChannelChecked,
   validateId,
   assertCanEmbed,
+  assertCanReadHistory,
 } from "../client.js";
 import {
   MAX_FETCH_LIMIT,
@@ -175,7 +176,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions; without Read Message History Discord returns an empty list, not an error. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag, and the text of any embeds. Use discord_search_messages or discord_search_guild_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions; without Read Message History an empty result fails with an error naming the permission. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag, and the text of any embeds. Use discord_search_messages or discord_search_guild_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({
@@ -206,6 +207,7 @@ const tools = [
         after: resolvedAfter,
         around,
       });
+      if (messages.size === 0) assertCanReadHistory(channel);
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((m) => ({
@@ -467,7 +469,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_delete_messages",
     description:
-      "Permanently delete multiple recent messages in one call. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Discord only allows bulk-deleting messages younger than 14 days; older ones are skipped. Requires the Manage Messages permission. Returns the number deleted.",
+      "Permanently delete multiple recent messages in one call. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Discord only allows bulk-deleting messages younger than 14 days; older ones are skipped. Requires the Manage Messages and Read Message History permissions, and refuses to run without Read Message History. Returns the number deleted.",
     annotations: {
       title: "Bulk delete messages",
       readOnlyHint: false,
@@ -489,6 +491,7 @@ const tools = [
     }),
     handle: async ({ channel_id, count, dry_run }) => {
       const channel = await getTextChannel(channel_id);
+      assertCanReadHistory(channel);
       if (dry_run) {
         const recent = await channel.messages.fetch({ limit: count, cache: false });
         const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
@@ -657,7 +660,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, and the text of any embeds. Matching checks message content only, so a word that appears only in an embed is not found. Use discord_read_messages to fetch recent messages without filtering. To search full history, in one channel or the whole server, use discord_search_guild_messages.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, and the text of any embeds. Matching checks message content only, so a word that appears only in an embed is not found. Requires the View Channel and Read Message History permissions; without Read Message History an empty scan fails with an error naming the permission. Use discord_read_messages to fetch recent messages without filtering. To search full history, in one channel or the whole server, use discord_search_guild_messages.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -670,6 +673,7 @@ const tools = [
     handle: async ({ channel_id, keyword, limit }) => {
       const channel = await getTextChannel(channel_id);
       const messages = await channel.messages.fetch({ limit, cache: false });
+      if (messages.size === 0) assertCanReadHistory(channel);
       const needle = keyword.toLowerCase();
       const matches = [...messages.values()]
         .filter((m) => m.content.toLowerCase().includes(needle))
@@ -948,7 +952,7 @@ const tools = [
   defineTool({
     name: "discord_fetch_pinned_messages",
     description:
-      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt, and the text of any embeds. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires the View Channel and Read Message History permissions; without Read Message History Discord returns an empty list, not an error. Use discord_pin_message to change which messages are pinned, or discord_read_messages to read the whole channel.",
+      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt, and the text of any embeds. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires the View Channel and Read Message History permissions; without Read Message History an empty result fails with an error naming the permission. Use discord_pin_message to change which messages are pinned, or discord_read_messages to read the whole channel.",
     annotations: { title: "Fetch pinned messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to list pins from."),
@@ -971,6 +975,7 @@ const tools = [
     handle: async ({ channel_id, limit, before }) => {
       const channel = await getTextChannel(channel_id);
       const pinned = await channel.messages.fetchPins({ limit, before, cache: false });
+      if (pinned.items.length === 0) assertCanReadHistory(channel);
       const messages = pinned.items.map(({ message: m, pinnedAt }) => ({
         id: m.id,
         author: m.author.tag,

@@ -19,6 +19,9 @@
 ### Fixed
 
 - `discord_send_embed`, `discord_send_multiple_embeds` and `discord_edit_embed` refuse to run in a channel or thread where the bot lacks Embed Links, and the error names the permission and the channel. Discord used to post the text of a multi-embed message without its embeds, and leave an edited embed unchanged, while the tool reported success
+- `discord_read_messages`, `discord_search_messages`, `discord_fetch_pinned_messages` and `discord_get_forum_post` fail with an error naming Read Message History and the channel when they get no messages and the bot lacks that permission there. Discord answers such a read with an empty list, so the tools reported an empty channel. `discord_bulk_delete_messages` refuses to run without it, where both modes used to report 0 messages
+- `discord_copy_permissions` and `discord_clone_channel` refuse a source channel the bot cannot view. Discord can replace the overwrites of such a channel with a single @everyone View Channel deny, and copying that deny would lock the bot out of the result
+- `discord_list_channels` and `discord_find_channel_by_name` leave out the `___hidden___` placeholders Discord shows for channels the bot cannot view, and count them in `hiddenChannels`. A search for a hidden channel came back empty with nothing to say the channel might exist
 - `discord_set_forum_tags` keeps the ID of each existing tag it lists again, matched by name case-insensitively as Discord itself does, so posts keep that tag. Every call used to recreate all tags under new IDs, which stripped them from existing posts
 - `discord_get_scheduled_event` returns the interested count instead of `null`. It read the cached gateway copy of the event, which never carries `user_count`, while `discord_list_scheduled_events` already asked the API
 

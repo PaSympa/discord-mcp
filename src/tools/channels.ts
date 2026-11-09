@@ -1,6 +1,6 @@
 import { ChannelType, NewsChannel } from "discord.js";
 import { z } from "zod";
-import { discord, getGuildChannel, fetchChannelChecked } from "../client.js";
+import { discord, getGuildChannel, fetchChannelChecked, assertCanCopyFrom } from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, intIn } from "./define.js";
 
 /** Tool definitions for guild channels: lifecycle, layout, following, and permission sync. */
@@ -153,7 +153,7 @@ const tools = [
   defineTool({
     name: "discord_clone_channel",
     description:
-      "Create a copy of a channel, including its name, topic, and permission overwrites (but not its messages). Requires the Manage Channels permission. Returns the cloned channel's name and ID.",
+      "Create a copy of a channel, including its name, topic, and permission overwrites (but not its messages). Requires the Manage Channels permission, and View Channel on the source: the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns the cloned channel's name and ID.",
     annotations: {
       title: "Clone channel",
       readOnlyHint: false,
@@ -170,6 +170,7 @@ const tools = [
     }),
     handle: async ({ channel_id, new_name }) => {
       const channel = await getGuildChannel(channel_id);
+      assertCanCopyFrom(channel);
       const cloned = await channel.clone({ name: new_name });
       return {
         content: [

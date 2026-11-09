@@ -1,6 +1,12 @@
 import { PermissionOverwriteOptions, GuildChannel } from "discord.js";
 import { z } from "zod";
-import { discord, getGuildChannel, serializePermissions, parsePermissionNames } from "../client.js";
+import {
+  discord,
+  getGuildChannel,
+  serializePermissions,
+  parsePermissionNames,
+  assertCanCopyFrom,
+} from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, structured } from "./define.js";
 
 /** Flag names as an array, or a JSON-encoded array string (some clients serialize arrays). */
@@ -155,7 +161,7 @@ const tools = [
   defineTool({
     name: "discord_copy_permissions",
     description:
-      "Replace the target channel's permission overwrites with a copy of the source channel's. The target's existing overwrites are overwritten. Requires the Manage Roles permission. Returns a confirmation. To create a new channel with the same overwrites, use discord_clone_channel; to remove them all, use discord_reset_channel_permissions.",
+      "Replace the target channel's permission overwrites with a copy of the source channel's. The target's existing overwrites are overwritten. Requires the Manage Roles permission, and View Channel on the source: the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. To create a new channel with the same overwrites, use discord_clone_channel; to remove them all, use discord_reset_channel_permissions.",
     annotations: {
       title: "Copy channel permissions",
       readOnlyHint: false,
@@ -174,6 +180,7 @@ const tools = [
     }),
     handle: async ({ source_channel_id, target_channel_id, reason }) => {
       const source = await getGuildChannel(source_channel_id);
+      assertCanCopyFrom(source);
       const target = await getGuildChannel(target_channel_id);
       const overwrites = source.permissionOverwrites.cache.map((ow) => ({
         id: ow.id,

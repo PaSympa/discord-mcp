@@ -7,7 +7,9 @@ import {
   Options,
   PermissionFlagsBits,
   PermissionsBitField,
+  type ChannelFlagsBitField,
   type GuildTextBasedChannel,
+  type ThreadChannel,
 } from "discord.js";
 import { SWEEP } from "./constants.js";
 
@@ -186,17 +188,63 @@ export async function getTextChannel(channelId: string): Promise<GuildTextBasedC
   return channel;
 }
 
+/** A thread resolves through its parent. Null when the bot's member is not cached. */
+function botPermissions(channel: GuildChannel | ThreadChannel) {
+  const me = channel.guild.members.me;
+  return me ? channel.permissionsFor(me) : null;
+}
+
 /**
  * Refuses an embed send or edit where the bot lacks Embed Links: Discord can answer
  * it with success while it drops the new embeds, or keeps the old embed on an edit.
- * A thread resolves through its parent. Unresolvable permissions let the call through.
+ * Unresolvable permissions let the call through.
  */
 export function assertCanEmbed(channel: GuildTextBasedChannel): void {
-  const me = channel.guild.members.me;
-  const permissions = me ? channel.permissionsFor(me) : null;
+  const permissions = botPermissions(channel);
   if (permissions && !permissions.has(PermissionFlagsBits.EmbedLinks))
     throw new Error(
       `The bot lacks the Embed Links permission in #${channel.name} (${channel.id}). Without it, Discord drops the embeds from a message that has text and keeps the old embed on an edit, with no error. The call stopped before reaching Discord. Grant the bot Embed Links in this channel, or in the parent channel of a thread, then retry.`,
+    );
+}
+
+/**
+ * Without Read Message History, Discord answers a message or pin read with an empty
+ * list instead of an error. Readers call this on an empty result only, so a channel
+ * that is really empty still reads as empty. Unresolvable permissions let it through.
+ */
+export function assertCanReadHistory(channel: GuildTextBasedChannel | ThreadChannel): void {
+  const permissions = botPermissions(channel);
+  if (permissions && !permissions.has(PermissionFlagsBits.ReadMessageHistory))
+    throw new Error(
+      `The bot lacks the Read Message History permission in #${channel.name} (${channel.id}). Without it, Discord returns no messages instead of an error, so the tool cannot see what the channel holds. Grant the bot Read Message History in this channel, or in the parent channel of a thread, then retry.`,
+    );
+}
+
+const OBFUSCATED_CHANNEL_FLAG = 1 << 17;
+
+/**
+ * Discord obfuscates a channel the bot cannot view: flag 1 << 17, the name
+ * `___hidden___`, and one fake @everyone View Channel deny as its only overwrite.
+ */
+export function isObfuscated(channel: {
+  flags: Readonly<ChannelFlagsBitField> | null;
+  name: string;
+}): boolean {
+  return (
+    ((channel.flags?.bitfield ?? 0) & OBFUSCATED_CHANNEL_FLAG) !== 0 ||
+    channel.name === "___hidden___"
+  );
+}
+
+/**
+ * Refuses to copy overwrites from a channel the bot cannot view: they would be the
+ * fake @everyone View Channel deny, which locks a non-admin bot out of the copy.
+ */
+export function assertCanCopyFrom(channel: GuildChannel): void {
+  const permissions = botPermissions(channel);
+  if (isObfuscated(channel) || (permissions && !permissions.has(PermissionFlagsBits.ViewChannel)))
+    throw new Error(
+      `The bot cannot view the source channel ${channel.id}. Discord can show such a channel with a placeholder name and a single @everyone View Channel deny in place of its real overwrites, and copying overwrites that hide a channel from the bot locks the bot out of the result. The call stopped before reaching Discord. Grant the bot View Channel on the source channel, then retry.`,
     );
 }
 

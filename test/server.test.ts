@@ -85,5 +85,15 @@ test("formatToolError flattens ZodError paths and surfaces Discord hints", () =>
   assert.match(dmsg, /50013/);
   assert.match(dmsg, /Missing permissions; the bot lacks/);
 
+  const accessErr = new DiscordAPIError(
+    { code: 50001, message: "Missing Access" },
+    50001,
+    403,
+    "GET",
+    "https://discord.com/api/v10/channels/1/messages/2",
+    {},
+  );
+  assert.match(formatToolError(accessErr), /lacks Read Message History to fetch a single message/);
+
   assert.equal(formatToolError(new Error("boom")), "boom");
 });

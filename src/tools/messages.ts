@@ -800,7 +800,7 @@ const tools = [
   defineTool({
     name: "discord_remove_reactions",
     description:
-      "Remove reactions from a message. With no emoji: removes ALL reactions. With emoji only: removes every reaction of that emoji. With emoji and user_id: removes that one user's reaction. user_id without emoji is rejected. Removing all reactions or another user's reaction requires the Manage Messages permission. Use discord_add_reaction to add.",
+      "Remove reactions from a message. With no emoji: removes ALL reactions. With emoji only: removes every reaction of that emoji. With emoji and user_id: removes that one user's reaction. user_id without emoji is rejected. Removing all reactions, every reaction of one emoji, or another user's reaction requires the Manage Messages permission. Use discord_add_reaction to add.",
     annotations: {
       title: "Remove reactions",
       readOnlyHint: false,

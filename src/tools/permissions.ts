@@ -128,7 +128,7 @@ const tools = [
   defineTool({
     name: "discord_reset_channel_permissions",
     description:
-      "Remove ALL permission overwrites on a channel, so only role/server-level permissions apply. Does NOT re-sync with the category; use discord_lock_channel_permissions for that. IRREVERSIBLE: the cleared overwrites cannot be recovered. Requires the Manage Roles permission.",
+      "Remove ALL permission overwrites on a channel, so only role/server-level permissions apply. Does NOT re-sync with the category; use discord_lock_channel_permissions for that. IRREVERSIBLE: the cleared overwrites cannot be recovered. Requires the Manage Channels and Manage Roles permissions.",
     annotations: {
       title: "Reset channel permissions",
       readOnlyHint: false,

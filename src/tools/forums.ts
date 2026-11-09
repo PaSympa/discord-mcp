@@ -365,18 +365,26 @@ const tools = [
           id: z.string(),
           name: z.string(),
           emoji: z.string().nullable(),
+          emoji_id: z
+            .string()
+            .nullable()
+            .describe("ID of the tag's custom server emoji, or null when it has none."),
           moderated: z.boolean(),
         }),
       ),
     }),
     handle: async ({ forum_channel_id }) => {
       const forum = await getForumChannel(forum_channel_id);
-      const tags = forum.availableTags.map((t) => ({
-        id: t.id,
-        name: t.name,
-        emoji: t.emoji?.name ?? null,
-        moderated: t.moderated,
-      }));
+      const tags = forum.availableTags.map((t) => {
+        const emoji = oneEmojiField(t.emoji);
+        return {
+          id: t.id,
+          name: t.name,
+          emoji: emoji?.name ?? null,
+          emoji_id: emoji?.id ?? null,
+          moderated: t.moderated,
+        };
+      });
       return structured({ tags });
     },
   }),

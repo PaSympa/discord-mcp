@@ -196,3 +196,23 @@ test("set_forum_tags names the tags created, deleted and changed, with the field
   assert.match(reply, /^Changed: Bug \(name, moderated\); idea \(emoji\)$/m);
   assert.doesNotMatch(reply, /same/);
 });
+
+test("get_forum_tags returns emoji_id, so a custom emoji differs from none", async () => {
+  stubForum([
+    { id: "10", name: "custom", emoji: { id: CUSTOM_EMOJI, name: "party" } },
+    { id: "11", name: "unicode", emoji: { id: null, name: "🔥" } },
+    { id: "12", name: "plain" },
+  ]);
+  const result = await forums.handlers.get("discord_get_forum_tags")!({ forum_channel_id: FORUM });
+  assert.deepEqual(
+    (result.structuredContent as { tags: unknown[] }).tags.map((t) => {
+      const { emoji, emoji_id } = t as { emoji: string | null; emoji_id: string | null };
+      return [emoji, emoji_id];
+    }),
+    [
+      [null, CUSTOM_EMOJI],
+      ["🔥", null],
+      [null, null],
+    ],
+  );
+});

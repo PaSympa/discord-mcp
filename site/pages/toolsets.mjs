@@ -1,25 +1,11 @@
-import { formatInt, formatTokens, plural, raw, tpl } from "../client/tpl.mjs";
+import { formatInt, formatTokens, mixText, plural, raw, strip, tpl } from "../client/tpl.mjs";
 import { builder, builderData } from "./builder.mjs";
 import { toolRow } from "./catalog.mjs";
 import { firstFitting, layout, REPO, SITE_URL } from "./layout.mjs";
-import { terminal, toolChip } from "./parts.mjs";
-
-const RISKS = ["read", "write", "destructive"];
-const RISK_WORD = { read: "read-only", write: "write", destructive: "destructive" };
+import { stripKey, terminal, toolChip } from "./parts.mjs";
 
 export const TOOLSETS_PATH = "toolsets/";
 export const toolsetPath = (name) => `${TOOLSETS_PATH}${name}/`;
-
-const mixText = (set) =>
-  RISKS.filter((risk) => set.risk[risk])
-    .map((risk) => `${set.risk[risk]} ${RISK_WORD[risk]}`)
-    .join(", ");
-
-/** One cell per tool, read-only first, then write, then destructive. */
-const strip = (set) =>
-  tpl`<span class="strip" aria-hidden="true">${RISKS.map((risk) =>
-    Array.from({ length: set.risk[risk] }, () => raw(`<i data-risk="${risk}"></i>`)),
-  )}</span>`;
 
 const listOf = (items) =>
   items.length < 2
@@ -43,7 +29,7 @@ export function toolsetMeta(set) {
     ),
     description: firstFitting(
       [
-        `${set.blurb} The ${set.label} toolset of the discord-mcp server: ${count}, ${mixText(set)}, about ${formatInt(set.tokens)} tokens of context.`,
+        `${set.blurb} The ${set.label} toolset of the discord-mcp server: ${count}, ${mixText(set.risk)}, about ${formatInt(set.tokens)} tokens of context.`,
         `${set.blurb} The ${set.label} toolset of discord-mcp: ${count}, about ${formatInt(set.tokens)} tokens.`,
         `${set.blurb} ${set.label} toolset of discord-mcp.`,
       ],
@@ -111,7 +97,7 @@ function indexEntry(set) {
     <span class="tsx-tok">${formatTokens(set.tokens)} tokens</span>
   </div>
   <p class="tsx-blurb">${set.blurb}</p>
-  <p class="tsx-mix">${strip(set)}<span>${plural(set.tools, "tool")}: ${mixText(set)}</span>${set.risk.read ? "" : tpl`<a class="tsx-none" href="#read-only">No read-only tool</a>`}</p>
+  <p class="tsx-mix">${strip(set.risk)}<span>${plural(set.tools, "tool")}: ${mixText(set.risk)}</span>${set.risk.read ? "" : tpl`<a class="tsx-none" href="#read-only">No read-only tool</a>`}</p>
 </li>`;
 }
 
@@ -125,7 +111,7 @@ export function renderToolsets(site) {
 <div class="wrap layout">
   <div class="tsx-main">
     <ol class="tsx-list" role="list">${site.toolsets.map(indexEntry)}</ol>
-    <p class="tsx-key" aria-hidden="true">One mark per tool:${RISKS.map((risk) => tpl`<span class="tsx-k"><span class="strip"><i data-risk="${risk}"></i></span>${RISK_WORD[risk]}</span>`)}</p>
+    ${stripKey("tsx-key")}
     ${readOnlySection(site)}
   </div>
   ${builder(site, { up: "../" })}
@@ -164,9 +150,9 @@ export function renderToolsetPage(site, set) {
   ${breadcrumbs(trail)}
   <h1>${set.label}</h1>
   <p class="tp-name"><code>${set.name}</code></p>
-  <p class="tsp-mix">${strip(set)}</p>
+  <p class="tsp-mix">${strip(set.risk)}</p>
   <dl class="facts">
-    ${fact("Tools", tpl`${plural(set.tools, "tool")}<span class="fine">${mixText(set)}</span>`)}
+    ${fact("Tools", tpl`${plural(set.tools, "tool")}<span class="fine">${mixText(set.risk)}</span>`)}
     ${fact("Context cost", tpl`${formatInt(set.tokens)} tokens, estimated<span class="fine">${formatInt(set.bytes)} bytes of definitions, divided by 4</span>`)}
     ${fact("Read-only mode", roFact)}
     ${dry ? fact("Dry run by default", plural(dry, "tool")) : ""}
@@ -195,7 +181,7 @@ export function renderToolsetPage(site, set) {
     <p class="note">${
       set.name === "discovery"
         ? tpl`Discovery finds the servers, channels and IDs the other toolsets work on.`
-        : tpl`Tip: add discovery, as in <code>DISCORD_MCP_TOOLSETS=<wbr>discovery,<wbr>${set.name}</code>. Its <a href="${up}tools/discord_list_guilds/"><code>discord_list_guilds</code></a> finds the guild_id most other tools need.`
+        : tpl`Tip: add discovery, as in <code>DISCORD_MCP_TOOLSETS=<wbr>discovery,<wbr>${set.name}</code>. Its ${toolChip(site, "discord_list_guilds", up)} finds the guild_id most other tools need.`
     } <a href="../#builder">Combine toolsets in the builder</a>.</p>
   </section>
   <section class="d-sec" aria-labelledby="tsp-pf">

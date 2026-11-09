@@ -7,13 +7,14 @@ import {
   raw,
   RISK_LABEL,
   riskBadge,
+  RISKS,
+  strip,
   tpl,
 } from "../client/tpl.mjs";
 import { firstFitting, ICONS, layout, SEARCH_KEYS, searchHint } from "./layout.mjs";
 import { builder } from "./builder.mjs";
 
 const UP = "../";
-const RISKS = ["read", "write", "destructive"];
 
 /**
  * A tool row. The catalog script moves these between groups and the ranked list; `prefix`
@@ -38,8 +39,9 @@ function group(site, set) {
   const tools = site.tools.filter((t) => t.toolset === set.name);
   return tpl`<section class="group" id="set-${set.name}" aria-labelledby="set-${set.name}-h">
   <div class="group-head">
-    <h2 id="set-${set.name}-h">${set.label}</h2>
+    <h2 id="set-${set.name}-h"><a href="${UP}toolsets/${set.name}/">${set.label}</a></h2>
     <code>${set.name}</code>
+    ${strip(set.risk)}
     <span class="meta" data-meta>${plural(set.tools, "tool")}, ${formatTokens(set.tokens)} tokens</span>
   </div>
   <p class="group-blurb">${set.blurb}</p>

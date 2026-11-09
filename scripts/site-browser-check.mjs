@@ -601,9 +601,9 @@ async function main() {
                 none: [...document.querySelectorAll("#ts-list .ts-row.none")].map((li) => li.dataset.set),
                 pressed: [...document.querySelectorAll("#presets [aria-pressed=true]")].map((b) => b.textContent),
                 hint: document.getElementById("b-hint").textContent,
-                badges: document.querySelectorAll("#ts-list .ts-de").length,
-                shownBadges: [...document.querySelectorAll("#ts-list .ts-de")].filter((el) => el.getClientRects().length).length,
-                legend: document.getElementById("de-legend").getClientRects().length > 0,
+                bars: document.querySelectorAll("#ts-list .strip i").length,
+                shownBars: [...document.querySelectorAll("#ts-list .strip i")].filter((el) => el.getClientRects().length).map((el) => el.dataset.risk),
+                key: document.querySelector("#builder .strip-key").getClientRects().length > 0,
                 contrast: ${CONTRAST}.fails,
               };
             })()`);
@@ -629,9 +629,11 @@ async function main() {
             steps.every((step, i) => {
               const ro = i === 1 || i === 2;
               return (
-                step.badges > 0 &&
-                step.shownBadges === (ro ? 0 : step.badges) &&
-                step.legend === !ro &&
+                step.shownBars.length > 0 &&
+                (ro
+                  ? step.shownBars.every((risk) => risk === "read")
+                  : step.shownBars.length === step.bars) &&
+                step.key &&
                 step.contrast.length === 0
               );
             }) &&

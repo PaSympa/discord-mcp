@@ -1,18 +1,16 @@
 import { $, $$, announce, reduceMotion, setTerminalLines } from "./common.mjs";
-import { formatInt, formatTokens, plural, tpl } from "./tpl.mjs";
+import { formatInt, formatTokens, mixText, plural, riskCounts, RISKS, tpl } from "./tpl.mjs";
 
 /**
  * The toolset builder, on the catalog and on /toolsets/. `data` holds the totals, toolsets,
  * README profiles and, per tool, its toolset, risk and tokens. `onRender` runs after each
- * update with the selected toolsets. Returns the selection, the read-only switch and a
+ * update with the selected toolsets and whether read-only mode is on. Returns the selection, the read-only switch and a
  * function that renders the builder again after the selection changes from outside.
  */
 export function initBuilder(data, { onRender } = {}) {
   const tools = data.tools;
   const sets = data.toolsets.map((s) => s.name);
   const total = data.totals;
-  const risks = ["read", "write", "destructive"];
-  const riskWord = { read: "read-only", write: "writes", destructive: "destructive" };
   const selected = new Set(sets);
   const readOnly = $("#b-ro");
   const env = $("#b-env");
@@ -50,6 +48,9 @@ export function initBuilder(data, { onRender } = {}) {
       : lines.map(([k, v]) => `${k}=${v}`);
   }
 
+  const countRisks = (list) =>
+    Object.fromEntries(RISKS.map((risk) => [risk, list.filter((t) => t.risk === risk).length]));
+
   function render() {
     const list = sets.filter((s) => selected.has(s));
     const ro = readOnly.checked;
@@ -66,14 +67,12 @@ export function initBuilder(data, { onRender } = {}) {
       "aria-label",
       `${formatInt(tokens)} of ${formatInt(total.tokens)} estimated tokens selected (${Math.round(pct)}%)`,
     );
-    const counts = { read: 0, write: 0, destructive: 0 };
-    for (const t of picked) counts[t.risk]++;
+    const counts = countRisks(picked);
     $("#b-mix").innerHTML = String(
-      tpl`<span><b>${picked.length}</b> ${picked.length === 1 ? "tool" : "tools"}</span>${risks.map(
-        (risk) =>
-          tpl`<span data-risk="${risk}"><span class="glyph" aria-hidden="true"><i></i><i></i><i></i></span>${counts[risk]} ${riskWord[risk]}</span>`,
-      )}`,
+      tpl`<span><b>${picked.length}</b> ${picked.length === 1 ? "tool" : "tools"}</span>${riskCounts(counts)}`,
     );
+    // Read-only mode loads only read tools, so the other bars would describe tools left out.
+    $("#ts-list").classList.toggle("ro", ro);
     let emptied = false;
     for (const s of sets) {
       const li = tsRows.get(s);
@@ -85,11 +84,8 @@ export function initBuilder(data, { onRender } = {}) {
       $("[data-n]", li).textContent = String(inSet.length);
       $("[data-unit]", li).textContent = inSet.length === 1 ? " tool" : " tools";
       $("[data-tok]", li).textContent = formatTokens(inSet.reduce((n, t) => n + t.tokens, 0));
-      // Read-only mode loads no destructive tool, so the count would describe tools left out.
-      const de = $(".ts-de", li);
-      if (de) de.hidden = ro;
+      $("[data-mix]", li).textContent = mixText(countRisks(inSet));
     }
-    $("#de-legend").hidden = ro;
     $("#ro-legend").hidden = !emptied;
     for (const button of presets) {
       const p = data.profiles[Number(button.dataset.preset)];
@@ -136,7 +132,7 @@ export function initBuilder(data, { onRender } = {}) {
     }
     setTerminalLines(env, usable ? configLines(list) : ["# Nothing to copy yet"]);
     copy.disabled = !usable;
-    onRender?.(list);
+    onRender?.(list, ro);
   }
 
   for (const [s, li] of tsRows)

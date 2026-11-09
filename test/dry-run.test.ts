@@ -71,14 +71,29 @@ test("bulk_ban: default previews the exact IDs; dry_run:false calls bulkBan with
   const handler = members.handlers.get("discord_bulk_ban")!;
 
   const preview = await handler({ guild_id: GUILD, user_ids: [USER] });
-  assert.match(textOf(preview), /Dry run/);
-  assert.match(textOf(preview), new RegExp(USER), "preview lists the exact IDs");
+  assert.deepEqual(preview.structuredContent, { dry_run: true, would_ban: [USER] });
   assert.equal(banCalls.length, 0, "dry run must not ban");
 
   await handler({ guild_id: GUILD, user_ids: [USER], dry_run: false, reason: "raid" });
   assert.equal(banCalls.length, 1);
   assert.deepEqual(banCalls[0][0], [USER]);
   assert.match(JSON.stringify(banCalls[0][1]), /raid/);
+});
+
+test("bulk_ban returns the banned and failed IDs, not just their counts", async () => {
+  const OTHER = "333333333333333333";
+  const fakeGuild = {
+    members: { bulkBan: async () => ({ bannedUsers: [USER], failedUsers: [OTHER] }) },
+  };
+  mock.method(discord.guilds, "fetch", async () => fakeGuild as never);
+  const result = await members.handlers.get("discord_bulk_ban")!({
+    guild_id: GUILD,
+    user_ids: [USER, OTHER],
+    dry_run: false,
+  });
+  assert.equal(result.isError, undefined);
+  assert.deepEqual(result.structuredContent, { dry_run: false, banned: [USER], failed: [OTHER] });
+  assert.match(textOf(result), new RegExp(OTHER), "the text block carries the failed IDs too");
 });
 
 test("prune_members: dry_run flips Discord's native dry flag", async () => {

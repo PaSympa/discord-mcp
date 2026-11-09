@@ -80,9 +80,10 @@ export const breadcrumbLd = (trail) => ({
 });
 
 function readsElsewhere(site, set, up) {
-  if (!set.readsElsewhere?.length) return "";
-  const home = site.toolsets.find((s) => s.name === site.byName.get(set.readsElsewhere[0]).toolset);
-  return tpl` The reads on the same subject live in <a href="${up}${toolsetPath(home.name)}">${home.label}</a>: ${listOf(set.readsElsewhere.map((name) => toolChip(site, name, up)))}.`;
+  if (!set.readsElsewhere) return "";
+  const { task, tools } = set.readsElsewhere;
+  const home = site.toolsets.find((s) => s.name === site.byName.get(tools[0]).toolset);
+  return tpl` To ${task}, <a href="${up}${toolsetPath(home.name)}">${home.label}</a> has the read-only ${tools.length === 1 ? "tool" : "tools"} ${listOf(tools.map((name) => toolChip(site, name, up)))}.`;
 }
 
 function readOnlySection(site) {

@@ -834,7 +834,10 @@ test("every page has a menu button that shows the site links on narrow screens",
 });
 
 type Content = {
-  toolsets: Record<string, { label: string; blurb: string; readsElsewhere?: string[] }>;
+  toolsets: Record<
+    string,
+    { label: string; blurb: string; readsElsewhere?: { task: string; tools: string[] } }
+  >;
 };
 const content = (): Content =>
   JSON.parse(readFileSync(join(__dirname, "..", "site", "content.json"), "utf8"));
@@ -866,6 +869,41 @@ function readmeProfiles() {
   );
   assert.ok(rows.length >= 3, "the README has a profiles table");
   return rows;
+}
+
+/**
+ * The sentence that points a toolset with no read-only tool to reads elsewhere, rebuilt from
+ * tools.json after checking every word of it: each tool is read-only, all sit in one other
+ * toolset, and each title is a verb of the task then its object, optionally "by" something.
+ */
+function readsClaim(
+  data: { tools: Tool[] },
+  text: Content["toolsets"],
+  reads: { task: string; tools: string[] },
+  up: string,
+) {
+  const [, verbs, things] = /^([a-z]+(?: or [a-z]+)*) ([a-z]+)$/.exec(reads.task)!;
+  const tools = reads.tools.map((name) => data.tools.find((t) => t.name === name)!);
+  const home = tools[0].toolset;
+  for (const tool of tools) {
+    assert.equal(tool.risk, "read", tool.name);
+    assert.equal(tool.toolset, home, tool.name);
+    const [verb, thing, next] = tool.title.toLowerCase().split(" ");
+    assert.ok(verbs.split(" or ").includes(verb), `${tool.title} does not ${reads.task}`);
+    assert.ok([things, things.replace(/s$/, "")].includes(thing), `${tool.title}: ${thing}`);
+    assert.ok(next === undefined || next === "by", `${tool.title} is about more than ${things}`);
+  }
+  for (const verb of verbs.split(" or "))
+    assert.ok(
+      tools.some((t) => t.title.toLowerCase().startsWith(verb + " ")),
+      verb,
+    );
+  const chips = tools.map(
+    (t) =>
+      `<a class="tool" href="${up}tools/${t.name}/" data-risk="read"><span class="glyph" aria-hidden="true"><i></i><i></i><i></i></span><code>${t.name.replace(/_/g, "_<wbr>")}</code><span class="vh"> (read-only)</span></a>`,
+  );
+  const list = chips.length < 2 ? chips[0] : chips.slice(0, -1).join(", ") + " and " + chips.at(-1);
+  return `To ${reads.task}, <a href="${up}toolsets/${home}/">${text[home].label}</a> has the read-only ${tools.length === 1 ? "tool" : "tools"} ${list}.`;
 }
 
 test("/toolsets/ shows every toolset with its label, blurb, counts and cost from tools.json", async () => {
@@ -902,17 +940,13 @@ test("/toolsets/ shows every toolset with its label, blurb, counts and cost from
   assert.ok(writeOnly.length > 0, "some toolset has no read-only tool");
   for (const set of writeOnly) {
     assert.ok(ro.includes(`<a href="../toolsets/${set.name}/">`), `${set.name} is named`);
-    for (const name of text[set.name].readsElsewhere ?? []) {
-      const tool = data.tools.find((t: Tool) => t.name === name);
-      assert.equal(tool.risk, "read", name);
-      assert.notEqual(tool.toolset, set.name, name);
-      assert.ok(ro.includes(`href="../tools/${name}/"`), `${name} is linked`);
-      assert.ok(
-        ro.includes(`<a href="../toolsets/${tool.toolset}/">`),
-        `${tool.toolset} is linked`,
-      );
-    }
+    const reads = text[set.name].readsElsewhere;
+    if (reads) assert.ok(ro.includes(readsClaim(data, text, reads, "../")), `${set.name}: claim`);
   }
+  assert.ok(
+    writeOnly.some((s: Toolset) => text[s.name].readsElsewhere),
+    "a claim is checked",
+  );
 });
 
 test("/toolsets/ reuses the catalog's toolset builder, with every toolset and README profile", () => {
@@ -1018,8 +1052,12 @@ test("each toolset page lists its tools from tools.json, and every tool appears 
     if (note) {
       assert.match(note, /No read-only tool/);
       assert.ok(note.includes("<code>DISCORD_MCP_READ_ONLY=<wbr>true</code>"), page);
-      for (const name of text[set.name].readsElsewhere ?? [])
-        assert.ok(note.includes(`href="../../tools/${name}/"`), `${page}: links ${name}`);
+      const reads = text[set.name].readsElsewhere;
+      if (reads)
+        assert.ok(
+          note.includes(readsClaim(JSON.parse(read("tools.json")), text, reads, "../../")),
+          page,
+        );
     }
     const roFact = /<dt>Read-only mode<\/dt><dd>([^<]*)<\/dd>/.exec(html)![1];
     assert.equal(
@@ -1121,6 +1159,9 @@ test("a missing toolset address suggests the closest toolsets", async () => {
   assert.equal(near(`${base}toolsets/scheduled-event/`)[0], "scheduled_events");
   assert.equal(near(`${base}toolsets/direct-messages/`)[0], "dm");
   assert.equal(near(`${base}toolsets/chanels`)[0], "channels");
+  assert.equal(near(`${base}toolset/messages/`)[0], "messages", "the folder in the singular");
+  assert.equal(near(`${base}tool-sets/dm/`)[0], "dm");
+  assert.equal(near(`${base}Toolsest/roles/`)[0], "roles");
   assert.deepEqual(near(`${base}toolsets/`), []);
   assert.deepEqual(near(`${base}tools/mesages/`), [], "only under toolsets/");
   assert.deepEqual(near(`${base}toolsets/zzzzzzzzzz/`), []);
@@ -1132,35 +1173,35 @@ test("a missing toolset address suggests the closest toolsets", async () => {
   assert.ok(read("404.html").includes(`<a href="${base}toolsets/">`), "404.html links /toolsets/");
 });
 
-test("the build refuses read pointers that are not read-only tools of another toolset", async () => {
+test("the build checks every word of the pointer to reads in another toolset", async () => {
   const { siteModel } = await siteBuild();
   const { parseReadme } = await import("../site/readme.mjs");
   const readme = parseReadme(readFileSync(join(__dirname, "..", "README.md"), "utf8"));
-  const withReads = (set: string, reads: string[]) => {
+  const build = (set: string, task: string, tools: string[]) => () => {
     const text = content();
-    text.toolsets[set] = { ...text.toolsets[set], readsElsewhere: reads };
-    return text;
+    text.toolsets[set] = { ...text.toolsets[set], readsElsewhere: { task, tools } };
+    return siteModel(catalog, readme, text);
   };
+  const channels = ["discord_list_channels", "discord_find_channel_by_name"];
   assert.doesNotThrow(() => siteModel(catalog, readme, content()));
-  assert.throws(
-    () => siteModel(catalog, readme, withReads("channels", ["discord_create_channel"])),
-    /not a read-only tool of another toolset/,
-  );
-  assert.throws(
-    () => siteModel(catalog, readme, withReads("channels", ["discord_no_such_tool"])),
-    /unknown tool/,
-  );
-  assert.throws(
-    () => siteModel(catalog, readme, withReads("messages", ["discord_list_channels"])),
-    /has read-only tools/,
-  );
-  assert.throws(
-    () =>
-      siteModel(
-        catalog,
-        readme,
-        withReads("channels", ["discord_list_channels", "discord_read_messages"]),
-      ),
-    /share one toolset/,
-  );
+  assert.doesNotThrow(build("channels", "list or find channels", channels));
+  const refused: [string, string, string[], RegExp][] = [
+    ["channels", "list or find channels", ["discord_create_channel"], /not a read-only tool/],
+    ["channels", "list or find channels", ["discord_no_such_tool"], /unknown tool/],
+    ["messages", "list or find channels", channels, /has read-only tools/],
+    [
+      "channels",
+      "list or find channels",
+      ["discord_list_channels", "discord_read_messages"],
+      /share one toolset/,
+    ],
+    ["channels", "read channels", channels, /its title is "List channels"/],
+    ["channels", "list channels", ["discord_get_forum_channels"], /"List forum channels"/],
+    ["channels", "list or find channels", ["discord_list_channels"], /can find; none/],
+    ["channels", "browse the channels", channels, /must read/],
+  ];
+  for (const [set, task, tools, error] of refused)
+    assert.throws(build(set, task, tools), error, `${set}: ${task}: ${tools.join(", ")}`);
+  for (const page of ["toolsets/index.html", "toolsets/channels/index.html"])
+    assert.doesNotMatch(read(page), /on the same subject/, `${page}: the old, broader claim`);
 });

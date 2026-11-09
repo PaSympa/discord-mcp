@@ -1,9 +1,7 @@
-import { esc } from "../client/tpl.mjs";
+import { esc, RISK_WORD } from "../client/tpl.mjs";
 import { REPO, SITE_URL } from "./layout.mjs";
 import { toolPath } from "./tool.mjs";
 import { TOOLSETS_PATH, toolsetPath } from "./toolsets.mjs";
-
-const RISK = { read: "read-only", write: "writes", destructive: "destructive" };
 
 /** llms.txt (llmstxt.org): every tool on one line, grouped by toolset, with absolute links. */
 export function renderLlms(site) {
@@ -12,7 +10,7 @@ export function renderLlms(site) {
     const lines = site.tools
       .filter((tool) => tool.toolset === set.name)
       .map((tool) => {
-        const risk = RISK[tool.risk] + (tool.dryRunDefault ? ", dry run by default" : "");
+        const risk = RISK_WORD[tool.risk] + (tool.dryRunDefault ? ", dry run by default" : "");
         return `- [${tool.name}](${SITE_URL}${toolPath(tool.name)}): ${tool.purpose} Risk: ${risk}.`;
       });
     return `## ${set.label} (\`${set.name}\`)\n\n${lines.join("\n")}\n`;
@@ -25,7 +23,7 @@ export function renderLlms(site) {
 
 > ${site.description}
 
-Version ${site.version}. Run it with \`npx -y @pasympa/discord-mcp\` and your bot's token in \`DISCORD_TOKEN\`. Under each toolset heading, a line names a tool, gives its purpose (the first sentence of its description) and its risk from its annotations: read-only, writes or destructive. Toolset names in headings are the values of \`DISCORD_MCP_TOOLSETS\`. Every definition, with its input and output schemas, is in [tools.json](${SITE_URL}tools.json).
+Version ${site.version}. Run it with \`npx -y @pasympa/discord-mcp\` and your bot's token in \`DISCORD_TOKEN\`. Under each toolset heading, a line names a tool, gives its purpose (the first sentence of its description) and its risk from its annotations: read-only, write or destructive. Toolset names in headings are the values of \`DISCORD_MCP_TOOLSETS\`. Every definition, with its input and output schemas, is in [tools.json](${SITE_URL}tools.json).
 
 ## Toolsets
 

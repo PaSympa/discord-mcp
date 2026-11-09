@@ -1,7 +1,14 @@
-import { breakable, formatInt, formatTokens, glyph, raw, RISK_LABEL, tpl } from "../client/tpl.mjs";
-import { md, terminal } from "./parts.mjs";
-
-const RISKS = ["read", "write", "destructive"];
+import {
+  breakable,
+  formatInt,
+  formatTokens,
+  mixText,
+  raw,
+  riskCounts,
+  strip,
+  tpl,
+} from "../client/tpl.mjs";
+import { md, stripKey, terminal } from "./parts.mjs";
 
 /**
  * The toolset builder panel. `up` leads from the page to the site root; `showInCatalog` adds
@@ -13,13 +20,10 @@ export function builder(site, { up, showInCatalog = false }) {
     (set) => tpl`<li class="ts-row on" data-set="${set.name}">
   <label>
     <input type="checkbox" value="${set.name}" checked>
-    <span class="ts-name"><code>${breakable(set.name)}</code>${
-      set.risk.destructive
-        ? tpl`<span class="ts-de" data-risk="destructive" title="${set.risk.destructive} destructive">${glyph()}<span aria-hidden="true">${set.risk.destructive}</span><span class="vh">${set.risk.destructive} destructive</span></span>`
-        : ""
-    }</span>
+    <span class="ts-name"><code>${breakable(set.name)}</code></span>
     <span class="ts-n"><span data-n>${set.tools}</span><span class="vh" data-unit> ${set.tools === 1 ? "tool" : "tools"}</span></span>
     <span class="ts-tok"><span data-tok>${formatTokens(set.tokens)}</span><span class="vh"> tokens</span></span>
+    <span class="ts-mix">${strip(set.risk)}<span class="vh" data-mix>${mixText(set.risk)}</span></span>
     <span class="ts-bar" aria-hidden="true"><i style="width: ${((set.tokens / max) * 100).toFixed(1)}%"></i></span>
   </label>
 </li>`,
@@ -34,7 +38,7 @@ export function builder(site, { up, showInCatalog = false }) {
   <p class="sub">Tick the toolsets your assistant should see. Fewer tools leave more of its context for your conversation.</p>
   <p class="figure"><span class="big" id="b-tokens">${(totals.tokens / 1000).toFixed(1)}k</span><span class="unit">tokens of tool definitions, estimated</span></p>
   <div class="meter" id="b-meter" role="img" aria-label="All of the ${formatInt(totals.tokens)} estimated tokens selected"><i id="b-meter-fill" style="width: 100%"></i></div>
-  <p class="mix" id="b-mix"><span><b>${totals.tools}</b> tools</span>${RISKS.map((risk) => tpl`<span data-risk="${risk}">${glyph()}${totals.risk[risk]} ${RISK_LABEL[risk].toLowerCase()}</span>`)}</p>
+  <p class="mix" id="b-mix"><span><b>${totals.tools}</b> tools</span>${riskCounts(totals.risk)}</p>
   <div class="ro-box">
     <label class="switch"><input type="checkbox" id="b-ro"><span class="switch-ui" aria-hidden="true"></span><span>Read-only mode</span></label>
     <p class="note">Keeps the ${totals.risk.read} tools annotated <code>readOnlyHint: true</code> and adds <code>DISCORD_MCP_READ_ONLY=true</code> to your line.</p>
@@ -58,7 +62,7 @@ export function builder(site, { up, showInCatalog = false }) {
     <h3 class="ts-title" id="ts-title">Toolsets</h3>
     <div class="ts-cols" aria-hidden="true"><span></span><span>Name</span><span>Tools</span><span>Tokens</span></div>
     <ul class="ts-list" id="ts-list" aria-labelledby="ts-title">${rows}</ul>
-    <p class="ts-legend" id="de-legend" aria-hidden="true"><span class="ts-de" data-risk="destructive">${glyph()}3</span> Destructive tools in the toolset</p>
+    ${stripKey("ts-legend")}
     <p class="ts-legend" id="ro-legend" hidden>Crossed out: the toolset has no read-only tool, so read-only mode leaves it out.</p>
   </div>
   ${showInCatalog ? raw('<button class="btn show-sel" type="button" id="show-sel">Show these tools in the catalog</button>') : ""}

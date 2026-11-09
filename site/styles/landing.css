@@ -526,7 +526,7 @@ main {
   display: none;
 }
 .hint.warn {
-  color: var(--write-ink);
+  color: var(--ink);
   font-weight: 600;
 }
 .method {
@@ -593,11 +593,16 @@ main {
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
-.set-de {
+.set-mix {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: var(--s2);
   margin-left: auto;
+}
+.set-key {
+  margin-top: var(--s3);
+}
+.set-de {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--destructive-ink);

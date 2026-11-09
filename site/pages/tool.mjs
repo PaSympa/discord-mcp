@@ -1,9 +1,7 @@
 import { permissionLabel, permissionLines, renderToolDetail } from "../client/detail.mjs";
-import { breakable, formatInt, raw, riskBadge, tpl } from "../client/tpl.mjs";
+import { breakable, formatInt, raw, RISK_LABEL, riskBadge, tpl } from "../client/tpl.mjs";
 import { firstFitting, layout, SITE_URL } from "./layout.mjs";
 import { breadcrumbLd, breadcrumbs, TOOLSETS_PATH, toolsetPath } from "./toolsets.mjs";
-
-const RISK_WORD = { read: "Read-only", write: "Write", destructive: "Destructive" };
 
 // The example prompt lands here with site/prompts.json (S4); until then the slot ships empty.
 const EXAMPLE_SLOT = raw(
@@ -14,7 +12,7 @@ export const toolPath = (name) => `tools/${name}/`;
 
 /** Title of at most 60 characters and description of at most 160, for search results. */
 export function toolMeta(tool, label) {
-  const word = RISK_WORD[tool.risk];
+  const word = RISK_LABEL[tool.risk];
   return {
     title: firstFitting(
       [

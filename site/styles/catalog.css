@@ -128,6 +128,13 @@
   font-size: 0.8125rem;
   color: var(--ink-2);
 }
+.group-head .strip {
+  align-self: center;
+}
+.ts-list.ro .strip i:not([data-risk="read"]),
+#groups.ro .group-head .strip i:not([data-risk="read"]) {
+  display: none;
+}
 .group-head .meta {
   margin-left: auto;
   font-size: 0.8125rem;
@@ -214,7 +221,7 @@
   padding-top: 2px;
   text-align: right;
   font-size: 0.8125rem;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -244,7 +251,7 @@
 }
 .builder h2 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.25;
   letter-spacing: -0.012em;
 }
@@ -379,7 +386,7 @@
   padding: 0;
 }
 .ts-row label {
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   align-items: center;
   row-gap: var(--s1);
   padding: 6px var(--s2);
@@ -390,7 +397,7 @@
   background: var(--surface-2);
 }
 .ts-row input {
-  grid-row: 1 / span 2;
+  grid-row: 1 / span 3;
   width: 18px;
   height: 18px;
   margin: 0;
@@ -410,13 +417,10 @@
   font-weight: 500;
   overflow-wrap: anywhere;
 }
-.ts-de {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s1);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--destructive-ink);
+.ts-mix {
+  grid-column: 2 / -1;
+  display: flex;
+  min-height: 11px;
 }
 .ts-n,
 .ts-tok {
@@ -454,9 +458,6 @@
   background: var(--bar-off);
 }
 .ts-legend {
-  display: flex;
-  align-items: center;
-  gap: var(--s2);
   margin-top: var(--s2);
   padding-left: var(--s2);
   font-size: 0.75rem;
@@ -521,7 +522,7 @@ dialog#tool[open] {
 .dlg-head h2 {
   margin-top: var(--s1);
   font-size: 1.75rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.15;
   letter-spacing: -0.016em;
 }
@@ -568,9 +569,6 @@ dialog#tool[open] {
   max-width: 72ch;
   font-size: 1rem;
   line-height: 1.6;
-}
-.desc a {
-  text-decoration: none;
 }
 .desc a code {
   font-size: 0.875em;
@@ -757,7 +755,7 @@ table.schema {
 .rel .rt {
   display: flex;
   align-items: center;
-  gap: var(--s2);
+  gap: 6px;
   font-size: 0.875rem;
   font-weight: 600;
 }

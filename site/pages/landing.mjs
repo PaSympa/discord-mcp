@@ -1,7 +1,20 @@
-import { breakable, formatInt, formatTokens, glyph, plural, raw, tpl } from "../client/tpl.mjs";
+import {
+  breakable,
+  formatInt,
+  formatTokens,
+  glyph,
+  mixText,
+  plural,
+  raw,
+  RISK_LABEL,
+  riskCounts,
+  RISKS,
+  strip,
+  tpl,
+} from "../client/tpl.mjs";
 import { inline } from "../markdown.mjs";
 import { firstFitting, ICONS, layout } from "./layout.mjs";
-import { md, terminal, toolChip } from "./parts.mjs";
+import { md, stripKey, terminal, toolChip } from "./parts.mjs";
 
 const UP = "";
 
@@ -154,7 +167,7 @@ function asks(site) {
     "what-you-can-ask",
     "What you can ask",
     tpl`<p>Ask in plain language; the assistant picks the tools.</p>
-<p class="legend" aria-hidden="true"><span data-risk="read">${glyph()}Read-only</span><span data-risk="write">${glyph()}Writes</span><span data-risk="destructive">${glyph()}Destructive</span></p>`,
+<p class="legend" aria-hidden="true">${RISKS.map((risk) => tpl`<span data-risk="${risk}">${glyph()}${RISK_LABEL[risk]}</span>`)}</p>`,
     tpl`<ul class="asks" role="list">${items}</ul>`,
   );
 }
@@ -200,10 +213,7 @@ function safety(site) {
   const items = site.readme.safety.map((rule) => {
     const extra =
       rule.lead === "Clear annotations"
-        ? tpl`<p class="mix">${["read", "write", "destructive"].map(
-            (risk) =>
-              tpl`<span data-risk="${risk}">${glyph()}<b>${site.totals.risk[risk]}</b> ${{ read: "read-only", write: "writes", destructive: "destructive" }[risk]}</span>`,
-          )}</p>`
+        ? tpl`<p class="mix">${riskCounts(site.totals.risk)}</p>`
         : "";
     return tpl`<li class="rule">
   <h3>${rule.lead}</h3>
@@ -261,7 +271,7 @@ function browse(site) {
   const sets = site.toolsets.map((s) => {
     const de = s.risk.destructive;
     return tpl`<li><a class="set-link" href="toolsets/${s.name}/">
-  <span class="set-top"><span class="set-name">${s.label}</span><span class="set-n">${plural(s.tools, "tool")}</span>${de ? tpl`<span class="set-de" data-risk="destructive">${glyph()}${de} destructive</span>` : ""}</span>
+  <span class="set-top"><span class="set-name">${s.label}</span><span class="set-n">${plural(s.tools, "tool")}</span><span class="set-mix">${strip(s.risk)}<span class="vh">${mixText(s.risk)}</span>${de ? tpl`<span class="set-de" aria-hidden="true">${de} destructive</span>` : ""}</span></span>
   <span class="set-blurb">${s.blurb}</span>
 </a></li>`;
   });
@@ -274,7 +284,8 @@ function browse(site) {
   <input id="find-q" name="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name">
   <button class="btn" type="submit">Search</button>
 </form>
-<ul class="sets" role="list" aria-label="Toolsets">${sets}</ul>`,
+<ul class="sets" role="list" aria-label="Toolsets">${sets}</ul>
+${stripKey("set-key")}`,
   );
 }
 

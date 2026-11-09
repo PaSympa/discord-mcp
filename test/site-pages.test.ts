@@ -381,7 +381,7 @@ test("each tool page shows the tool's title, name, risk, permission, schemas and
   const { breakable, esc, formatInt } = await import("../site/client/tpl.mjs");
   const label: Record<string, string> = {
     read: "Read-only",
-    write: "Writes",
+    write: "Write",
     destructive: "Destructive",
   };
   const sizes: [number, number, string][] = [];
@@ -501,7 +501,7 @@ test("the tool total and the toolset count are the same on every page and in llm
 test("every risk badge carries a label and the three-bar glyph", () => {
   const label: Record<string, string> = {
     read: "Read-only",
-    write: "Writes",
+    write: "Write",
     destructive: "Destructive",
   };
   let count = 0;
@@ -536,14 +536,14 @@ test("llms.txt lists every tool once, with its purpose, risk and an absolute lin
   const byName = new Map(catalog.tools.map((t) => [t.name, t]));
   const lines = [
     ...llms.matchAll(
-      /^- \[(discord_[a-z_]+)\]\((\S+)\): (.+) Risk: (read-only|writes|destructive)(, dry run by default)?\.$/gm,
+      /^- \[(discord_[a-z_]+)\]\((\S+)\): (.+) Risk: (read-only|write|destructive)(, dry run by default)?\.$/gm,
     ),
   ];
   assert.equal(lines.length, catalog.tools.length);
   assert.equal(new Set(lines.map((m) => m[1])).size, catalog.tools.length, "no tool twice");
   const risk: Record<string, string> = {
     read: "read-only",
-    write: "writes",
+    write: "write",
     destructive: "destructive",
   };
   for (const [line, name, url, purpose, level, dry] of lines) {
@@ -1204,4 +1204,68 @@ test("the build checks every word of the pointer to reads in another toolset", a
     assert.throws(build(set, task, tools), error, `${set}: ${task}: ${tools.join(", ")}`);
   for (const page of ["toolsets/index.html", "toolsets/channels/index.html"])
     assert.doesNotMatch(read(page), /on the same subject/, `${page}: the old, broader claim`);
+});
+
+test("a toolset's risk mix is the same strip on the landing, the catalog and the builder", () => {
+  const landing = read("index.html");
+  const tools = read("tools/index.html");
+  for (const set of catalog.toolsets) {
+    const card = new RegExp(
+      `<a class="set-link" href="toolsets/${set.name}/">[\\s\\S]*?<span class="set-mix">([\\s\\S]*?)</span>\\s*<span class="set-blurb">`,
+    ).exec(landing)![1];
+    assert.deepEqual(stripOf(card), set.risk, `landing: ${set.name}`);
+    assert.ok(card.includes(`<span class="vh">${mixOf(set.risk)}</span>`), `landing: ${set.name}`);
+    assert.equal(
+      card.includes(`${set.risk.destructive} destructive</span>`),
+      set.risk.destructive > 0,
+      `landing: ${set.name} destructive count`,
+    );
+
+    const head = new RegExp(
+      `<section class="group" id="set-${set.name}"[\\s\\S]*?<div class="group-head">([\\s\\S]*?)</div>`,
+    ).exec(tools)![1];
+    assert.deepEqual(stripOf(head), set.risk, `catalog: ${set.name}`);
+    assert.match(
+      head,
+      new RegExp(`<a href="\\.\\./toolsets/${set.name}/">`),
+      `catalog: ${set.name}`,
+    );
+
+    for (const page of ["tools/index.html", "toolsets/index.html"]) {
+      const row = new RegExp(`<li class="ts-row on" data-set="${set.name}">[\\s\\S]*?</li>`).exec(
+        read(page),
+      )![0];
+      assert.deepEqual(stripOf(row), set.risk, `${page}: ${set.name} builder row`);
+      assert.ok(
+        row.includes(`<span class="vh" data-mix>${mixOf(set.risk)}</span>`),
+        `${page}: ${set.name} builder row text`,
+      );
+    }
+  }
+  for (const page of ["index.html", "tools/index.html", "toolsets/index.html"])
+    assert.match(
+      read(page),
+      /<p class="strip-key [a-z-]+" aria-hidden="true">One bar per tool:/,
+      page,
+    );
+});
+
+test("the risk levels have one name each on every page and in llms.txt", () => {
+  for (const page of [...pages, "llms.txt"])
+    assert.doesNotMatch(read(page), />Writes<|\bwrites<\/span>|Risk: writes/, page);
+  const counts = RISKS.map(
+    (r) =>
+      `<span data-risk="${r}"><span class="glyph" aria-hidden="true"><i></i><i></i><i></i></span><b>${catalog.totals.risk[r]}</b> ${RISK_WORD[r]}</span>`,
+  ).join("");
+  for (const page of ["index.html", "tools/index.html", "toolsets/index.html"])
+    assert.ok(read(page).includes(counts), `${page}: risk counts`);
+});
+
+test("the risk marks use one color token each, defined for both themes", () => {
+  const css = read("assets/site.css");
+  for (const level of ["read", "write", "destructive"]) {
+    const defs = css.match(new RegExp(`--${level}-mark: #[0-9a-f]{6};`, "g")) ?? [];
+    assert.equal(defs.length, 3, `--${level}-mark: light, dark by preference, dark by choice`);
+    assert.doesNotMatch(css, new RegExp(`var\\(--${level}\\)`), `--${level} is gone`);
+  }
 });

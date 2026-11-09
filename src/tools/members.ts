@@ -314,7 +314,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_ban",
     description:
-      "Ban many users in a single call, intended for raid mitigation. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the exact list of user IDs that would be banned, then re-call with dry_run:false to actually ban them. Requires both the Ban Members and Manage Server permissions. Returns { dry_run, would_ban } for a preview, and { dry_run, banned, failed } with the user IDs after a real call; failed also lists users who were already banned. Discord rejects the whole call with an error if no user could be banned. Use discord_ban_member for a single ban with finer control.",
+      "Ban many users in a single call, intended for raid mitigation. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the user IDs a real call would send to Discord, unchecked, then re-call with dry_run:false to actually ban them. Requires both the Ban Members and Manage Server permissions. Returns { dry_run, would_ban } for a preview, and { dry_run, banned, failed } with the user IDs after a real call; failed also lists users who were already banned. Discord rejects the whole call with an error if no user could be banned. Use discord_ban_member for a single ban with finer control.",
     annotations: {
       title: "Bulk ban",
       readOnlyHint: false,
@@ -338,16 +338,16 @@ const tools = [
         .boolean()
         .default(true)
         .describe(
-          "If true (default), only returns the user IDs that would be banned without banning anyone. Set false to actually ban.",
+          "If true (default), returns the user IDs a real call would send, unchecked, and bans no one. Set false to actually ban.",
         ),
       reason: z.string().optional().describe("Optional reason recorded in the server audit log."),
     }),
     outputSchema: z.object({
-      dry_run: z.boolean(),
+      dry_run: z.boolean().describe("true for a preview: no one was banned."),
       would_ban: z
         .array(z.string())
         .optional()
-        .describe("Dry run only: the user IDs that would be banned."),
+        .describe("Dry run only: the user IDs a real call would send to Discord, unchecked."),
       banned: z.array(z.string()).optional().describe("User IDs banned by this call."),
       failed: z
         .array(z.string())

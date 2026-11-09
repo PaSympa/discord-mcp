@@ -1,4 +1,10 @@
-import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
+import {
+  ChannelType,
+  ForumChannel,
+  ThreadChannel,
+  type GuildForumTag,
+  type GuildForumTagEmoji,
+} from "discord.js";
 import { z } from "zod";
 import { discord, fetchChannelChecked } from "../client.js";
 import { MAX_FETCH_LIMIT, MIN_ARCHIVED_THREAD_LIMIT } from "../constants.js";
@@ -30,12 +36,28 @@ const threadSummary = z.object({
 /**
  * Fetches a channel by ID and guarantees it is a forum channel.
  */
-async function getForumChannel(channelId: string): Promise<ForumChannel> {
-  const channel = await fetchChannelChecked(channelId);
+async function getForumChannel(channelId: string, { force = false } = {}): Promise<ForumChannel> {
+  const channel = await fetchChannelChecked(channelId, { force });
   if (!channel || channel.type !== ChannelType.GuildForum)
     throw new Error(`Channel ${channelId} is not a forum channel or doesn't exist.`);
   return channel as ForumChannel;
 }
+
+interface TagInput {
+  emoji_name?: string | null;
+  emoji_id?: string | null;
+}
+
+/** A string sets the emoji, null removes it, and omitting both keeps the existing tag's emoji. */
+function tagEmoji(input: TagInput, existing?: GuildForumTag): GuildForumTagEmoji | null {
+  if (input.emoji_id) return { id: input.emoji_id, name: null };
+  if (input.emoji_name) return { id: null, name: input.emoji_name };
+  if (input.emoji_id === null || input.emoji_name === null) return null;
+  return existing?.emoji ?? null;
+}
+
+const sameEmoji = (a: GuildForumTagEmoji | null, b: GuildForumTagEmoji | null) =>
+  (a?.id ?? null) === (b?.id ?? null) && (a?.name ?? null) === (b?.name ?? null);
 
 /**
  * Fetches a channel by ID and guarantees it is a thread channel.
@@ -332,7 +354,7 @@ const tools = [
   defineTool({
     name: "discord_set_forum_tags",
     description:
-      "Replace the full set of available tags on a forum channel with the provided list. Include every tag you want to keep: a listed tag whose name matches an existing tag (case-insensitive) keeps its ID and stays on posts, while a tag left out is deleted and disappears from every post. Requires the Manage Channels permission. Returns a confirmation.",
+      "Replace the full set of available tags on a forum channel with the provided list. Include every tag you want to keep: a listed tag whose name matches an existing tag (case-insensitive) keeps its ID and stays on posts, and keeps its emoji and moderated flag unless the input sets them, while a tag left out is deleted and disappears from every post. Requires the Manage Channels permission. Returns a confirmation naming the tags created, deleted and changed, with the fields that changed.",
     annotations: {
       title: "Set forum tags",
       readOnlyHint: false,
@@ -344,45 +366,78 @@ const tools = [
       forum_channel_id: snowflake.describe("ID (snowflake) of the forum channel to set tags on."),
       tags: z
         .array(
-          z.strictObject({
-            name: z.string().describe("Tag label (max 20 characters)."),
-            emoji_name: z.string().optional().describe("Optional unicode emoji shown on the tag."),
-            moderated: z
-              .boolean()
-              .optional()
-              .describe(
-                "If true, only members with Manage Threads can apply this tag. Default false.",
-              ),
-          }),
+          z
+            .strictObject({
+              name: z.string().describe("Tag label (max 20 characters)."),
+              emoji_name: z
+                .string()
+                .min(1)
+                .nullable()
+                .optional()
+                .describe(
+                  "Unicode emoji shown on the tag. On an existing tag, omit to keep its emoji; null removes it.",
+                ),
+              emoji_id: snowflake
+                .nullable()
+                .optional()
+                .describe(
+                  "ID (snowflake) of a custom server emoji shown on the tag, instead of emoji_name. On an existing tag, omit to keep its emoji; null removes it.",
+                ),
+              moderated: z
+                .boolean()
+                .optional()
+                .describe(
+                  "If true, only members with Manage Threads can apply this tag. On an existing tag, omit to keep its value; a new tag defaults to false.",
+                ),
+            })
+            .refine(
+              (t) => !(t.emoji_name && t.emoji_id),
+              "Pass emoji_name or emoji_id, not both: a tag shows one emoji.",
+            ),
         )
         .describe("Complete list of tags to set (replaces all existing tags)."),
     }),
     handle: async ({ forum_channel_id, tags }) => {
-      const forum = await getForumChannel(forum_channel_id);
+      // Fresh copy: omitted fields are written back from the existing tags.
+      const forum = await getForumChannel(forum_channel_id, { force: true });
       // A tag sent without its ID is recreated under a new one and drops off every post.
       // Discord rejects names that differ only by case (40061), so this key is
       // unambiguous; a repeated name goes without an ID and Discord rejects it.
-      const unclaimed = new Map(forum.availableTags.map((t) => [t.name.toLowerCase(), t.id]));
+      const unclaimed = new Map(forum.availableTags.map((t) => [t.name.toLowerCase(), t]));
+      const created: string[] = [];
+      const changed: string[] = [];
       const mapped = tags.map((t) => {
         const key = t.name.toLowerCase();
-        const id = unclaimed.get(key);
+        const existing = unclaimed.get(key);
         unclaimed.delete(key);
-        return {
-          id,
+        const tag = {
+          id: existing?.id,
           name: t.name,
-          emoji: t.emoji_name ? { name: t.emoji_name, id: null } : undefined,
-          moderated: t.moderated ?? false,
+          emoji: tagEmoji(t, existing),
+          moderated: t.moderated ?? existing?.moderated ?? false,
         };
+        if (!existing) {
+          created.push(tag.name);
+        } else {
+          const fields = [
+            existing.name !== tag.name && "name",
+            !sameEmoji(existing.emoji, tag.emoji) && "emoji",
+            existing.moderated !== tag.moderated && "moderated",
+          ].filter(Boolean);
+          if (fields.length) changed.push(`${tag.name} (${fields.join(", ")})`);
+        }
+        return tag;
       });
       await forum.setAvailableTags(mapped);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `✅ Forum tags updated on #${forum.name} (${mapped.length} tags set).`,
-          },
-        ],
-      };
+      const deleted = [...unclaimed.values()].map((t) => t.name);
+      const lines = [
+        `✅ Forum tags updated on #${forum.name} (${mapped.length} tags set).`,
+        created.length && `Created: ${created.join(", ")}`,
+        deleted.length && `Deleted: ${deleted.join(", ")}`,
+        changed.length && `Changed: ${changed.join("; ")}`,
+        !created.length && !deleted.length && !changed.length && "No tag changed.",
+      ].filter(Boolean);
+      return { content: [{ type: "text", text: lines.join("\n") }] };
     },
   }),
   defineTool({

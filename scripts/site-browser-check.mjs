@@ -939,8 +939,15 @@ async function main() {
               rows,
               same: rows === shown(".group-head .strip i").map((i) => i.dataset.risk).sort().join(),
               text: g.querySelector("[data-meta]").textContent,
+              tools: shown(".row-li").map((li) => li.dataset.tool),
             };
           })`);
+        const tokensOf = new Map(
+          JSON.parse(readFileSync(join(SITE, "tools.json"), "utf8")).tools.map((t) => [
+            t.name,
+            t.tokens,
+          ]),
+        );
         const mixOk = (list) =>
           list.every((h) => {
             const n = (risk) => h.rows.split(",").filter((r) => r === risk).length;
@@ -948,7 +955,9 @@ async function main() {
               .filter(n)
               .map((risk) => n(risk) + " " + (risk === "read" ? "read-only" : risk))
               .join(", ");
-            return h.same && h.text.includes(": " + text + ", ");
+            const sum = h.tools.reduce((total, name) => total + tokensOf.get(name), 0);
+            const cost = sum < 1000 ? "~" + Math.round(sum) : "~" + (sum / 1000).toFixed(1) + "k";
+            return h.same && h.text.endsWith(": " + text + ", " + cost + " tokens");
           });
         await click("#builder .switch");
         const switched = await heads();

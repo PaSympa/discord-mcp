@@ -138,6 +138,7 @@ export function initBuilder(data, { onRender } = {}) {
     setTerminalLines(env, usable ? configLines(list) : ["# Nothing to copy yet"]);
     copy.disabled = !usable;
     onRender?.(list);
+    scheduleFit();
   }
 
   for (const [s, li] of tsRows)
@@ -166,9 +167,9 @@ export function initBuilder(data, { onRender } = {}) {
 
   // A sticky panel is cut by the window before it sticks, and pushed under the header by the
   // footer at the end of the page. Giving it the room in view instead keeps it whole: the
-  // summary stays, the options scroll. With too little room it is left to the page.
+  // summary stays, the options scroll, down to a strip of them when the window is short.
   const panel = $("#builder");
-  const USABLE = 160;
+  const USABLE = 48;
   const WINDOW_GAP = 8;
   let fitting = false;
   function fit() {
@@ -182,8 +183,8 @@ export function initBuilder(data, { onRender } = {}) {
       panel.parentElement.getBoundingClientRect().bottom,
     );
     const room = bottom - top;
-    if (room < panel.offsetHeight && room >= $(".b-head", panel).offsetHeight + USABLE)
-      panel.style.maxHeight = room + "px";
+    if (room < panel.offsetHeight)
+      panel.style.maxHeight = Math.max(room, $(".b-head", panel).offsetHeight + USABLE) + "px";
   }
   const scheduleFit = () => {
     if (!fitting) requestAnimationFrame(fit);

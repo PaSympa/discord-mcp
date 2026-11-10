@@ -282,11 +282,6 @@
     scrollbar-color: var(--line-strong) transparent;
   }
 }
-@media (max-height: 760px) {
-  .builder .sub {
-    display: none;
-  }
-}
 .builder h2 {
   font-size: 1.5rem;
   font-weight: 650;
@@ -338,6 +333,31 @@
 .builder .mix {
   margin-top: var(--s3);
   gap: var(--s1) var(--s3);
+}
+/* A short window: the summary tightens so the options keep room under it. */
+@media (max-height: 760px) and (min-width: 1100px) {
+  .b-head {
+    padding: var(--s4) var(--s5) var(--s3);
+  }
+  .builder h2 {
+    font-size: 1.25rem;
+  }
+  .builder .sub {
+    display: none;
+  }
+  .figure {
+    margin-top: var(--s2);
+  }
+  .figure .big {
+    font-size: 2rem;
+  }
+  .figure .unit {
+    font-size: 0.8125rem;
+  }
+  .meter,
+  .builder .mix {
+    margin-top: var(--s2);
+  }
 }
 .builder .ro-box {
   margin-top: var(--s4);
@@ -853,9 +873,6 @@ table.schema {
   }
   .b-body::after {
     content: none;
-  }
-  .builder .sub {
-    display: block;
   }
 }
 @media (max-width: 640px) {

@@ -391,7 +391,7 @@ const tools = [
   defineTool({
     name: "discord_set_forum_tags",
     description:
-      "Replace the full set of available tags on a forum channel with the provided list. Include every tag you want to keep: a listed tag whose name matches an existing tag (case-insensitive) keeps its ID and stays on posts, and keeps its emoji and moderated flag unless the input sets them, while a tag left out is deleted and disappears from every post. Requires the Manage Channels permission. Returns a confirmation naming the tags created, deleted and changed, with the fields that changed.",
+      "Replace the full set of available tags on a forum channel with the provided list. Include every tag you want to keep: a listed tag whose name matches an existing tag (case-insensitive) keeps its ID and stays on posts, and keeps its emoji and moderated flag unless the input sets them. A tag left out is deleted from the forum, and posts that carried it keep its ID in applied_tags. Requires the Manage Channels permission. Returns a confirmation naming the tags created, deleted and changed, with the fields that changed.",
     annotations: {
       title: "Set forum tags",
       readOnlyHint: false,

@@ -55,36 +55,42 @@ function rangeText(min, max, unit) {
   return "";
 }
 
-function rulesFor(schema) {
+function variantRules(v) {
   const out = [];
-  const variants = flatVariants(schema);
-  const formats = uniq(variants.map((v) => v.format).filter(Boolean));
-  if (formats.length)
+  if (v.format) out.push(tpl`<span>format <code>${v.format}</code></span>`);
+  if (v.pattern)
     out.push(
-      tpl`<span>format ${formats.map((f, i) => tpl`${i ? " or " : ""}<code>${f}</code>`)}</span>`,
+      v.pattern.length <= 40
+        ? tpl`<span>pattern <code>${v.pattern}</code></span>`
+        : tpl`<details><summary>pattern (${v.pattern.length} characters)</summary><code>${v.pattern}</code></details>`,
     );
-  for (const v of variants) {
-    if (v.pattern)
-      out.push(
-        v.pattern.length <= 40
-          ? tpl`<span>pattern <code>${v.pattern}</code></span>`
-          : tpl`<details><summary>pattern (${v.pattern.length} characters)</summary><code>${v.pattern}</code></details>`,
-      );
-    const range = rangeText(v.minimum, v.maximum);
-    if (range) out.push(tpl`<span>${range}</span>`);
-    const items = rangeText(v.minItems, v.maxItems, "items");
-    if (items) out.push(tpl`<span>${items}</span>`);
-    const length = rangeText(v.minLength, v.maxLength, "characters");
-    if (length) out.push(tpl`<span>${length}</span>`);
-    if (v.enum) {
-      const values = tpl`<span class="vals">${v.enum.map((x) => tpl`<code>${JSON.stringify(x)}</code>`)}</span>`;
-      out.push(
-        v.enum.length > 10
-          ? tpl`<details><summary>one of ${v.enum.length} values</summary>${values}</details>`
-          : tpl`<span>one of ${values}</span>`,
-      );
-    }
+  const range = rangeText(v.minimum, v.maximum);
+  if (range) out.push(tpl`<span>${range}</span>`);
+  const items = rangeText(v.minItems, v.maxItems, "items");
+  if (items) out.push(tpl`<span>${items}</span>`);
+  const length = rangeText(v.minLength, v.maxLength, "characters");
+  if (length) out.push(tpl`<span>${length}</span>`);
+  if (v.enum) {
+    const values = tpl`<span class="vals">${v.enum.map((x) => tpl`<code>${JSON.stringify(x)}</code>`)}</span>`;
+    out.push(
+      v.enum.length > 10
+        ? tpl`<details><summary>one of ${v.enum.length} values</summary>${values}</details>`
+        : tpl`<span>one of ${values}</span>`,
+    );
   }
+  return out;
+}
+
+/** The rules of a schema; when it accepts several types, each type with its own rules. */
+function rulesFor(schema) {
+  const variants = flatVariants(schema).map((v) => ({ v, rules: variantRules(v) }));
+  const out =
+    variants.length > 1 && variants.some((variant) => variant.rules.length)
+      ? variants.map(
+          ({ v, rules }) =>
+            tpl`<div class="pvar"><span class="pvt">${typeLabel(v)}${rules.length ? ":" : ""}</span>${rules}</div>`,
+        )
+      : variants.flatMap((variant) => variant.rules);
   if (schema.default !== undefined)
     out.push(tpl`<span>default <code>${JSON.stringify(schema.default)}</code></span>`);
   return out;
@@ -199,17 +205,44 @@ function relatedItem(tool, href) {
 </a></li>`;
 }
 
+const list = (items) =>
+  items.length < 2 ? items.join("") : items.slice(0, -1).join(", ") + " and " + items.at(-1);
+
+/**
+ * The Discord permissions a tool's description names, one requirement per line:
+ * "Manage Nicknames, or Change Nickname for the bot itself", "Manage Messages when ...".
+ */
+export function permissionLines(permissions = []) {
+  const alternatives = (name) =>
+    permissions
+      .filter((p) => p.alternativeTo === name)
+      .map((p) => `, or ${p.name}${p.condition ? " " + p.condition : ""}`)
+      .join("");
+  const main = permissions.filter((p) => !p.alternativeTo);
+  const conditions = [...new Set(main.map((p) => p.condition))];
+  return conditions.map((condition) => {
+    const names = main.filter((p) => p.condition === condition).map((p) => p.name);
+    return list(names) + alternatives(names.at(-1)) + (condition ? " " + condition : "");
+  });
+}
+
+export const permissionLabel = (permissions = []) =>
+  permissions.length > 1 ? "Discord permissions" : "Discord permission";
+
 /**
  * The full reference for one tool, as HTML: description, annotations, parameters, the
  * declared output and related tools. Pure, so pages can render it at build time too.
- * `ctx` gives the toolset labels, a name-to-tool map, a link builder and an optional
- * `loaded` slot for the catalog's toolset status.
+ * `ctx` gives the toolset labels, a name-to-tool map, a link builder, the heading level
+ * of the sections, an optional `example` block after the description, and for the
+ * catalog's panel a `loaded` slot and the relative URL of the tool's own page.
  */
 export function renderToolDetail(tool, ctx) {
-  const { labels, byName, href, loaded = "" } = ctx;
+  const { labels, byName, href, loaded = "", level = 3, example = "", page } = ctx;
   const definition = tool.definition;
   const annotations = definition.annotations || {};
   const label = labels[tool.toolset];
+  const h = raw(`h${level}`);
+  const sub = raw(`h${level + 1}`);
   const rows = ANNOTATIONS.map(([key, name, means, absent]) => {
     const has = Object.prototype.hasOwnProperty.call(annotations, key);
     const value = has ? !!annotations[key] : null;
@@ -219,23 +252,24 @@ export function renderToolDetail(tool, ctx) {
   const same = [...byName.values()].filter(
     (t) => t.toolset === tool.toolset && t.name !== tool.name,
   );
+  const others = same.filter((t) => !mentioned.includes(t));
   const output = definition.outputSchema
     ? tpl`<p class="note">Declared by <code>outputSchema</code>: clients receive this shape as <code>structuredContent</code>.</p>${outputTable(definition.outputSchema)}`
     : tpl`<p class="note">This tool declares no output schema. Its description says what it returns; this page shows no example rather than invent one.</p>`;
+  const permission = permissionLines(tool.permissions).join("; ");
   const head = tpl`<div class="crumb"><span>${label} toolset</span><code>${tool.toolset}</code></div>
 <h2 id="dlg-title" tabindex="-1">${tool.title}</h2>
-<div class="dlg-name"><code id="dlg-name-code">${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button></div>
-<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span>${loaded}</div>`;
-  const body = tpl`<p class="desc">${linkedText(definition.description, byName, href)}</p>
-<section class="d-sec" aria-labelledby="d-anno"><h3 id="d-anno">Risk and annotations</h3>
+<div class="dlg-name"><code id="dlg-name-code">${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button>${page ? tpl`<a class="btn btn-sm" href="${page}">Open the tool page</a>` : ""}</div>
+<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span>${loaded}</div>${permission ? tpl`<p class="dlg-perm">${permissionLabel(tool.permissions)}: ${permission}</p>` : ""}`;
+  const body = tpl`<p class="desc">${linkedText(definition.description, byName, href)}</p>${example}
+<section class="d-sec" aria-labelledby="d-anno"><${h} id="d-anno">Risk and annotations</${h}>
 <table class="anno"><tbody>${rows}</tbody></table>
 <p class="note">Annotations are hints the server declares. Clients use them to decide when to ask you before a call.</p></section>
-<section class="d-sec" aria-labelledby="d-in"><h3 id="d-in">Parameters</h3>${inputTable(definition.inputSchema)}</section>
-<section class="d-sec" aria-labelledby="d-out"><h3 id="d-out">Output</h3>${output}</section>
-<section class="d-sec" aria-labelledby="d-rel"><h3 id="d-rel">Related tools</h3>
-${mentioned.length ? tpl`<h4>Named in its description</h4><ul class="rel">${mentioned.map((t) => relatedItem(t, href))}</ul>` : ""}
-<h4>${same.length ? `Also in ${label}` : `${label} has no other tool`}</h4>
-${same.length ? tpl`<ul class="rel">${same.map((t) => relatedItem(t, href))}</ul>` : ""}</section>
+<section class="d-sec" aria-labelledby="d-in"><${h} id="d-in">Parameters</${h}>${inputTable(definition.inputSchema)}</section>
+<section class="d-sec" aria-labelledby="d-out"><${h} id="d-out">Output</${h}>${output}</section>
+<section class="d-sec" aria-labelledby="d-rel"><${h} id="d-rel">Related tools</${h}>
+${mentioned.length ? tpl`<${sub}>Named in its description</${sub}><ul class="rel">${mentioned.map((t) => relatedItem(t, href))}</ul>` : ""}
+${others.length ? tpl`<${sub}>Also in ${label}</${sub}><ul class="rel">${others.map((t) => relatedItem(t, href))}</ul>` : same.length ? "" : tpl`<${sub}>${label} has no other tool</${sub}>`}</section>
 <details class="d-sec raw"><summary>Raw definition (${formatInt(tool.bytes)} bytes)</summary><pre><code>${JSON.stringify(definition, null, 2)}</code></pre></details>`;
   return { head, body };
 }

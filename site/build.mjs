@@ -3,20 +3,34 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { esc } from "./client/tpl.mjs";
 import { renderCatalog } from "./pages/catalog.mjs";
+import { renderLlms, renderRobots, renderSitemap } from "./pages/files.mjs";
 import { renderLanding } from "./pages/landing.mjs";
 import { inlineLogo } from "./pages/layout.mjs";
+import { renderNotFound } from "./pages/notfound.mjs";
 import { slug } from "./pages/parts.mjs";
+import { renderToolPage, toolPath } from "./pages/tool.mjs";
+import {
+  renderToolsetPage,
+  renderToolsets,
+  TOOLSETS_PATH,
+  toolsetPath,
+} from "./pages/toolsets.mjs";
 import { parseReadme } from "./readme.mjs";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SITE = join(ROOT, "site");
 const GITHUB_ASSETS = join(ROOT, ".github", "assets");
 
-const STYLES = ["base", "landing", "catalog"];
+const STYLES = ["base", "landing", "catalog", "tool", "toolsets"];
 const BUNDLES = {
-  "landing.js": ["tpl", "common", "landing"],
-  "catalog.js": ["tpl", "common", "search", "detail", "catalog"],
+  "landing.js": ["tpl", "keys", "common", "landing"],
+  "catalog.js": ["tpl", "keys", "common", "search", "detail", "builder", "catalog"],
+  "toolsets.js": ["tpl", "keys", "common", "builder", "toolsets"],
+  "page.js": ["keys", "common", "page"],
+  "notfound.js": ["tpl", "keys", "common", "search", "suggest", "notfound"],
 };
+const OG_IMAGE = "assets/social-preview.png";
+const TOUCH_ICON = "assets/apple-touch-icon.png";
 const BUTTON_FILES = {
   "Install in VS Code": "install-vscode.svg",
   "Install in VS Code Insiders": "install-vscode-insiders.svg",
@@ -29,7 +43,9 @@ const COPIED = {
   ),
   "assets/fonts/jetbrains-mono-latin.woff2": join(SITE, "assets/fonts/jetbrains-mono-latin.woff2"),
   "assets/fonts/OFL.txt": join(SITE, "assets/fonts/OFL.txt"),
-  "assets/demo.webp": join(GITHUB_ASSETS, "demo.webp"),
+  "assets/demo.mp4": join(SITE, "assets/demo.mp4"),
+  [OG_IMAGE]: join(GITHUB_ASSETS, "social-preview.png"),
+  [TOUCH_ICON]: join(GITHUB_ASSETS, "logo-512.png"),
   ...Object.fromEntries(
     Object.values(BUTTON_FILES).map((file) => [`assets/${file}`, join(GITHUB_ASSETS, file)]),
   ),
@@ -58,9 +74,56 @@ function webpSize(file) {
   return { width: buf.readUIntLE(24, 3) + 1, height: buf.readUIntLE(27, 3) + 1 };
 }
 
+/** Width and height from the IHDR chunk of a PNG. */
+function pngSize(file) {
+  const buf = readFileSync(file);
+  if (buf.toString("ascii", 12, 16) !== "IHDR") fail(`${file} is not a PNG.`);
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+/** The build date as YYYY-MM-DD: an explicit value, then SITE_BUILD_DATE, then today (UTC). */
+export function buildDate(value = process.env.SITE_BUILD_DATE) {
+  const date = value || new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))
+    fail(`the build date must read YYYY-MM-DD, not ${date}.`);
+  return date;
+}
+
 function summarize(tools) {
   const tokens = tools.reduce((n, t) => n + t.tokens, 0);
   return { tools: tools.length, tokens };
+}
+
+/**
+ * A toolset with no read-only tool may point to reads in another toolset, as "To <task>,
+ * <toolset> has the read-only tools <tools>". Every word of that sentence must hold:
+ * the tools are read-only and share one other toolset, and each title is a verb of the
+ * task followed by its object, as "List channels" or "Find channel by name" for "list or
+ * find channels". Any other title, such as "List channel threads", is refused.
+ */
+function checkReadsElsewhere(set, { task, tools: names }, byName) {
+  if (set.risk.read > 0)
+    fail(`content.json points ${set.name} to reads elsewhere, but it has read-only tools.`);
+  const phrase =
+    /^([a-z]+(?: or [a-z]+)*) ([a-z]+)$/.exec(task) ??
+    fail(`content.json: the task for ${set.name} must read "<verb> or <verb> <things>".`);
+  const verbs = phrase[1].split(" or ");
+  const things = [phrase[2], phrase[2].replace(/s$/, "")];
+  const tools = names.map(
+    (name) => byName.get(name) ?? fail(`content.json names unknown tool ${name}.`),
+  );
+  for (const tool of tools) {
+    if (tool.risk !== "read" || tool.toolset === set.name)
+      fail(`${tool.name} is not a read-only tool of another toolset than ${set.name}.`);
+    if (tool.toolset !== tools[0].toolset)
+      fail(`content.json: the reads named for ${set.name} must share one toolset.`);
+    const [verb, thing, next] = tool.title.toLowerCase().split(" ");
+    if (!verbs.includes(verb) || !things.includes(thing) || (next !== undefined && next !== "by"))
+      fail(`content.json says ${tool.name} can ${task}, but its title is "${tool.title}".`);
+  }
+  for (const verb of verbs)
+    if (!tools.some((tool) => tool.title.toLowerCase().startsWith(verb + " ")))
+      fail(`content.json says the reads named for ${set.name} can ${verb}; none of them does.`);
 }
 
 /**
@@ -81,6 +144,7 @@ export function siteModel(catalog, readme, content) {
   const toolsets = catalog.toolsets.map((s) => {
     const text =
       content.toolsets[s.name] ?? fail(`content.json has no label for toolset ${s.name}.`);
+    if (text.readsElsewhere) checkReadsElsewhere(s, text.readsElsewhere, byName);
     return { ...s, ...text };
   });
 
@@ -115,6 +179,13 @@ export function siteModel(catalog, readme, content) {
     readOnly:
       paragraphs.find((b) => b.text.includes("DISCORD_MCP_READ_ONLY")) ??
       fail("README has no read-only paragraph."),
+  };
+  // The README rounds a figure measured at its last release; the page states today's.
+  const fullCost = /about \d+k tokens/;
+  if (!fullCost.test(expose.lead.text)) fail("README no longer gives the cost of the full set.");
+  expose.lead = {
+    ...expose.lead,
+    text: expose.lead.text.replace(fullCost, `about ${Math.round(totals.tokens / 1000)}k tokens`),
   };
   const claims = [
     [/full set of (\d+) tools/, expose.lead.text, totals.tools, "the total"],
@@ -183,7 +254,7 @@ export function siteModel(catalog, readme, content) {
   const demo = {
     ...readme.demo,
     ...webpSize(demoFile),
-    size: (statSync(demoFile).size / 1e6).toFixed(1) + " MB",
+    size: (statSync(join(SITE, "assets/demo.mp4")).size / 1e6).toFixed(1) + " MB",
   };
 
   const logoSvg = readFileSync(join(GITHUB_ASSETS, "logo.svg"), "utf8");
@@ -205,18 +276,41 @@ export function siteModel(catalog, readme, content) {
     buttonFiles: BUTTON_FILES,
     logo: inlineLogo(logoSvg),
     favicon: "data:image/svg+xml," + encodeURIComponent(logoSvg.trim()),
+    touchIcon: TOUCH_ICON,
+    ogImage: {
+      path: OG_IMAGE,
+      ...pngSize(COPIED[OG_IMAGE]),
+      alt: `discord-mcp: ${readme.tagline}`,
+    },
     description: `An MCP server that connects Claude, Codex, Cursor, VS Code and other MCP clients to your Discord server through your own bot. ${totals.tools} tools in ${totals.toolsets} toolsets, dry runs for mass actions, a read-only mode.`,
   };
 }
 
-/** Renders every page into outDir, which it empties first. Returns the written paths. */
-export function writeSite(catalog, outDir) {
+/**
+ * Renders every page into outDir, which it empties first. Returns the written paths.
+ * `date` is the sitemap's lastmod; see buildDate for its default.
+ */
+export function writeSite(catalog, outDir, { date } = {}) {
   const readme = parseReadme(readFileSync(join(ROOT, "README.md"), "utf8"));
   const content = JSON.parse(readFileSync(join(SITE, "content.json"), "utf8"));
   const site = siteModel(catalog, readme, content);
+  const pages = {
+    "": renderLanding(site),
+    "tools/": renderCatalog(site),
+    [TOOLSETS_PATH]: renderToolsets(site),
+    ...Object.fromEntries(
+      site.toolsets.map((set) => [toolsetPath(set.name), renderToolsetPage(site, set)]),
+    ),
+    ...Object.fromEntries(
+      site.tools.map((tool) => [toolPath(tool.name), renderToolPage(site, tool)]),
+    ),
+  };
   const files = {
-    "index.html": renderLanding(site),
-    "tools/index.html": renderCatalog(site),
+    ...Object.fromEntries(Object.entries(pages).map(([path, html]) => [path + "index.html", html])),
+    "404.html": renderNotFound(site),
+    "llms.txt": renderLlms(site),
+    "sitemap.xml": renderSitemap(Object.keys(pages), buildDate(date)),
+    "robots.txt": renderRobots(),
     "tools.json": JSON.stringify(catalog, null, 2) + "\n",
     "assets/site.css": STYLES.map((name) =>
       readFileSync(join(SITE, "styles", `${name}.css`), "utf8"),

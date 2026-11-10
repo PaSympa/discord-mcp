@@ -3,22 +3,27 @@ import {
   formatInt,
   formatTokens,
   glyph,
+  mixText,
   plural,
   raw,
   RISK_LABEL,
   riskBadge,
+  RISKS,
+  strip,
   tpl,
 } from "../client/tpl.mjs";
-import { ICONS, layout } from "./layout.mjs";
-import { md, terminal } from "./parts.mjs";
+import { firstFitting, ICONS, layout, SEARCH_KEYS, searchHint } from "./layout.mjs";
+import { builder } from "./builder.mjs";
 
 const UP = "../";
-const RISKS = ["read", "write", "destructive"];
 
-/** A catalog row. The client moves these between groups and the ranked list. */
-export function toolRow(tool) {
+/**
+ * A tool row. The catalog script moves these between groups and the ranked list; `prefix`
+ * leads from the page to the tool pages' folder.
+ */
+export function toolRow(tool, prefix = "") {
   return tpl`<li class="row-li" id="${tool.name}" data-tool="${tool.name}" data-risk="${tool.risk}" data-set="${tool.toolset}"${tool.dryRunDefault ? raw(" data-dry") : ""}>
-<a class="row" href="#${tool.name}" data-tool="${tool.name}">
+<a class="row" href="${prefix}${tool.name}/" data-tool="${tool.name}">
   ${riskBadge(tool.risk)}
   <span class="row-main">
     <span class="row-head"><span class="row-title">${tool.title}</span>${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}</span>
@@ -35,12 +40,13 @@ function group(site, set) {
   const tools = site.tools.filter((t) => t.toolset === set.name);
   return tpl`<section class="group" id="set-${set.name}" aria-labelledby="set-${set.name}-h">
   <div class="group-head">
-    <h2 id="set-${set.name}-h">${set.label}</h2>
+    <h2 id="set-${set.name}-h"><a href="${UP}toolsets/${set.name}/">${set.label}</a></h2>
     <code>${set.name}</code>
-    <span class="meta" data-meta>${plural(set.tools, "tool")}, ${formatTokens(set.tokens)} tokens</span>
+    ${strip(set.risk)}
+    <span class="meta" data-meta>${plural(set.tools, "tool")}: ${mixText(set.risk)}, ${formatTokens(set.tokens)} tokens</span>
   </div>
   <p class="group-blurb">${set.blurb}</p>
-  <ol class="rows" role="list">${tools.map(toolRow)}</ol>
+  <ol class="rows" role="list">${tools.map((tool) => toolRow(tool))}</ol>
 </section>`;
 }
 
@@ -71,64 +77,6 @@ function facets(site) {
 </div>`;
 }
 
-function builder(site) {
-  const max = Math.max(...site.toolsets.map((s) => s.tokens));
-  const rows = site.toolsets.map(
-    (set) => tpl`<li class="ts-row on" data-set="${set.name}">
-  <label>
-    <input type="checkbox" value="${set.name}" checked>
-    <span class="ts-name"><code>${set.name}</code>${
-      set.risk.destructive
-        ? tpl`<span class="ts-de" data-risk="destructive" title="${set.risk.destructive} destructive">${glyph()}<span aria-hidden="true">${set.risk.destructive}</span><span class="vh">${set.risk.destructive} destructive</span></span>`
-        : ""
-    }</span>
-    <span class="ts-n"><span data-n>${set.tools}</span><span class="vh"> tools</span></span>
-    <span class="ts-tok"><span data-tok>${formatTokens(set.tokens)}</span><span class="vh"> tokens</span></span>
-    <span class="ts-bar" aria-hidden="true"><i style="width: ${((set.tokens / max) * 100).toFixed(1)}%"></i></span>
-  </label>
-</li>`,
-  );
-  const presets = site.profiles.map(
-    (p, i) =>
-      tpl`<button class="chip" type="button" data-preset="${i}" aria-pressed="${p.all ? "true" : "false"}" title="${p.all ? "All toolsets" : p.sets.join(",")}">${p.label}<span class="n">${p.tools}</span></button>`,
-  );
-  const { totals } = site;
-  return tpl`<aside class="builder" id="builder" aria-labelledby="builder-title">
-  <h2 id="builder-title">Load only what you need</h2>
-  <p class="sub">Tick the toolsets your assistant should see. Fewer tools leave more of its context for your conversation.</p>
-  <p class="figure"><span class="big" id="b-tokens">${(totals.tokens / 1000).toFixed(1)}k</span><span class="unit">tokens of tool definitions, estimated</span></p>
-  <div class="meter" id="b-meter" role="img" aria-label="All of the ${formatInt(totals.tokens)} estimated tokens selected"><i id="b-meter-fill" style="width: 100%"></i></div>
-  <p class="mix" id="b-mix"><span><b>${totals.tools}</b> tools</span>${RISKS.map((risk) => tpl`<span data-risk="${risk}">${glyph()}${totals.risk[risk]} ${RISK_LABEL[risk].toLowerCase()}</span>`)}</p>
-  <div class="ro-box">
-    <label class="switch"><input type="checkbox" id="b-ro"><span class="switch-ui" aria-hidden="true"></span><span>Read-only mode</span></label>
-    <p class="note">Keeps the ${totals.risk.read} tools annotated <code>readOnlyHint: true</code> and adds <code>DISCORD_MCP_READ_ONLY=true</code> to your line.</p>
-  </div>
-  <div class="env">
-    <div class="env-top">
-      <h3>Your configuration</h3>
-      <div class="seg" role="radiogroup" aria-label="Line format">
-        <label><input type="radio" name="fmt" value="env" checked><span>Env lines</span></label>
-        <label><input type="radio" name="fmt" value="json"><span>JSON</span></label>
-      </div>
-    </div>
-    ${terminal({ code: "DISCORD_MCP_TOOLSETS=all", lang: "text", title: "Environment", copyLabel: "Copy your configuration", id: "b-env" })}
-    <p class="hint" id="b-hint" aria-live="polite">Same as leaving DISCORD_MCP_TOOLSETS unset: every toolset loads.</p>
-  </div>
-  <div class="presets">
-    <h3 id="presets-title">Start from a README profile</h3>
-    <div class="chips" id="presets" role="group" aria-labelledby="presets-title">${presets}</div>
-  </div>
-  <div class="ts">
-    <h3 class="ts-title" id="ts-title">Toolsets</h3>
-    <div class="ts-cols" aria-hidden="true"><span></span><span>Name</span><span>Tools</span><span>Tokens</span></div>
-    <ul class="ts-list" id="ts-list" aria-labelledby="ts-title">${rows}</ul>
-    <p class="ts-legend" aria-hidden="true"><span class="ts-de" data-risk="destructive">${glyph()}3</span> Destructive tools in the toolset</p>
-  </div>
-  <button class="btn show-sel" type="button" id="show-sel">Show these tools in the catalog</button>
-  <p class="method">${md(site, site.expose.method.text.split(". ")[0] + ".", UP)}</p>
-</aside>`;
-}
-
 /** What the catalog script needs, as compact JSON: definitions, toolsets and profiles. */
 function payload(site) {
   const data = {
@@ -152,6 +100,7 @@ function payload(site) {
         purpose,
         dryRunDefault,
         crossReferences,
+        permissions,
         bytes,
         tokens,
         definition,
@@ -163,6 +112,7 @@ function payload(site) {
         purpose,
         dryRunDefault,
         crossReferences,
+        permissions,
         bytes,
         tokens,
         definition,
@@ -183,8 +133,8 @@ export function renderCatalog(site) {
     <div class="search" id="search">
       ${ICONS.search}
       <label class="vh" for="q">Search tools by task, name or parameter</label>
-      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name" data-wide-placeholder="Search by task or name, for example: ban a member">
-      <kbd>/</kbd>
+      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name" data-wide-placeholder="Search by task or name, for example: ban a member" aria-keyshortcuts="${SEARCH_KEYS}">
+      ${searchHint()}
     </div>
     ${facets(site)}
     <div class="count-row">
@@ -199,7 +149,7 @@ export function renderCatalog(site) {
       <button class="btn" type="button" id="empty-clear">Clear search and filters</button>
     </div>
   </section>
-  ${builder(site)}
+  ${builder(site, { up: UP, showInCatalog: true })}
 </div>
 <dialog id="tool" aria-labelledby="dlg-title">
   <div class="dlg">
@@ -212,10 +162,16 @@ export function renderCatalog(site) {
 </dialog>
 <script type="application/json" id="catalog-data">${payload(site)}</script>`;
   return layout(site, {
-    depth: 1,
+    path: "tools/",
+    ogType: "article",
     current: "tools",
     title: "discord-mcp tool catalog",
-    description: `All ${totals.tools} tools of the discord-mcp server, with what each one can change, its parameters and declared output, and a toolset builder that estimates context cost.`,
+    description: firstFitting(
+      [
+        `All ${totals.tools} tools of the discord-mcp server: what each one can change, its parameters and output, and a toolset builder that estimates context cost.`,
+      ],
+      160,
+    ),
     body: String(body),
     script: "catalog.js",
     searchButton: true,

@@ -281,8 +281,7 @@ main {
   border: 1px solid var(--line);
   border-radius: var(--r3);
 }
-.demo-frame > img,
-.demo-frame > canvas {
+.demo-frame > video {
   grid-area: 1 / 1;
   display: block;
   width: 100%;
@@ -527,7 +526,7 @@ main {
   display: none;
 }
 .hint.warn {
-  color: var(--write-ink);
+  color: var(--ink);
   font-weight: 600;
 }
 .method {
@@ -594,13 +593,24 @@ main {
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
 }
-.set-de {
+.set-mix {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  align-items: baseline;
+  gap: var(--s2);
   margin-left: auto;
+}
+.set-key {
+  margin-top: var(--s3);
+}
+.set-de {
+  min-width: 6.5em;
+  text-align: right;
   font-size: 0.75rem;
   font-weight: 600;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.set-de[data-risk] {
   color: var(--destructive-ink);
 }
 .set-blurb {

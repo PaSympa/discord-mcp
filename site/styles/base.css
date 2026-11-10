@@ -28,13 +28,13 @@
   --brand-ink: #4752c4;
   --brand-wash: #eef0fe;
   --brand-track: #dcdffc;
-  --read: #23a55a;
+  --read-mark: #1a8a49;
   --read-ink: #177a3f;
   --read-wash: #e5f4eb;
-  --write: #f0b232;
+  --write-mark: #b97400;
   --write-ink: #8a5d00;
   --write-wash: #fdf6e6;
-  --destructive: #f23f43;
+  --destructive-mark: #d93036;
   --destructive-ink: #b8232a;
   --destructive-wash: #fde8e8;
   --bar: #5865f2;
@@ -82,10 +82,13 @@
     --brand-ink: #949cf7;
     --brand-wash: #33365a;
     --brand-track: #3b3f6b;
+    --read-mark: #23a55a;
     --read-ink: #3fcb7e;
     --read-wash: #2a4038;
+    --write-mark: #f0b232;
     --write-ink: #f5c150;
     --write-wash: #4b4231;
+    --destructive-mark: #f23f43;
     --destructive-ink: #ff8a8c;
     --destructive-wash: #4b3034;
     --bar: #7983f5;
@@ -107,10 +110,13 @@
   --brand-ink: #949cf7;
   --brand-wash: #33365a;
   --brand-track: #3b3f6b;
+  --read-mark: #23a55a;
   --read-ink: #3fcb7e;
   --read-wash: #2a4038;
+  --write-mark: #f0b232;
   --write-ink: #f5c150;
   --write-wash: #4b4231;
+  --destructive-mark: #f23f43;
   --destructive-ink: #ff8a8c;
   --destructive-wash: #4b3034;
   --bar: #7983f5;
@@ -268,6 +274,10 @@ mark {
   color: var(--ink);
   background: var(--surface);
 }
+.top-in .menu-btn,
+.nav .nav-gh {
+  display: none;
+}
 .top-actions {
   margin-left: auto;
   display: flex;
@@ -413,8 +423,11 @@ kbd {
   color: var(--ink-3);
   background: transparent;
 }
+.chip .glyph {
+  margin-right: -2px;
+}
 .chip[aria-pressed="true"] .glyph i {
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.6);
 }
 .chip[aria-pressed="true"][data-risk="read"] .glyph i:nth-child(1),
 .chip[aria-pressed="true"][data-risk="write"] .glyph i:nth-child(-n + 2),
@@ -466,7 +479,7 @@ kbd {
   outline-offset: 2px;
 }
 
-/* Risk: a label, one to three bars and a color, so it reads without color too. */
+/* Risk: a label, one to three bars and a color. The unlit bars shrink to dots, so the level reads without color. */
 .risk {
   display: inline-flex;
   align-items: center;
@@ -490,7 +503,7 @@ kbd {
 .risk[data-risk="destructive"] {
   color: var(--destructive-ink);
   background: var(--destructive-wash);
-  box-shadow: inset 0 0 0 1px var(--destructive);
+  box-shadow: inset 0 0 0 1px var(--destructive-mark);
 }
 .glyph {
   display: inline-flex;
@@ -499,28 +512,71 @@ kbd {
   height: 11px;
   flex: none;
 }
-.glyph i {
+.glyph i,
+.strip i {
   width: 3px;
   border-radius: 1px;
-  background: color-mix(in srgb, currentColor 28%, transparent);
 }
-.glyph i:nth-child(1) {
+.glyph i {
+  height: 2px;
+  background: color-mix(in srgb, currentColor 45%, transparent);
+}
+[data-risk] .glyph i:nth-child(1),
+.strip i[data-risk="read"] {
   height: 5px;
 }
-.glyph i:nth-child(2) {
+:is([data-risk="write"], [data-risk="destructive"]) .glyph i:nth-child(2),
+.strip i[data-risk="write"] {
   height: 8px;
 }
-.glyph i:nth-child(3) {
+[data-risk="destructive"] .glyph i:nth-child(3),
+.strip i[data-risk="destructive"] {
   height: 11px;
 }
-[data-risk="read"] .glyph i:nth-child(1) {
-  background: var(--read);
+[data-risk="read"] .glyph i:nth-child(1),
+.strip i[data-risk="read"] {
+  background: var(--read-mark);
 }
-[data-risk="write"] .glyph i:nth-child(-n + 2) {
-  background: var(--write);
+[data-risk="write"] .glyph i:nth-child(-n + 2),
+.strip i[data-risk="write"] {
+  background: var(--write-mark);
 }
-[data-risk="destructive"] .glyph i {
-  background: var(--destructive);
+[data-risk="destructive"] .glyph i,
+.strip i[data-risk="destructive"] {
+  background: var(--destructive-mark);
+}
+/* A toolset's mix: one bar per tool, each as tall as the glyph bar of its level. */
+.strip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 3px 2px;
+  min-height: 11px;
+  flex: none;
+}
+.strip-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s3);
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+.strip-key > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.tsx-head h2 a,
+.group-head h2 a {
+  color: var(--brand-ink);
+  text-decoration: none;
+}
+.tsx-head h2 a:hover,
+.group-head h2 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .dry {
   font-size: 0.75rem;
@@ -540,8 +596,8 @@ kbd {
   font-size: 0.8125rem;
   color: var(--ink-2);
 }
-.legend span,
-.mix span {
+.legend > span,
+.mix > span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -572,6 +628,16 @@ kbd {
 }
 .tool:hover {
   border-color: var(--brand);
+}
+/* A chip and the period after it: the chip gives way so the period never wraps alone. */
+.tool-end {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.tool-end .tool {
+  min-width: 0;
 }
 .tool:hover code {
   text-decoration: underline;
@@ -694,8 +760,34 @@ kbd {
 }
 
 @media (max-width: 980px) {
-  .nav {
+  .top-in .menu-btn {
+    display: inline-grid;
+  }
+  .menu-btn[aria-expanded="true"] {
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+  .nav:not(.open),
+  .top-actions .gh-btn {
     display: none;
+  }
+  .nav.open {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    gap: 0;
+    padding: var(--s2) var(--s6) var(--s3);
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav.open a {
+    padding: var(--s2);
+    font-size: 1rem;
+  }
+  .nav.open .nav-gh {
+    display: block;
   }
 }
 @media (max-width: 640px) {
@@ -717,6 +809,9 @@ kbd {
   }
   .foot-in {
     flex-direction: column;
+  }
+  .nav.open {
+    padding-inline: var(--s3);
   }
 }
 @media (max-width: 420px) {
@@ -744,14 +839,52 @@ kbd {
   }
 }
 @media (forced-colors: active) {
-  .glyph i {
+  .glyph i,
+  .strip i {
     background: CanvasText !important;
     forced-color-adjust: none;
-    opacity: 0.35;
   }
-  [data-risk="read"] .glyph i:nth-child(1),
-  [data-risk="write"] .glyph i:nth-child(-n + 2),
-  [data-risk="destructive"] .glyph i {
-    opacity: 1;
+  .chip[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+  .chip[aria-pressed="true"] .n {
+    color: HighlightText;
+  }
+  .chip[aria-pressed="true"] .glyph i {
+    background: HighlightText !important;
+  }
+  .meter,
+  .pf-bar,
+  .ts-bar {
+    forced-color-adjust: none;
+    background: Canvas !important;
+    outline: 1px solid CanvasText;
+  }
+  .meter i,
+  .pf-bar i,
+  .ts-bar i {
+    background: CanvasText !important;
+  }
+  .ts-row:not(.on) .ts-bar i,
+  .ts-row:not(.on) .strip i {
+    background: GrayText !important;
+  }
+  .switch-ui {
+    forced-color-adjust: none;
+    background: Canvas;
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
+  .switch-ui::after {
+    background: CanvasText;
+  }
+  .switch input:checked + .switch-ui {
+    background: Highlight;
+    box-shadow: inset 0 0 0 1px Highlight;
+  }
+  .switch input:checked + .switch-ui::after {
+    background: HighlightText;
   }
 }

@@ -47,13 +47,31 @@ export function breakable(name, ranges = []) {
   return raw(marked(name, ranges).text.replace(/_/g, "_<wbr>"));
 }
 
-export const RISK_LABEL = { read: "Read-only", write: "Writes", destructive: "Destructive" };
+export const RISKS = ["read", "write", "destructive"];
+export const RISK_LABEL = { read: "Read-only", write: "Write", destructive: "Destructive" };
+export const RISK_WORD = { read: "read-only", write: "write", destructive: "destructive" };
 
 export const glyph = () =>
   raw('<span class="glyph" aria-hidden="true"><i></i><i></i><i></i></span>');
 
 export const riskBadge = (risk) =>
   tpl`<span class="risk" data-risk="${risk}">${glyph()}${RISK_LABEL[risk]}</span>`;
+
+/** The counts of a risk mix as text, levels with no tool left out. */
+export const mixText = (counts) =>
+  RISKS.filter((risk) => counts[risk])
+    .map((risk) => `${counts[risk]} ${RISK_WORD[risk]}`)
+    .join(", ");
+
+/** One bar per tool, read-only first: each bar is as tall as its level's last glyph bar. */
+export const strip = (counts) =>
+  tpl`<span class="strip" aria-hidden="true">${RISKS.map((risk) => raw(`<i data-risk="${risk}"></i>`.repeat(counts[risk])))}</span>`;
+
+export const riskCounts = (counts) =>
+  RISKS.map(
+    (risk) =>
+      tpl`<span data-risk="${risk}">${glyph()}<b>${counts[risk]}</b> ${RISK_WORD[risk]}</span>`,
+  );
 
 export const formatTokens = (n) =>
   n < 1000 ? "~" + Math.round(n) : "~" + (n / 1000).toFixed(1) + "k";

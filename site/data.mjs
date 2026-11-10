@@ -35,6 +35,52 @@ export function crossReferencesOf({ name, description }) {
   return [...new Set(description.match(/discord_[a-z_]+/g) ?? [])].filter((ref) => ref !== name);
 }
 
+const PERMISSION = "[A-Z][A-Za-z]*(?: (?:in|[A-Z][A-Za-z]*))*";
+const PERMISSIONS = new RegExp(
+  `\\bthe (${PERMISSION}(?:(?:,? and |, )${PERMISSION})*) permissions?\\b|\\b([A-Z]+(?:_[A-Z]+)+) permissions?\\b`,
+  "g",
+);
+const BRACKETED = new RegExp(`\\((and|or) (${PERMISSION})((?: [^)]*)?)\\)`, "g");
+const titleCase = (constant) =>
+  constant
+    .toLowerCase()
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
+
+/**
+ * The Discord permissions a description says the tool requires, read from its "requires
+ * the X permission" clauses and the "(and Y ...)" or "(or Z ...)" that follow them.
+ * `condition` limits a requirement to some calls ("for messages authored by others", or
+ * "when ..." with the subject of "... requires"); `alternativeTo` names the permission
+ * that this one can replace.
+ */
+export function permissionsOf(description) {
+  const found = [];
+  const add = (name, condition, alternativeTo = null) => {
+    if (!found.some((p) => p.name === name)) found.push({ name, condition, alternativeTo });
+  };
+  for (const match of description.matchAll(/\brequires\b/gi)) {
+    const before = description.slice(0, match.index);
+    const subject = before
+      .slice(Math.max(before.lastIndexOf(". "), before.lastIndexOf("; ")) + 1)
+      .trim();
+    const rest = description.slice(match.index);
+    const clause = rest.slice(0, rest.search(/[.;](?:\s|$)|$/));
+    const condition = subject ? "when " + subject[0].toLowerCase() + subject.slice(1) : null;
+    let last = null;
+    for (const [, names, constant] of clause.matchAll(PERMISSIONS))
+      for (const name of constant ? [titleCase(constant)] : names.split(/,? and |, /)) {
+        add(name, condition);
+        last = name;
+      }
+    if (!last) continue;
+    for (const [, joint, name, scope] of clause.matchAll(BRACKETED))
+      add(name, scope.trim() || condition, joint === "or" ? last : null);
+  }
+  return found;
+}
+
 /** Maps each tool name to its toolset. Throws unless the toolsets partition tools/list. */
 export function assignToolsets(tools, toolsets) {
   const listed = new Map(tools.map((tool) => [tool.name, tool]));
@@ -154,6 +200,7 @@ export function buildCatalog({ server, tools, toolsets }) {
       purpose: purposeOf(definition.description),
       dryRunDefault: dryRunDefault(definition),
       crossReferences,
+      permissions: permissionsOf(definition.description),
       bytes,
       tokens: bytes / 4,
       definition,

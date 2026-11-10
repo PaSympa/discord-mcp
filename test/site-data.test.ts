@@ -1,8 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
+import { PermissionFlagsBits } from "discord.js";
 
 // site/ is ESM and this suite runs as CommonJS.
 const site = () => import("../site/data.mjs");
@@ -52,6 +53,81 @@ test("cross references list each other discord_* name once, in order of appearan
     "discord_add_role",
   ]);
   assert.deepEqual(crossReferencesOf(tool("discord_ban", "No reference. Env: DISCORD_TOKEN.")), []);
+});
+
+test("permissions come from requires-the-X-permission clauses, with the subject when conditional", async () => {
+  const { permissionsOf } = await site();
+  const names = (description: string) =>
+    permissionsOf(description).map((p: { name: string }) => p.name);
+  const only = (name: string, condition: string | null = null, alternativeTo = null) => ({
+    name,
+    condition,
+    alternativeTo,
+  });
+  assert.deepEqual(
+    permissionsOf("Ban someone. Requires the Ban Members permission, and a higher role."),
+    [only("Ban Members")],
+  );
+  assert.deepEqual(
+    names("Requires the View Channel and Read Message History permissions; without it, nothing."),
+    ["View Channel", "Read Message History"],
+  );
+  assert.deepEqual(names("Requires both the Ban Members and Manage Server permissions."), [
+    "Ban Members",
+    "Manage Server",
+  ]);
+  assert.deepEqual(names("Requires the bot to have the Send Messages permission."), [
+    "Send Messages",
+  ]);
+  assert.deepEqual(names("Requires the Community feature and the Manage Server permission."), [
+    "Manage Server",
+  ]);
+  assert.deepEqual(names("Requires the Send Messages in Threads permission (shown as Posts)."), [
+    "Send Messages in Threads",
+  ]);
+  assert.deepEqual(names("Requires READ_MESSAGE_HISTORY permission."), ["Read Message History"]);
+  assert.deepEqual(
+    permissionsOf(
+      "Delete it. The bot can always delete its own; deleting another user's message requires the Manage Messages permission.",
+    ),
+    [only("Manage Messages", "when deleting another user's message")],
+  );
+  assert.deepEqual(
+    permissionsOf(
+      "Requires the Send Messages permission (and Manage Messages for messages authored by others).",
+    ),
+    [only("Send Messages"), only("Manage Messages", "for messages authored by others")],
+  );
+  assert.deepEqual(
+    permissionsOf(
+      "Requires the Manage Nicknames permission (or Change Nickname for the bot itself).",
+    ),
+    [
+      only("Manage Nicknames"),
+      {
+        name: "Change Nickname",
+        condition: "for the bot itself",
+        alternativeTo: "Manage Nicknames",
+      },
+    ],
+  );
+  assert.deepEqual(permissionsOf("Requires the Manage Channels permission (or Manage Server)."), [
+    only("Manage Channels"),
+    { name: "Manage Server", condition: null, alternativeTo: "Manage Channels" },
+  ]);
+  assert.deepEqual(
+    names(
+      "Requires the Pin Messages permission (a dedicated permission, separate from Manage Messages).",
+    ),
+    ["Pin Messages"],
+  );
+  for (const none of [
+    "Requires the original webhook token.",
+    "Requires the bot to share at least one server with the user.",
+    "Requires the server to have the Community feature enabled.",
+    "No bot permission is needed: the token authorizes the call.",
+  ])
+    assert.deepEqual(permissionsOf(none), [], none);
 });
 
 test("toolsets must partition tools/list: no duplicate, no orphan, no stranger, no empty toolset", async () => {
@@ -164,6 +240,7 @@ test("site data from dist/index.js: every tool in one toolset, every derived fie
       "purpose",
       "dryRunDefault",
       "crossReferences",
+      "permissions",
       "bytes",
       "tokens",
       "definition",
@@ -186,6 +263,32 @@ test("site data from dist/index.js: every tool in one toolset, every derived fie
     assert.equal(t.bytes, Buffer.byteLength(JSON.stringify(definition), "utf8"), t.name);
     assert.equal(t.tokens, t.bytes / 4, t.name);
   }
+
+  const flags = new Map(
+    Object.entries(PermissionFlagsBits).map(([key, bit]) => [key.toLowerCase(), bit]),
+  );
+  const flagOf = (name: string) =>
+    flags.get(
+      name
+        .replace(/ /g, "")
+        .toLowerCase()
+        .replace(/^manageserver$/, "manageguild"),
+    );
+  const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
+  const invite = BigInt(/oauth2\/authorize\?[^\s)]*permissions=(\d+)/.exec(readme)![1]);
+  type Permission = { name: string; condition: string | null; alternativeTo: string | null };
+  let parsed = 0;
+  for (const t of tools)
+    for (const p of t.permissions as Permission[]) {
+      parsed++;
+      const bit = flagOf(p.name);
+      assert.ok(bit !== undefined, `${t.name}: "${p.name}" is not a Discord permission`);
+      const granted = flagOf(p.alternativeTo ?? p.name)!;
+      assert.equal(invite & granted, granted, `${t.name}: the README invite link omits ${p.name}`);
+      if (p.condition?.startsWith("when "))
+        assert.match(p.condition, /^when [a-z]+ing\b/, `${t.name}: "${p.condition}"`);
+    }
+  assert.ok(parsed > 0, "some descriptions name a permission");
 
   assert.ok(
     !JSON.stringify(catalog).includes(String.fromCharCode(0x2014)),

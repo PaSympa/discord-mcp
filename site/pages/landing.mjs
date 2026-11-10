@@ -1,7 +1,20 @@
-import { breakable, formatInt, formatTokens, glyph, plural, raw, tpl } from "../client/tpl.mjs";
+import {
+  breakable,
+  formatInt,
+  formatTokens,
+  glyph,
+  mixText,
+  plural,
+  raw,
+  RISK_LABEL,
+  riskCounts,
+  RISKS,
+  strip,
+  tpl,
+} from "../client/tpl.mjs";
 import { inline } from "../markdown.mjs";
-import { ICONS, layout } from "./layout.mjs";
-import { md, terminal, toolChip } from "./parts.mjs";
+import { firstFitting, ICONS, layout } from "./layout.mjs";
+import { md, stripKey, terminal, toolChip } from "./parts.mjs";
 
 const UP = "";
 
@@ -105,7 +118,7 @@ function seeItWork(site) {
   const { session, demo } = site;
   const calls = session.calls.map(
     (call) => tpl`<li class="term-call">
-  <div class="term-call-line"><span class="srv">discord-mcp</span> <a class="term-tool" href="tools/#${call.tool}">${breakable(call.tool)}</a></div>
+  <div class="term-call-line"><span class="srv">discord-mcp</span> <a class="term-tool" href="tools/${call.tool}/">${breakable(call.tool)}</a></div>
   <div class="term-call-args">(${call.args.join(", ")})</div>
   <div class="term-call-res"><span class="term-tree" aria-hidden="true"></span><span>${resultText(call.result)}</span></div>
 </li>`,
@@ -122,11 +135,13 @@ function seeItWork(site) {
 </figure>
 <div class="demo" id="demo">
   <div class="demo-act">
-    <a class="btn btn-primary" id="demo-play" href="assets/demo.webp" data-alt="${demo.alt}" data-width="${demo.width}" data-height="${demo.height}">${ICONS.play}<span>Play the recording</span></a>
-    <span class="demo-size">Animated WebP, ${demo.size}</span>
+    <a class="btn btn-primary" id="demo-play" href="assets/demo.mp4" aria-controls="demo-video">${ICONS.play}${raw(String(ICONS.pause).replace("<svg ", "<svg hidden "))}<span>Play the recording</span></a>
+    <span class="demo-size">Video, ${demo.size}</span>
     <a class="demo-full" href="${demo.video}">Watch the full one-minute demo</a>
   </div>
-  <div class="demo-frame" id="demo-frame" hidden></div>
+  <div class="demo-frame" id="demo-frame" hidden>
+    <video id="demo-video" width="${demo.width}" height="${demo.height}" muted loop playsinline preload="none" aria-label="${demo.alt}"><source src="assets/demo.mp4" type="video/mp4"></video>
+  </div>
 </div>`;
   return section(
     "see-it-work",
@@ -152,7 +167,7 @@ function asks(site) {
     "what-you-can-ask",
     "What you can ask",
     tpl`<p>Ask in plain language; the assistant picks the tools.</p>
-<p class="legend" aria-hidden="true"><span data-risk="read">${glyph()}Read-only</span><span data-risk="write">${glyph()}Writes</span><span data-risk="destructive">${glyph()}Destructive</span></p>`,
+<p class="legend" aria-hidden="true">${RISKS.map((risk) => tpl`<span data-risk="${risk}">${glyph()}${RISK_LABEL[risk]}</span>`)}</p>`,
     tpl`<ul class="asks" role="list">${items}</ul>`,
   );
 }
@@ -198,10 +213,7 @@ function safety(site) {
   const items = site.readme.safety.map((rule) => {
     const extra =
       rule.lead === "Clear annotations"
-        ? tpl`<p class="mix">${["read", "write", "destructive"].map(
-            (risk) =>
-              tpl`<span data-risk="${risk}">${glyph()}<b>${site.totals.risk[risk]}</b> ${{ read: "read-only", write: "writes", destructive: "destructive" }[risk]}</span>`,
-          )}</p>`
+        ? tpl`<p class="mix">${riskCounts(site.totals.risk)}</p>`
         : "";
     return tpl`<li class="rule">
   <h3>${rule.lead}</h3>
@@ -227,7 +239,7 @@ function profiles(site) {
   <input type="radio" name="profile" value="${i}" data-sets="${p.all ? "all" : p.sets.join(",")}" data-tools="${p.tools}" data-tokens="${Math.round(p.tokens)}" data-ro-tools="${p.readOnly.tools}" data-ro-tokens="${Math.round(p.readOnly.tokens)}" data-max="${Math.round(max)}"${p.checked ? raw(" checked") : ""}>
   <span class="pf-name">${p.label}</span>
   <span class="pf-sets">${sets}</span>
-  <span class="pf-n"><span class="pf-tools">${p.tools}</span> tools</span>
+  <span class="pf-n"><span class="pf-tools">${p.tools}</span><span class="pf-unit"> ${p.tools === 1 ? "tool" : "tools"}</span></span>
   <span class="pf-bar" aria-hidden="true"><i style="width: ${((p.tokens / max) * 100).toFixed(1)}%"></i></span>
   <span class="pf-tok"><span class="pf-tok-short" aria-hidden="true">${formatTokens(p.tokens)}</span><span class="vh pf-tok-long">about ${formatInt(Math.round(p.tokens / 100) * 100)} tokens</span></span>
 </label>`;
@@ -237,7 +249,7 @@ function profiles(site) {
   return section(
     "expose-only-what-you-need",
     "Load only what you need",
-    tpl`<p>${md(site, lead.text, UP)}</p><a class="btn" href="tools/#builder">Open the toolset builder</a>`,
+    tpl`<p>${md(site, lead.text, UP)}</p><a class="btn" href="toolsets/#builder">Open the toolset builder</a>`,
     tpl`<fieldset class="pfs">
   <legend class="vh">Profiles from the README</legend>
   <div class="pf-head" aria-hidden="true"><span>Profile</span><span>Tools</span><span>Context, estimated</span></div>
@@ -258,8 +270,8 @@ function profiles(site) {
 function browse(site) {
   const sets = site.toolsets.map((s) => {
     const de = s.risk.destructive;
-    return tpl`<li><a class="set-link" href="tools/#set-${s.name}">
-  <span class="set-top"><span class="set-name">${s.label}</span><span class="set-n">${plural(s.tools, "tool")}</span>${de ? tpl`<span class="set-de" data-risk="destructive">${glyph()}${de} destructive</span>` : ""}</span>
+    return tpl`<li><a class="set-link" href="toolsets/${s.name}/">
+  <span class="set-top"><span class="set-name">${s.label}</span><span class="set-n">${plural(s.tools, "tool")}</span><span class="set-mix">${strip(s.risk)}<span class="vh">${mixText(s.risk)}</span><span class="set-de"${de ? raw(' data-risk="destructive"') : ""} aria-hidden="true">${de} destructive</span></span></span>
   <span class="set-blurb">${s.blurb}</span>
 </a></li>`;
   });
@@ -272,7 +284,8 @@ function browse(site) {
   <input id="find-q" name="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name">
   <button class="btn" type="submit">Search</button>
 </form>
-<ul class="sets" role="list" aria-label="Toolsets">${sets}</ul>`,
+<ul class="sets" role="list" aria-label="Toolsets">${sets}</ul>
+${stripKey("set-key")}`,
   );
 }
 
@@ -287,10 +300,17 @@ export function renderLanding(site) {
     browse(site),
   ].join("\n");
   return layout(site, {
-    depth: 0,
+    path: "",
+    ogType: "website",
     current: "home",
     title: `discord-mcp: ${site.readme.tagline}`,
-    description: site.description,
+    description: firstFitting(
+      [
+        site.description,
+        `Connect Claude, Codex, Cursor, VS Code and any MCP client to your Discord server through your own bot: ${site.totals.tools} tools, dry runs for mass actions, read-only mode.`,
+      ],
+      160,
+    ),
     body,
     script: "landing.js",
   });

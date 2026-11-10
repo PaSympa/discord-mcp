@@ -9,7 +9,8 @@ const DISCORD_ERROR_HINTS: Record<number, string> = {
   10011: "Unknown role; check role_id.",
   10013: "Unknown user; check user_id.",
   10026: "Unknown ban; the user is not banned.",
-  50001: "Missing access; the bot is not in the guild or cannot see this channel.",
+  50001:
+    "Missing access; the bot is not in the guild, cannot see this channel, or lacks Read Message History to fetch a single message.",
   50013: "Missing permissions; the bot lacks the permission this action requires.",
   50035: "Invalid form body; one or more arguments are invalid.",
 };

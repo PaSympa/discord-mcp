@@ -246,7 +246,7 @@ const tools = [
   defineTool({
     name: "discord_lock_channel_permissions",
     description:
-      "Reset a channel's permission overwrites to exactly match its parent category (Discord's 'sync permissions'). The channel must be inside a category. Requires the Manage Channels and Manage Roles permissions. Returns a confirmation.",
+      "Reset a channel's permission overwrites to exactly match its parent category (Discord's 'sync permissions'). The channel must be inside a category. Requires the Manage Channels and Manage Roles permissions, and View Channel on the category: the tool refuses a category the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation.",
     annotations: {
       title: "Sync channel permissions",
       readOnlyHint: false,

@@ -1282,6 +1282,26 @@ test("the builder's read-only switch leaves the catalog's group headers to the f
     );
 });
 
+test("the builder panel keeps its summary whole and scrolls only its options, with a cue", () => {
+  for (const page of ["tools/index.html", "toolsets/index.html"]) {
+    const panel = /<aside class="builder" id="builder"[\s\S]*?<\/aside>/.exec(read(page))![0];
+    const [head, body] = panel.split('<div class="b-body">');
+    assert.ok(body, `${page}: the options have their own region`);
+    assert.match(head, /<div class="b-head">/, page);
+    for (const id of ["builder-title", "b-tokens", "b-meter", "b-mix"])
+      assert.ok(head.includes(`id="${id}"`), `${page}: ${id} is in the summary`);
+    for (const id of ["b-ro", "b-env", "presets", "ts-list"])
+      assert.ok(body.includes(`id="${id}"`), `${page}: ${id} is in the options`);
+  }
+  const css = read("assets/site.css");
+  const rule = (selector: string) =>
+    new RegExp(`\\n${selector.replace(/[.:]/g, "\\$&")} \\{([^}]*)\\}`).exec(css)![1];
+  assert.match(rule(".builder"), /overflow: hidden;/, "the panel itself never scrolls");
+  assert.match(rule(".b-body"), /overflow-y: auto;/);
+  assert.match(rule(".b-body::after"), /position: sticky;[\s\S]*linear-gradient/, "a fading edge");
+  assert.match(rule(".b-body::-webkit-scrollbar"), /width: 12px;/, "a scrollbar that shows");
+});
+
 test("the risk levels have one name each on every page and in llms.txt", () => {
   for (const page of [...pages, "llms.txt"])
     assert.doesNotMatch(read(page), />Writes<|\bwrites<\/span>|Risk: writes/, page);

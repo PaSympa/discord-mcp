@@ -164,6 +164,35 @@ export function initBuilder(data, { onRender } = {}) {
       render();
     });
 
+  // A sticky panel is cut by the window before it sticks, and pushed under the header by the
+  // footer at the end of the page. Giving it the room in view instead keeps it whole: the
+  // summary stays, the options scroll. With too little room it is left to the page.
+  const panel = $("#builder");
+  const USABLE = 160;
+  const WINDOW_GAP = 8;
+  let fitting = false;
+  function fit() {
+    fitting = false;
+    panel.style.maxHeight = "";
+    const style = window.getComputedStyle(panel);
+    if (style.position !== "sticky") return;
+    const top = Math.max(panel.getBoundingClientRect().top, parseFloat(style.top));
+    const bottom = Math.min(
+      window.innerHeight - WINDOW_GAP,
+      panel.parentElement.getBoundingClientRect().bottom,
+    );
+    const room = bottom - top;
+    if (room < panel.offsetHeight && room >= $(".b-head", panel).offsetHeight + USABLE)
+      panel.style.maxHeight = room + "px";
+  }
+  const scheduleFit = () => {
+    if (!fitting) requestAnimationFrame(fit);
+    fitting = true;
+  };
+  window.addEventListener("scroll", scheduleFit, { passive: true });
+  window.addEventListener("resize", scheduleFit);
+
   render();
+  fit();
   return { selected, readOnly, render };
 }

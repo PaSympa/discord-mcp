@@ -11,7 +11,8 @@ import {
 import { md, stripKey, terminal } from "./parts.mjs";
 
 /**
- * The toolset builder panel. `up` leads from the page to the site root; `showInCatalog` adds
+ * The toolset builder panel: a summary that stays in view, then the options, which scroll
+ * under it when the panel is taller than the window. `up` leads from the page to the site root; `showInCatalog` adds
  * the button that filters the catalog beside it to the selection.
  */
 export function builder(site, { up, showInCatalog = false }) {
@@ -34,11 +35,14 @@ export function builder(site, { up, showInCatalog = false }) {
   );
   const { totals } = site;
   return tpl`<aside class="builder" id="builder" aria-labelledby="builder-title">
+  <div class="b-head">
   <h2 id="builder-title">Load only what you need</h2>
   <p class="sub">Tick the toolsets your assistant should see. Fewer tools leave more of its context for your conversation.</p>
   <p class="figure"><span class="big" id="b-tokens">${(totals.tokens / 1000).toFixed(1)}k</span><span class="unit">tokens of tool definitions, estimated</span></p>
   <div class="meter" id="b-meter" role="img" aria-label="All of the ${formatInt(totals.tokens)} estimated tokens selected"><i id="b-meter-fill" style="width: 100%"></i></div>
   <p class="mix" id="b-mix"><span><b>${totals.tools}</b> tools</span>${riskCounts(totals.risk)}</p>
+  </div>
+  <div class="b-body">
   <div class="ro-box">
     <label class="switch"><input type="checkbox" id="b-ro"><span class="switch-ui" aria-hidden="true"></span><span>Read-only mode</span></label>
     <p class="note">Keeps the ${totals.risk.read} tools annotated <code>readOnlyHint: true</code> and adds <code>DISCORD_MCP_READ_ONLY=true</code> to your line.</p>
@@ -67,6 +71,7 @@ export function builder(site, { up, showInCatalog = false }) {
   </div>
   ${showInCatalog ? raw('<button class="btn show-sel" type="button" id="show-sel">Show these tools in the catalog</button>') : ""}
   <p class="method">${md(site, site.expose.method.text.split(". ")[0] + ".", up)}</p>
+  </div>
 </aside>`;
 }
 

@@ -800,7 +800,7 @@ const tools = [
   defineTool({
     name: "discord_remove_reactions",
     description:
-      "Remove reactions from a message. With no emoji: removes ALL reactions. With emoji only: removes every reaction of that emoji. With emoji and user_id: removes that one user's reaction. Removing all reactions or another user's reaction requires the Manage Messages permission. Use discord_add_reaction to add.",
+      "Remove reactions from a message. With no emoji: removes ALL reactions. With emoji only: removes every reaction of that emoji. With emoji and user_id: removes that one user's reaction. user_id without emoji is rejected. Removing all reactions, every reaction of one emoji, or another user's reaction requires the Manage Messages permission. Use discord_add_reaction to add.",
     annotations: {
       title: "Remove reactions",
       readOnlyHint: false,
@@ -808,23 +808,29 @@ const tools = [
       idempotentHint: true,
       openWorldHint: true,
     },
-    schema: z.object({
-      channel_id: channelId.describe(
-        "ID (snowflake) of the channel or thread containing the message.",
+    schema: z
+      .object({
+        channel_id: channelId.describe(
+          "ID (snowflake) of the channel or thread containing the message.",
+        ),
+        message_id: messageId.describe("ID of the message to remove reactions from."),
+        emoji: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Unicode emoji or custom emoji 'name:id'. Omit to remove ALL reactions on the message.",
+          ),
+        user_id: snowflake
+          .optional()
+          .describe(
+            "Remove only this user's reaction for the given emoji. Requires emoji: the call is rejected without it.",
+          ),
+      })
+      .refine(
+        (a) => a.user_id === undefined || a.emoji !== undefined,
+        "user_id requires emoji: without it, every reaction on the message would be removed.",
       ),
-      message_id: messageId.describe("ID of the message to remove reactions from."),
-      emoji: z
-        .string()
-        .optional()
-        .describe(
-          "Unicode emoji or custom emoji 'name:id'. Omit to remove ALL reactions on the message.",
-        ),
-      user_id: snowflake
-        .optional()
-        .describe(
-          "Remove only this user's reaction for the given emoji. Requires emoji to be set.",
-        ),
-    }),
     handle: async ({ channel_id, message_id, emoji, user_id }) => {
       const channel = await getTextChannel(channel_id);
       const msg = await channel.messages.fetch({

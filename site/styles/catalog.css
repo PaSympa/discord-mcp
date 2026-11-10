@@ -233,17 +233,59 @@
   margin-bottom: var(--s3);
 }
 
+/* The panel never cuts its own content: the summary stays whole, and the options scroll
+   below it behind a rule, with a scrollbar that shows and a fading edge. */
 .builder {
   position: sticky;
   top: calc(var(--header) + var(--s4));
+  display: flex;
+  flex-direction: column;
   max-height: calc(100vh - var(--header) - var(--s5));
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  padding: var(--s5);
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r3);
+}
+.b-head {
+  flex: none;
+  padding: var(--s5) var(--s5) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.b-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: var(--s4) var(--s6);
+  padding: 0 var(--s5);
+}
+.b-body::after {
+  content: "";
+  position: sticky;
+  bottom: 0;
+  display: block;
+  height: var(--s5);
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  pointer-events: none;
+}
+.b-body::-webkit-scrollbar {
+  width: 12px;
+}
+.b-body::-webkit-scrollbar-thumb {
+  border: 3px solid var(--surface);
+  border-radius: 6px;
+  background: var(--line-strong);
+}
+@supports not selector(::-webkit-scrollbar) {
+  .b-body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+@media (max-height: 760px) {
+  .builder .sub {
+    display: none;
+  }
 }
 .builder h2 {
   font-size: 1.5rem;
@@ -797,8 +839,23 @@ table.schema {
   }
   .builder {
     position: static;
+    display: block;
     max-height: none;
     overflow: visible;
+  }
+  .b-head {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  .b-body {
+    overflow: visible;
+    padding-bottom: var(--s5);
+  }
+  .b-body::after {
+    content: none;
+  }
+  .builder .sub {
+    display: block;
   }
 }
 @media (max-width: 640px) {
@@ -868,8 +925,11 @@ table.schema {
   .why {
     grid-column: 1 / -1;
   }
-  .builder {
-    padding: var(--s4);
+  .b-head {
+    padding: var(--s4) var(--s4) 0;
+  }
+  .b-body {
+    padding: 0 var(--s4) var(--s4);
   }
   .ts-cols,
   .ts-row label {

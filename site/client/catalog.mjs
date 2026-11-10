@@ -110,7 +110,7 @@ function applyFilters() {
       const inSet = shown.filter((t) => t.toolset === s);
       const n = inSet.length;
       g.el.hidden = n === 0;
-      // The strip and its text keep one bar per row left in the group.
+      // The strip, its text and the cost all describe the rows left in the group.
       const left = Object.fromEntries(
         RISKS.map((risk) => [risk, inSet.filter((t) => t.risk === risk).length]),
       );
@@ -123,7 +123,7 @@ function applyFilters() {
         ": " +
         mixText(left) +
         ", " +
-        formatTokens(set.tokens) +
+        formatTokens(inSet.reduce((sum, t) => sum + t.tokens, 0)) +
         " tokens";
     }
   }

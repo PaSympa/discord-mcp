@@ -1269,6 +1269,17 @@ test("the builder's read-only switch leaves the catalog's group headers to the f
     "the builder rows keep theirs",
   );
   assert.match(js, /mixText\(left\)/, "the header text follows the rows shown");
+  assert.match(
+    js,
+    /formatTokens\(inSet\.reduce\(/,
+    "and so does its cost, summed from the rows' own figures",
+  );
+  for (const set of catalog.toolsets)
+    assert.equal(
+      catalog.tools.filter((t) => t.toolset === set.name).reduce((sum, t) => sum + t.tokens, 0),
+      set.tokens,
+      `${set.name}: the unfiltered sum is the toolset's cost`,
+    );
 });
 
 test("the risk levels have one name each on every page and in llms.txt", () => {

@@ -86,7 +86,9 @@ export function initBuilder(data, { onRender } = {}) {
       $("[data-unit]", li).textContent = inSet.length === 1 ? " tool" : " tools";
       const cost = inSet.reduce((n, t) => n + t.tokens, 0);
       $("[data-tok]", li).textContent = formatTokens(cost);
-      $(".ts-bar i", li).style.width = ((cost / maxTokens) * 100).toFixed(1) + "%";
+      const fill = $(".ts-bar i", li);
+      fill.style.width = ((cost / maxTokens) * 100).toFixed(1) + "%";
+      fill.hidden = cost === 0;
       $("[data-mix]", li).textContent = mixText(countRisks(inSet));
     }
     $("#ro-legend").hidden = !emptied;

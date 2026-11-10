@@ -872,4 +872,19 @@ kbd {
   .ts-row:not(.on) .strip i {
     background: GrayText !important;
   }
+  .switch-ui {
+    forced-color-adjust: none;
+    background: Canvas;
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
+  .switch-ui::after {
+    background: CanvasText;
+  }
+  .switch input:checked + .switch-ui {
+    background: Highlight;
+    box-shadow: inset 0 0 0 1px Highlight;
+  }
+  .switch input:checked + .switch-ui::after {
+    background: HighlightText;
+  }
 }

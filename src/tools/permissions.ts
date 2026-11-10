@@ -6,6 +6,8 @@ import {
   serializePermissions,
   parsePermissionNames,
   assertCanCopyFrom,
+  isObfuscated,
+  splitObfuscated,
 } from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, structured } from "./define.js";
 
@@ -31,7 +33,7 @@ const tools = [
   defineTool({
     name: "discord_get_channel_permissions",
     description:
-      "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Use discord_audit_permissions for a server-wide report across all channels.",
+      "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Refuses a channel that Discord hides from the bot behind the placeholder name ___hidden___: Discord shows a placeholder in place of its real overwrites, so grant the bot View Channel on it first. Use discord_audit_permissions for a server-wide report across all channels.",
     annotations: { title: "Get channel permissions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to inspect."),
@@ -41,6 +43,10 @@ const tools = [
     }),
     handle: async ({ channel_id }) => {
       const channel = await getGuildChannel(channel_id);
+      if (isObfuscated(channel))
+        throw new Error(
+          `The bot cannot view channel ${channel.id}. Discord hides that channel's real overwrites from the bot, so the overwrites shown would be a placeholder: a single @everyone View Channel deny. Grant the bot View Channel on this channel, then retry.`,
+        );
       const overwrites = channel.permissionOverwrites.cache.map((ow) => ({
         id: ow.id,
         type: ow.type === 0 ? "role" : "member",
@@ -199,7 +205,7 @@ const tools = [
   defineTool({
     name: "discord_audit_permissions",
     description:
-      "Generate a server-wide permission report: for every channel that has overwrites, lists each role/member and their allowed/denied permissions (entity names resolved). Read-only. Returns { channels: [...] } with channel, channelId, overwrites. Use discord_get_channel_permissions for a single channel.",
+      "Generate a server-wide permission report: for every channel that has overwrites, lists each role/member and their allowed/denied permissions (entity names resolved). Read-only. Returns { channels: [...], hiddenChannels } with channel, channelId, overwrites. Channels that Discord hides from the bot behind the placeholder name ___hidden___ are left out and counted in hiddenChannels: Discord shows a placeholder in place of their real overwrites. Use discord_get_channel_permissions for a single channel.",
     annotations: { title: "Audit permissions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -212,13 +218,15 @@ const tools = [
           overwrites: z.array(auditOverwriteSummary),
         }),
       ),
+      hiddenChannels: z.number().int(),
     }),
     handle: async ({ guild_id }) => {
       const guild = await discord.guilds.fetch(guild_id);
       await guild.channels.fetch();
       await guild.roles.fetch();
+      const { visible, hidden: hiddenChannels } = splitObfuscated(guild.channels.cache);
       const memberIdsNeeded = new Set<string>();
-      guild.channels.cache.forEach((ch) => {
+      visible.forEach((ch) => {
         if (ch instanceof GuildChannel) {
           ch.permissionOverwrites.cache.forEach((ow) => {
             if (ow.type === 1) memberIdsNeeded.add(ow.id);
@@ -231,7 +239,7 @@ const tools = [
       );
       const memberTags = new Map(fetched.filter((m) => m !== null).map((m) => [m.id, m.user.tag]));
       const report: Record<string, unknown>[] = [];
-      guild.channels.cache
+      visible
         .filter((c) => c instanceof GuildChannel)
         .forEach((ch) => {
           const gch = ch as GuildChannel;
@@ -250,7 +258,7 @@ const tools = [
           if (overwrites.length > 0)
             report.push({ channel: gch.name, channelId: gch.id, overwrites });
         });
-      return structured({ channels: report });
+      return structured({ channels: report, hiddenChannels });
     },
   }),
 ];

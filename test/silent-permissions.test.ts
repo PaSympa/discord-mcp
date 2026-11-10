@@ -1,6 +1,11 @@
 import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { ChannelFlagsBitField, Collection, PermissionFlagsBits } from "discord.js";
+import {
+  ChannelFlagsBitField,
+  Collection,
+  PermissionFlagsBits,
+  type GuildChannel,
+} from "discord.js";
 import { discord, isObfuscated } from "../src/client.js";
 import messages from "../src/tools/messages.js";
 import forums from "../src/tools/forums.js";
@@ -30,6 +35,8 @@ const OBFUSCATED_CATEGORY = "200000000000000011";
 const UNDER_HIDDEN = "200000000000000012";
 const UNVIEWABLE = "200000000000000013";
 const TARGET = "200000000000000014";
+const UNVIEWABLE_CATEGORY = "200000000000000015";
+const UNDER_UNVIEWABLE = "200000000000000016";
 const CLEAN_GUILD = "200000000000000020";
 const CLEAN_CHANNEL = "200000000000000021";
 const KEY_GUILD = "200000000000000030";
@@ -186,6 +193,21 @@ asAdder(discord.guilds)._add(
         name: "under-hidden",
         position: 6,
         parent_id: OBFUSCATED_CATEGORY,
+        permission_overwrites: [],
+      },
+      {
+        id: UNVIEWABLE_CATEGORY,
+        type: 4,
+        name: "staff",
+        position: 2,
+        permission_overwrites: botDeny(PermissionFlagsBits.ViewChannel),
+      },
+      {
+        id: UNDER_UNVIEWABLE,
+        type: 0,
+        name: "staff-chat",
+        position: 7,
+        parent_id: UNVIEWABLE_CATEGORY,
         permission_overwrites: [],
       },
     ],
@@ -413,6 +435,31 @@ test("clone_channel clones a source the bot can view", async () => {
   assert.equal(create.mock.callCount(), 1);
 });
 
+const channelPermissions = (channel_id: string) =>
+  permissions.handlers.get("discord_get_channel_permissions")!({ channel_id });
+
+test("get_channel_permissions refuses an obfuscated channel instead of returning its placeholder overwrite", async () => {
+  await assert.rejects(
+    channelPermissions(OBFUSCATED),
+    new RegExp(
+      `cannot view channel ${OBFUSCATED}\\..*real overwrites.*placeholder.*Grant the bot View Channel`,
+    ),
+  );
+});
+
+for (const [label, id, denied] of [
+  ["a viewable", NO_HISTORY, "ReadMessageHistory"],
+  ["an unviewable but not obfuscated", UNVIEWABLE, "ViewChannel"],
+] as const) {
+  test(`get_channel_permissions returns the real overwrites of ${label} channel`, async () => {
+    const result = await channelPermissions(id);
+    assert.ok(!result.isError, "the output must match the declared outputSchema");
+    assert.deepEqual(result.structuredContent, {
+      overwrites: [{ id: BOT, type: "member", allow: [], deny: [denied] }],
+    });
+  });
+}
+
 /** Stubs the REST channel refresh both discovery tools run first. */
 function stubChannelRefresh(guildId: string) {
   const guild = discord.guilds.cache.get(guildId)!;
@@ -498,6 +545,37 @@ test("list_channels lists a real category named hiddenChannels and validates", a
   });
 });
 
+type AuditReport = {
+  channels: { channelId: string; overwrites: unknown[] }[];
+  hiddenChannels: number;
+};
+
+const audit = async (guild_id: string) => {
+  stubChannelRefresh(guild_id);
+  const guild = discord.guilds.cache.get(guild_id)!;
+  mock.method(guild.roles, "fetch", async () => guild.roles.cache);
+  const result = await permissions.handlers.get("discord_audit_permissions")!({ guild_id });
+  assert.ok(!result.isError, "the output must match the declared outputSchema");
+  return result.structuredContent as AuditReport;
+};
+
+test("audit_permissions leaves obfuscated placeholders out and counts them", async () => {
+  const report = await audit(GUILD);
+  assert.deepEqual(
+    report.channels.map((c) => c.channelId),
+    [NO_HISTORY, NO_HISTORY_FORUM, UNVIEWABLE, UNVIEWABLE_CATEGORY],
+    "a placeholder overwrite must not read as a real one",
+  );
+  assert.equal(report.hiddenChannels, 2);
+  assert.deepEqual(report.channels.find((c) => c.channelId === UNVIEWABLE)?.overwrites, [
+    { entity: "bot", type: "member", allow: [], deny: ["ViewChannel"] },
+  ]);
+});
+
+test("audit_permissions reports zero hidden channels in a clean guild", async () => {
+  assert.deepEqual(await audit(CLEAN_GUILD), { channels: [], hiddenChannels: 0 });
+});
+
 type Lockable = { edit: (...args: unknown[]) => Promise<unknown> };
 
 const lockPermissions = (channel_id: string) =>
@@ -506,6 +584,17 @@ const lockPermissions = (channel_id: string) =>
 test("lock_channel_permissions refuses a channel under an obfuscated category, with zero writes", async () => {
   const edit = mock.method(cached<Lockable>(UNDER_HIDDEN), "edit", async () => ({}));
   await assert.rejects(lockPermissions(UNDER_HIDDEN), cannotView(OBFUSCATED_CATEGORY));
+  assert.equal(edit.mock.callCount(), 0);
+});
+
+test("lock_channel_permissions refuses a channel under an unviewable category that is not obfuscated, with zero writes", async () => {
+  assert.equal(
+    isObfuscated(cached<GuildChannel>(UNVIEWABLE_CATEGORY)),
+    false,
+    "the parent is not obfuscated, as after a REST listing",
+  );
+  const edit = mock.method(cached<Lockable>(UNDER_UNVIEWABLE), "edit", async () => ({}));
+  await assert.rejects(lockPermissions(UNDER_UNVIEWABLE), cannotView(UNVIEWABLE_CATEGORY));
   assert.equal(edit.mock.callCount(), 0);
 });
 

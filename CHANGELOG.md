@@ -14,6 +14,7 @@
 
 - The npm, MCP Registry and Docker image descriptions name Codex next to Claude, Cursor and VS Code
 - 23 tool descriptions name the tool to use instead and state behavior the schemas do not show, so an agent picks the right tool among similar ones. Examples: `discord_get_guild_info` and `discord_get_server_stats` point at each other, `discord_update_membership_screening` warns that `form_fields` deletes question fields, and `discord_find_channel_by_name` describes its `{ matches }` result instead of a JSON array
+- 41 tool descriptions were corrected against Discord's documentation and the server code. They name the permissions Discord checks, such as Read Message History for tools that fetch the message first and Create Events for scheduled events, and state limits they used to hide. `discord_delete_message` no longer promises an audit log reason, which Discord does not record for a message delete
 
 ### Fixed
 

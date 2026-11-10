@@ -21,7 +21,7 @@ const tools = [
   defineTool({
     name: "discord_list_guilds",
     description:
-      "List every Discord server (guild) the bot is a member of (id, name, member count, icon). Takes no arguments. Read-only. Start here to discover the guild_id needed by most other tools.",
+      "List the Discord servers (guilds) the bot is a member of (id, name, member count, icon). When DISCORD_ALLOWED_GUILDS is set, only those servers are listed. With DISCORD_GUILD_MEMBERS=false, the member count is not updated after the bot connects. Takes no arguments. Read-only. Start here to discover the guild_id needed by most other tools.",
     annotations: { title: "List servers", readOnlyHint: true, openWorldHint: true },
     schema: z.object({}),
     outputSchema: z.object({ guilds: z.array(guildSummary) }),
@@ -40,7 +40,7 @@ const tools = [
   defineTool({
     name: "discord_get_guild_info",
     description:
-      "Get details about one server: name, description, member/channel/role counts, boost tier, owner, and creation date. The owner field is a user ID. roleCount includes the @everyone role. Use discord_get_server_stats for a finer breakdown (humans vs bots, channel types).",
+      "Get details about one server: name, description, member/channel/role counts, boost tier, owner, and creation date. The owner field is a user ID. roleCount includes the @everyone role. channelCount also counts the threads in the bot's cache. With DISCORD_GUILD_MEMBERS=false, memberCount is not updated after the bot connects. Use discord_get_server_stats for a finer breakdown (humans vs bots, channel types).",
     annotations: { title: "Get server info", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

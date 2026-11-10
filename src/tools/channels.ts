@@ -56,7 +56,7 @@ const tools = [
   defineTool({
     name: "discord_delete_channel",
     description:
-      "Permanently delete a channel and all of its messages. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Requires the Manage Channels permission. An optional reason is recorded in the audit log.",
+      "Permanently delete a channel and all of its messages. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Deleting a category keeps its channels, which leave the category. A DM channel ID only closes the DM, which is reversible. Requires the Manage Channels permission, or Manage Threads for a thread. An optional reason is recorded in the audit log.",
     annotations: {
       title: "Delete channel",
       readOnlyHint: false,
@@ -95,7 +95,7 @@ const tools = [
   defineTool({
     name: "discord_edit_channel",
     description:
-      "Update a channel's name, topic, slowmode, or NSFW flag. Only provided fields change; topic and slowmode apply to text channels only. Requires the Manage Channels permission. Returns a confirmation.",
+      "Update a channel's name, topic, slowmode, or NSFW flag. Only provided fields change. This tool sends topic and slowmode for plain text channels only; on every other type, announcement channels included, it ignores them without an error. Requires the Manage Channels permission. Returns a confirmation.",
     annotations: {
       title: "Edit channel",
       readOnlyHint: false,
@@ -106,10 +106,15 @@ const tools = [
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to edit."),
       name: z.string().optional().describe("New channel name (max 100 characters)."),
-      topic: z.string().optional().describe("New topic/description (text channels only)."),
+      topic: z
+        .string()
+        .optional()
+        .describe("New topic/description (text channels only, not announcement)."),
       slowmode: intIn(0, 21600)
         .optional()
-        .describe("Per-user message cooldown in seconds, 0–21600. 0 disables slowmode."),
+        .describe(
+          "Per-user message cooldown in seconds, 0–21600. 0 disables slowmode (text channels only, not announcement).",
+        ),
       nsfw: z
         .boolean()
         .optional()
@@ -181,7 +186,7 @@ const tools = [
   defineTool({
     name: "discord_set_channel_position",
     description:
-      "Set a channel's display order within its category. Use discord_move_channel to change which category it belongs to. Requires the Manage Channels permission. Returns a confirmation.",
+      "Set a channel's display order among the channels of its kind in its category. Text, announcement, forum and media channels sort together, voice and stage channels together, and categories among categories. A position equal to or above the number of channels in that group leaves the order unchanged. Use discord_move_channel to change which category it belongs to. Requires the Manage Channels permission. Returns a confirmation.",
     annotations: {
       title: "Set channel position",
       readOnlyHint: false,
@@ -191,7 +196,10 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to reposition."),
-      position: z.int().min(0).describe("Zero-based position within the category (0 = top)."),
+      position: z
+        .int()
+        .min(0)
+        .describe("Zero-based position among the channels of its kind in the category (0 = top)."),
     }),
     handle: async ({ channel_id, position }) => {
       const channel = await getGuildChannel(channel_id);
@@ -238,7 +246,7 @@ const tools = [
   defineTool({
     name: "discord_lock_channel_permissions",
     description:
-      "Reset a channel's permission overwrites to exactly match its parent category (Discord's 'sync permissions'). The channel must be inside a category. Requires the Manage Roles permission. Returns a confirmation.",
+      "Reset a channel's permission overwrites to exactly match its parent category (Discord's 'sync permissions'). The channel must be inside a category. Requires the Manage Channels and Manage Roles permissions, and View Channel on the category: the tool refuses a category the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation.",
     annotations: {
       title: "Sync channel permissions",
       readOnlyHint: false,

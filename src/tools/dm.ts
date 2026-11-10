@@ -107,7 +107,7 @@ const tools = [
   defineTool({
     name: "discord_edit_dm_embed",
     description:
-      "Replace the embed on a DM message previously sent by this bot. Full replace, not merge: provided fields are applied and omitted fields are dropped. Omitting content keeps the message's current text. Use discord_edit_dm to change only the text, or discord_edit_embed for a message in a server channel. Returns a confirmation.",
+      "Replace the embed on a DM message previously sent by this bot. Full replace, not merge: provided fields are applied and omitted fields are dropped. Omitting content, or passing an empty string, keeps the message's current text; this tool cannot clear it. Use discord_edit_dm to change only the text, or discord_edit_embed for a message in a server channel. Returns a confirmation.",
     annotations: {
       title: "Edit DM embed",
       readOnlyHint: false,
@@ -213,7 +213,7 @@ const tools = [
   defineTool({
     name: "discord_reply_dm",
     description:
-      "Reply to a specific message in a DM, attaching a quoted reply reference. Unlike the edit/delete DM tools, this works on any message in the conversation (the bot's or the user's). Use discord_send_dm for a standalone DM with no reference. Returns the new reply's message ID.",
+      "Reply to a specific message in a DM, attaching a quoted reply reference. Unlike the edit/delete DM tools, this works on the bot's messages and the user's alike, though Discord refuses some system messages as reply targets. Use discord_send_dm for a standalone DM with no reference. Returns the new reply's message ID.",
     annotations: {
       title: "Reply to DM",
       readOnlyHint: false,

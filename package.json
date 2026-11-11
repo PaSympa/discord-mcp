@@ -23,7 +23,7 @@
     "test": "node --import tsx --test test/*.test.ts",
     "site": "node site/generate.mjs",
     "bundle": "node scripts/bundle.mjs",
-    "version": "node scripts/sync-version.js && git add server.json manifest.json",
+    "version": "node scripts/sync-version.js && git add server.json manifest.json plugin/.claude-plugin/plugin.json",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

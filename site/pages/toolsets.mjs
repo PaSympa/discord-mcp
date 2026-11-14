@@ -1,5 +1,5 @@
 import { formatInt, formatTokens, mixText, plural, raw, strip, tpl } from "../client/tpl.mjs";
-import { builder, builderData } from "./builder.mjs";
+import { builderData, lineBar, linePanel, pickRow, presets } from "./builder.mjs";
 import { toolRow } from "./catalog.mjs";
 import { firstFitting, layout, REPO, SITE_URL } from "./layout.mjs";
 import { stripKey, terminal, toolChip } from "./parts.mjs";
@@ -89,32 +89,26 @@ function readOnlySection(site) {
 </section>`;
 }
 
-function indexEntry(set) {
-  return tpl`<li class="tsx" id="ts-${set.name}">
-  <div class="tsx-head">
-    <h2><a href="${set.name}/">${set.label}</a></h2>
-    <code>${set.name}</code>
-    <span class="tsx-tok">${formatTokens(set.tokens)} tokens</span>
-  </div>
-  <p class="tsx-blurb">${set.blurb}</p>
-  <p class="tsx-mix">${strip(set.risk)}<span>${plural(set.tools, "tool")}: ${mixText(set.risk)}</span>${set.risk.read ? "" : tpl`<a class="tsx-none" href="#read-only">No read-only tool</a>`}</p>
-</li>`;
-}
-
 export function renderToolsets(site) {
   const { totals } = site;
   const data = raw(JSON.stringify(builderData(site)).replace(/</g, "\\u003c"));
-  const body = tpl`<div class="wrap cat-top">
-  <h1>Toolsets</h1>
-  <p class="lead">A toolset is a group of tools you switch on together. Name the ones you want in <code>DISCORD_MCP_TOOLSETS</code> and the server loads only those; leave it unset and it loads everything. The server has <span data-total>${totals.tools}</span> tools in ${totals.toolsets} toolsets, counted from its own <code>tools/list</code>.</p>
-</div>
-<div class="wrap layout">
+  const max = Math.max(...site.toolsets.map((s) => s.tokens));
+  const body = tpl`<div class="wrap layout ts-layout">
   <div class="tsx-main">
-    <ol class="tsx-list" role="list">${site.toolsets.map(indexEntry)}</ol>
+    <div class="cat-top">
+  <h1>Toolsets</h1>
+  <p class="lead">A toolset is a group of tools you switch on together. Tick the ones your assistant needs and copy the line: the server then loads only those, and fewer tools leave more of its context for your conversation. The server has <span data-total>${totals.tools}</span> tools in ${totals.toolsets} toolsets, counted from its own <code>tools/list</code>.</p>
+    </div>
+    <div class="pick" id="builder">
+      ${presets(site)}
+      <ul class="tsx-list ts-list" id="ts-list" role="list" aria-label="Toolsets to load">${site.toolsets.map((set) => pickRow(set, max))}</ul>
+      <p class="ts-legend" id="ro-legend" hidden>Crossed out: the toolset has no read-only tool, so read-only mode leaves it out.</p>
+    </div>
     ${stripKey("tsx-key")}
     ${readOnlySection(site)}
+    ${lineBar(site)}
   </div>
-  ${builder(site, { up: "../" })}
+  ${linePanel(site, { up: "../" })}
 </div>
 <script type="application/json" id="builder-data">${data}</script>`;
   return layout(site, {

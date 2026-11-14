@@ -1,8 +1,7 @@
-import { $, $$, announce, initCommon, reduceMotion } from "./common.mjs";
-import { initBuilder } from "./builder.mjs";
+import { $, $$, initCommon, reduceMotion } from "./common.mjs";
 import { renderToolDetail } from "./detail.mjs";
 import { createIndex, matchRanges, search } from "./search.mjs";
-import { breakable, formatTokens, marked, mixText, plural, RISKS, tpl } from "./tpl.mjs";
+import { breakable, formatTokens, marked, mixText, plural, RISKS } from "./tpl.mjs";
 
 const DATA = JSON.parse($("#catalog-data").textContent);
 const TOOLS = DATA.tools;
@@ -229,38 +228,10 @@ function focusSearch() {
 $("#search-jump").addEventListener("click", focusSearch);
 initCommon({ onSearch: focusSearch });
 
-const builder = initBuilder(DATA, {
-  onRender: (list) => {
-    $("#show-sel").disabled = !list.length;
-  },
-});
-const { selected, readOnly } = builder;
-$("#show-sel").addEventListener("click", () => {
-  state.sets = new Set(selected.size === SETS.length ? [] : selected);
-  state.risks = new Set(readOnly.checked ? ["read"] : []);
-  state.dry = false;
-  state.q = "";
-  input.value = "";
-  applyFilters();
-  $("#catalog").scrollIntoView({
-    block: "start",
-    behavior: reduceMotion.matches ? "auto" : "smooth",
-  });
-  announce("Catalog filtered to your toolsets");
-});
 const dialog = $("#tool");
 let current = null;
 let lastFocus = null;
 const href = (name) => name + "/";
-
-function loadedSlot(tool) {
-  const ro = readOnly.checked && tool.risk !== "read";
-  if (selected.has(tool.toolset) && !ro)
-    return tpl`<span class="sep" aria-hidden="true"></span><span class="loaded">Loaded by your configuration</span>`;
-  if (ro)
-    return tpl`<span class="sep" aria-hidden="true"></span><span class="loaded">Hidden by read-only mode</span>`;
-  return tpl`<span class="sep" aria-hidden="true"></span><span class="loaded">Not in your toolset line. <button class="link-btn" type="button" data-add-set="${tool.toolset}">Add ${tool.toolset}</button></span>`;
-}
 
 function renderDetail(tool) {
   current = tool;
@@ -268,7 +239,7 @@ function renderDetail(tool) {
     labels: LABELS,
     byName,
     href,
-    loaded: loadedSlot(tool),
+    toolsetPage: `../toolsets/${tool.toolset}/`,
     page: href(tool.name),
   });
   $("#dlg-head").innerHTML = String(head);
@@ -304,13 +275,6 @@ dialog.addEventListener("close", () => {
 $("#dlg-close").addEventListener("click", () => dialog.close());
 dialog.addEventListener("click", (event) => {
   if (event.target === dialog) dialog.close();
-  const add = event.target.closest("[data-add-set]");
-  if (add) {
-    selected.add(add.dataset.addSet);
-    builder.render();
-    renderDetail(current);
-    announce(add.dataset.addSet + " added to your toolset line");
-  }
 });
 document.addEventListener("click", (event) => {
   const link = event.target.closest("a[data-tool]");
@@ -335,7 +299,10 @@ function route() {
 window.addEventListener("popstate", route);
 window.addEventListener("hashchange", route);
 
-const q0 = (new URLSearchParams(location.search).get("q") || "").trim();
+const params = new URLSearchParams(location.search);
+for (const s of (params.get("sets") || "").split(",")) if (SETS.includes(s)) state.sets.add(s);
+if (params.get("risk") === "read") state.risks.add("read");
+const q0 = (params.get("q") || "").trim();
 if (q0) {
   input.value = q0;
   state.q = q0;

@@ -278,7 +278,7 @@ function browse(site) {
   return section(
     "tools",
     tpl`Browse all <span data-total>${site.totals.tools}</span> tools`,
-    tpl`<p>Every tool documents its permissions, side effects and return shape. The catalog adds risk filters, input and output schemas, and the toolset builder.</p><a class="btn" href="tools/">Open the catalog</a>`,
+    tpl`<p>Every tool documents its permissions, side effects and return shape. The catalog adds search, risk filters, and input and output schemas.</p><a class="btn" href="tools/">Open the catalog</a>`,
     tpl`<form class="find" action="tools/" method="get" role="search" aria-label="Search the catalog">
   <label class="vh" for="find-q">Search the tools by task, name or parameter</label>
   <input id="find-q" name="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name">

@@ -24,7 +24,7 @@ const GITHUB_ASSETS = join(ROOT, ".github", "assets");
 const STYLES = ["base", "landing", "catalog", "tool", "toolsets"];
 const BUNDLES = {
   "landing.js": ["tpl", "keys", "common", "landing"],
-  "catalog.js": ["tpl", "keys", "common", "search", "detail", "builder", "catalog"],
+  "catalog.js": ["tpl", "keys", "common", "search", "detail", "catalog"],
   "toolsets.js": ["tpl", "keys", "common", "builder", "toolsets"],
   "page.js": ["keys", "common", "page"],
   "notfound.js": ["tpl", "keys", "common", "search", "suggest", "notfound"],

@@ -812,12 +812,12 @@ test("counts say 1 tool, never 1 tools, in the text screen readers get too", () 
     const text = textOf(read(page));
     assert.doesNotMatch(text, /(^|[^\d,.])1 tools\b/, page);
   }
-  const catalogHtml = read("tools/index.html");
+  const html = read("toolsets/index.html");
   for (const set of ["moderation", "stats"]) {
-    const row = new RegExp(`<li class="ts-row on" data-set="${set}">[\\s\\S]*?</li>`).exec(
-      catalogHtml,
+    const row = new RegExp(`<li class="tsx ts-row on" id="ts-${set}"[\\s\\S]*?</li>`).exec(
+      html,
     )![0];
-    assert.ok(row.includes('<span data-n>1</span><span class="vh" data-unit> tool</span>'), set);
+    assert.ok(row.includes("<span data-n>1</span><span data-unit> tool</span>"), set);
   }
 });
 
@@ -912,7 +912,9 @@ test("/toolsets/ shows every toolset with its label, blurb, counts and cost from
   const data = JSON.parse(read("tools.json"));
   const text = content().toolsets;
   const html = read("toolsets/index.html");
-  const entries = [...html.matchAll(/<li class="tsx" id="ts-([a-z_]+)">([\s\S]*?)<\/li>/g)];
+  const entries = [
+    ...html.matchAll(/<li class="tsx ts-row on" id="ts-([a-z_]+)" data-set="\1">([\s\S]*?)<\/li>/g),
+  ];
   assert.deepEqual(
     entries.map(([, name]) => name),
     data.toolsets.map((s: Toolset) => s.name),
@@ -927,9 +929,15 @@ test("/toolsets/ shows every toolset with its label, blurb, counts and cost from
     assert.ok(inner.includes(`<h2><a href="${name}/">${esc(text[name].label)}</a></h2>`), name);
     assert.ok(inner.includes(`<code>${name}</code>`), `${name}: value`);
     assert.ok(inner.includes(`<p class="tsx-blurb">${esc(text[name].blurb)}</p>`), name);
-    assert.ok(inner.includes(`${formatTokens(set.tokens)} tokens`), `${name}: tokens`);
     assert.ok(
-      inner.includes(`<span>${plural(set.tools, "tool")}: ${mixOf(set.risk)}</span>`),
+      inner.includes(`<span data-tok>${formatTokens(set.tokens)}</span> tokens`),
+      `${name}: tokens`,
+    );
+    const [n, unit] = plural(set.tools, "tool").split(" ");
+    assert.ok(
+      inner.includes(
+        `<span data-n>${n}</span><span data-unit> ${unit}</span>: <span data-mix>${mixOf(set.risk)}</span>`,
+      ),
       name,
     );
     assert.deepEqual(stripOf(inner), set.risk, `${name}: one mark per tool`);
@@ -950,47 +958,115 @@ test("/toolsets/ shows every toolset with its label, blurb, counts and cost from
   );
 });
 
-test("/toolsets/ reuses the catalog's toolset builder, with every toolset and README profile", () => {
-  const aside = (page: string) => /<aside class="builder"[\s\S]*?<\/aside>/.exec(read(page))![0];
-  const sets = aside("toolsets/index.html");
-  const catalogBuilder = aside("tools/index.html");
-  assert.match(catalogBuilder, /id="show-sel"/, "the catalog keeps its filter button");
-  assert.doesNotMatch(sets, /id="show-sel"/, "no catalog to filter on /toolsets/");
-  assert.equal(
-    catalogBuilder.replace(/<button class="btn show-sel"[^>]*>[^<]*<\/button>/, ""),
-    sets,
-    "the same builder markup on both pages",
-  );
+test("/toolsets/ is the toolset builder: its list ticks the toolsets, its panel shows the line", () => {
+  const html = read("toolsets/index.html");
+  const pick = /<div class="pick" id="builder">([\s\S]*?)<\/div>\n\s*<p class="strip-key/.exec(
+    html,
+  )![1];
   const rows = [
-    ...sets.matchAll(
-      /<li class="ts-row on" data-set="([a-z_]+)">[\s\S]*?<span data-n>(\d+)<\/span>/g,
+    ...pick.matchAll(
+      /<li class="tsx ts-row on" id="ts-([a-z_]+)" data-set="\1">\s*<label class="tsx-pick"><input type="checkbox" value="\1" checked>[\s\S]*?<span data-n>(\d+)<\/span>/g,
     ),
   ];
   assert.deepEqual(
     rows.map(([, name, n]) => [name, Number(n)]),
     catalog.toolsets.map((s) => [s.name, s.tools]),
+    "one box per toolset, in the list itself",
   );
   const presets = [
-    ...sets.matchAll(/data-preset="\d+"[^>]*>([^<]+)<span class="n">(\d+)<\/span>/g),
+    ...pick.matchAll(/data-preset="\d+"[^>]*>([^<]+)<span class="n">(\d+)<\/span>/g),
   ];
   assert.deepEqual(
     presets.map(([, label, n]) => [unescape(label), Number(n)]),
     readmeProfiles().map((p) => [p.label, p.tools]),
   );
+  const panel = /<aside class="builder" id="line"[\s\S]*?<\/aside>/.exec(html)![0];
+  assert.doesNotMatch(panel, /data-preset|id="ts-list"/, "the panel no longer lists the toolsets");
+  assert.match(panel, /<a class="btn show-sel" id="show-cat" href="\.\.\/tools\/">/);
+  assert.equal(html.match(/<aside class="builder"/g)!.length, 1);
   const data = JSON.parse(
-    /<script type="application\/json" id="builder-data">([\s\S]*?)<\/script>/.exec(
-      read("toolsets/index.html"),
-    )![1],
+    /<script type="application\/json" id="builder-data">([\s\S]*?)<\/script>/.exec(html)![1],
   );
   assert.deepEqual(
     data.tools,
     catalog.tools.map(({ name, toolset, risk, tokens }) => ({ name, toolset, risk, tokens })),
   );
   assert.deepEqual(data.totals, JSON.parse(read("tools.json")).totals);
-  assert.match(read("toolsets/index.html"), /<script defer src="\.\.\/assets\/toolsets\.js">/);
-  assert.ok(files.includes("assets/toolsets.js"));
+  assert.match(html, /<script defer src="\.\.\/assets\/toolsets\.js">/);
   assert.match(read("assets/toolsets.js"), /function initBuilder\(/);
-  assert.match(read("assets/catalog.js"), /function initBuilder\(/);
+  assert.match(read("assets/toolsets.js"), /const panel = \$\("#line"\);/, "the panel is fitted");
+});
+
+test("/tools/ is the catalog alone, and its lead sends to the builder on /toolsets/", () => {
+  const html = read("tools/index.html");
+  for (const gone of [
+    'class="builder"',
+    'id="b-tokens"',
+    'id="ts-list"',
+    'id="show-sel"',
+    "data-preset",
+  ])
+    assert.ok(!html.includes(gone), `no ${gone} on /tools/`);
+  assert.ok(!idsOf("tools/index.html").has("builder"), "no #builder target on /tools/");
+  const js = read("assets/catalog.js");
+  for (const gone of ["initBuilder", "#show-sel", "data-add-set", "Loaded by your configuration"])
+    assert.ok(!js.includes(gone), `catalog.js: ${gone}`);
+  const data = JSON.parse(
+    /<script type="application\/json" id="catalog-data">([\s\S]*?)<\/script>/.exec(html)![1],
+  );
+  assert.equal(data.profiles, undefined, "the profiles were only for the builder");
+  const lead = /<p class="lead">([\s\S]*?)<\/p>/.exec(html)![1];
+  assert.match(lead, /<a href="\.\.\/toolsets\/#builder">build your toolset line<\/a>/);
+  assert.match(html, /<aside class="rail" aria-label="Filters">\s*<div class="facets">/);
+  assert.match(js, /params\.get\("sets"\)/, "the builder's link to the catalog is read");
+  assert.match(js, /params\.get\("risk"\) === "read"/);
+});
+
+test("every link to the builder lands on the toolset list of /toolsets/", () => {
+  const found: string[] = [];
+  for (const page of pages)
+    for (const [, url] of withoutData(read(page)).matchAll(/href="([^"]*#builder)"/g)) {
+      found.push(page);
+      assert.deepEqual(
+        resolve(page, url),
+        { target: "toolsets/index.html", fragment: "builder" },
+        `${page}: ${url}`,
+      );
+    }
+  assert.equal(found.filter((p) => p === "tools/index.html").length, 1, "the catalog's lead");
+  assert.equal(found.filter((p) => p === "index.html").length, 1, "the landing");
+  for (const set of catalog.toolsets)
+    assert.ok(found.includes(toolsetPage(set.name)), `${set.name}: its page links the builder`);
+  assert.equal(found.length, 2 + catalog.toolsets.length);
+  const html = read("toolsets/index.html");
+  const target = html.indexOf('id="builder"');
+  assert.ok(target > 0 && target < html.indexOf('id="ts-list"'), "#builder holds the list");
+  assert.ok(target < html.indexOf('id="line"'), "and comes before the panel");
+  assert.equal(html.split('id="builder"').length, 2, "one #builder");
+});
+
+test("narrow screens keep the line at hand with a bar that rides along with the list", () => {
+  const html = read("toolsets/index.html");
+  const main = /<div class="tsx-main">([\s\S]*?)<aside class="builder"/.exec(html)![1];
+  const bar = /<div class="linebar" id="linebar">[\s\S]*?<\/div>\n<\/div>/.exec(main)?.[0];
+  assert.ok(bar, "the bar sits in the list column, so it stops before the panel");
+  const k = (catalog.totals.tokens / 1000).toFixed(1);
+  assert.ok(
+    bar!.includes(`<b id="lb-tokens">~${k}k tokens</b>`),
+    "the full set before the script runs",
+  );
+  assert.match(bar!, /<a class="btn btn-sm lb-see" href="#line">See the line<\/a>/);
+  assert.match(
+    bar!,
+    /<button class="btn btn-sm btn-primary" type="button" id="lb-copy" data-copy-text="DISCORD_MCP_TOOLSETS=all">Copy line<\/button>/,
+  );
+  const css = read("assets/site.css");
+  assert.match(css, /\.linebar \{\s*display: none;/, "hidden where the panel stays in view");
+  assert.match(
+    read("assets/toolsets.js"),
+    /lineCopy\.disabled = !usable;/,
+    "nothing to copy, no copy",
+  );
 });
 
 test("each toolset page lists its tools from tools.json, and every tool appears on exactly one", async () => {
@@ -1239,16 +1315,14 @@ test("a toolset's risk mix is the same strip on the landing, the catalog and the
       `catalog: ${set.name} mix text`,
     );
 
-    for (const page of ["tools/index.html", "toolsets/index.html"]) {
-      const row = new RegExp(`<li class="ts-row on" data-set="${set.name}">[\\s\\S]*?</li>`).exec(
-        read(page),
-      )![0];
-      assert.deepEqual(stripOf(row), set.risk, `${page}: ${set.name} builder row`);
-      assert.ok(
-        row.includes(`<span class="vh" data-mix>${mixOf(set.risk)}</span>`),
-        `${page}: ${set.name} builder row text`,
-      );
-    }
+    const row = new RegExp(`<li class="tsx ts-row on" id="ts-${set.name}"[\\s\\S]*?</li>`).exec(
+      read("toolsets/index.html"),
+    )![0];
+    assert.deepEqual(stripOf(row), set.risk, `builder: ${set.name}`);
+    assert.ok(
+      row.includes(`<span data-mix>${mixOf(set.risk)}</span>`),
+      `builder: ${set.name} text`,
+    );
   }
   for (const page of ["index.html", "tools/index.html", "toolsets/index.html"])
     assert.match(
@@ -1283,16 +1357,16 @@ test("the builder's read-only switch leaves the catalog's group headers to the f
 });
 
 test("the builder panel keeps its summary whole and scrolls only its options, with a cue", () => {
-  for (const page of ["tools/index.html", "toolsets/index.html"]) {
-    const panel = /<aside class="builder" id="builder"[\s\S]*?<\/aside>/.exec(read(page))![0];
-    const [head, body] = panel.split('<div class="b-body">');
-    assert.ok(body, `${page}: the options have their own region`);
-    assert.match(head, /<div class="b-head">/, page);
-    for (const id of ["builder-title", "b-tokens", "b-meter", "b-mix"])
-      assert.ok(head.includes(`id="${id}"`), `${page}: ${id} is in the summary`);
-    for (const id of ["b-ro", "b-env", "presets", "ts-list"])
-      assert.ok(body.includes(`id="${id}"`), `${page}: ${id} is in the options`);
-  }
+  const panel = /<aside class="builder" id="line"[\s\S]*?<\/aside>/.exec(
+    read("toolsets/index.html"),
+  )![0];
+  const [head, body] = panel.split('<div class="b-body">');
+  assert.ok(body, "the options have their own region");
+  assert.match(head, /<div class="b-head">/);
+  for (const id of ["builder-title", "b-tokens", "b-meter", "b-mix"])
+    assert.ok(head.includes(`id="${id}"`), `${id} is in the summary`);
+  for (const id of ["b-env", "b-ro", "show-cat"])
+    assert.ok(body.includes(`id="${id}"`), `${id} is in the options`);
   const css = read("assets/site.css");
   const rule = (selector: string) =>
     new RegExp(`\\n${selector.replace(/[.:]/g, "\\$&")} \\{([^}]*)\\}`).exec(css)![1];
@@ -1309,7 +1383,7 @@ test("the risk levels have one name each on every page and in llms.txt", () => {
     (r) =>
       `<span data-risk="${r}"><span class="glyph" aria-hidden="true"><i></i><i></i><i></i></span><b>${catalog.totals.risk[r]}</b> ${RISK_WORD[r]}</span>`,
   ).join("");
-  for (const page of ["index.html", "tools/index.html", "toolsets/index.html"])
+  for (const page of ["index.html", "toolsets/index.html"])
     assert.ok(read(page).includes(counts), `${page}: risk counts`);
 });
 

@@ -234,10 +234,10 @@ export const permissionLabel = (permissions = []) =>
  * declared output and related tools. Pure, so pages can render it at build time too.
  * `ctx` gives the toolset labels, a name-to-tool map, a link builder, the heading level
  * of the sections, an optional `example` block after the description, and for the
- * catalog's panel a `loaded` slot and the relative URL of the tool's own page.
+ * catalog's panel the relative URLs of the tool's own page and of its toolset's page.
  */
 export function renderToolDetail(tool, ctx) {
-  const { labels, byName, href, loaded = "", level = 3, example = "", page } = ctx;
+  const { labels, byName, href, level = 3, example = "", page, toolsetPage } = ctx;
   const definition = tool.definition;
   const annotations = definition.annotations || {};
   const label = labels[tool.toolset];
@@ -257,10 +257,10 @@ export function renderToolDetail(tool, ctx) {
     ? tpl`<p class="note">Declared by <code>outputSchema</code>: clients receive this shape as <code>structuredContent</code>.</p>${outputTable(definition.outputSchema)}`
     : tpl`<p class="note">This tool declares no output schema. Its description says what it returns; this page shows no example rather than invent one.</p>`;
   const permission = permissionLines(tool.permissions).join("; ");
-  const head = tpl`<div class="crumb"><span>${label} toolset</span><code>${tool.toolset}</code></div>
+  const head = tpl`<div class="crumb">${toolsetPage ? tpl`<a href="${toolsetPage}">${label} toolset</a>` : tpl`<span>${label} toolset</span>`}<code>${tool.toolset}</code></div>
 <h2 id="dlg-title" tabindex="-1">${tool.title}</h2>
 <div class="dlg-name"><code id="dlg-name-code">${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button>${page ? tpl`<a class="btn btn-sm" href="${page}">Open the tool page</a>` : ""}</div>
-<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span>${loaded}</div>${permission ? tpl`<p class="dlg-perm">${permissionLabel(tool.permissions)}: ${permission}</p>` : ""}`;
+<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span></div>${permission ? tpl`<p class="dlg-perm">${permissionLabel(tool.permissions)}: ${permission}</p>` : ""}`;
   const body = tpl`<p class="desc">${linkedText(definition.description, byName, href)}</p>${example}
 <section class="d-sec" aria-labelledby="d-anno"><${h} id="d-anno">Risk and annotations</${h}>
 <table class="anno"><tbody>${rows}</tbody></table>

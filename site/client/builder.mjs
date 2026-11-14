@@ -2,10 +2,10 @@ import { $, $$, announce, reduceMotion, setTerminalLines } from "./common.mjs";
 import { formatInt, formatTokens, mixText, plural, riskCounts, RISKS, tpl } from "./tpl.mjs";
 
 /**
- * The toolset builder, on the catalog and on /toolsets/. `data` holds the totals, toolsets,
- * README profiles and, per tool, its toolset, risk and tokens. `onRender` runs after each
- * update with the selected toolsets. Returns the selection, the read-only switch and a
- * function that renders the builder again after the selection changes from outside.
+ * The toolset builder of /toolsets/: the list ticks toolsets, the panel shows what they come
+ * to. `data` holds the totals, toolsets, README profiles and, per tool, its toolset, risk and
+ * tokens. `onRender` runs after each update with the selected toolsets and the result: the
+ * config lines, whether they can be copied, and the tools and tokens they load.
  */
 export function initBuilder(data, { onRender } = {}) {
   const tools = data.tools;
@@ -89,7 +89,7 @@ export function initBuilder(data, { onRender } = {}) {
       const fill = $(".ts-bar i", li);
       fill.style.width = ((cost / maxTokens) * 100).toFixed(1) + "%";
       fill.hidden = cost === 0;
-      $("[data-mix]", li).textContent = mixText(countRisks(inSet));
+      $("[data-mix]", li).textContent = mixText(countRisks(inSet)) || "left out by read-only mode";
     }
     $("#ro-legend").hidden = !emptied;
     for (const button of presets) {
@@ -135,9 +135,10 @@ export function initBuilder(data, { onRender } = {}) {
         ? `Includes ${plural(counts.destructive, "destructive tool")}: a toolset always brings its whole module.`
         : "No destructive tool in this selection.";
     }
-    setTerminalLines(env, usable ? configLines(list) : ["# Nothing to copy yet"]);
+    const lines = configLines(list);
+    setTerminalLines(env, usable ? lines : ["# Nothing to copy yet"]);
     copy.disabled = !usable;
-    onRender?.(list);
+    onRender?.(list, { lines, usable, tools: picked.length, tokens, readOnly: ro });
     scheduleFit();
   }
 
@@ -168,7 +169,7 @@ export function initBuilder(data, { onRender } = {}) {
   // A sticky panel is cut by the window before it sticks, and pushed under the header by the
   // footer at the end of the page. Giving it the room in view instead keeps it whole: the
   // summary stays, the options scroll, down to a strip of them when the window is short.
-  const panel = $("#builder");
+  const panel = $("#line");
   const USABLE = 48;
   const WINDOW_GAP = 8;
   let fitting = false;
@@ -195,5 +196,4 @@ export function initBuilder(data, { onRender } = {}) {
 
   render();
   fit();
-  return { selected, readOnly, render };
 }

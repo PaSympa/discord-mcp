@@ -13,7 +13,7 @@ import {
   tpl,
 } from "../client/tpl.mjs";
 import { firstFitting, ICONS, layout, SEARCH_KEYS, searchHint } from "./layout.mjs";
-import { builder } from "./builder.mjs";
+import { stripKey } from "./parts.mjs";
 
 const UP = "../";
 
@@ -77,7 +77,7 @@ function facets(site) {
 </div>`;
 }
 
-/** What the catalog script needs, as compact JSON: definitions, toolsets and profiles. */
+/** What the catalog script needs, as compact JSON: definitions and toolsets. */
 function payload(site) {
   const data = {
     totals: site.totals,
@@ -90,7 +90,6 @@ function payload(site) {
       tokens,
       risk,
     })),
-    profiles: site.profiles.map(({ label, all, sets }) => ({ label, all, sets })),
     tools: site.tools.map(
       ({
         name,
@@ -126,17 +125,17 @@ export function renderCatalog(site) {
   const { totals } = site;
   const body = tpl`<div class="wrap cat-top">
   <h1>Tools</h1>
-  <p class="lead"><span data-total>${totals.tools}</span> tools in ${totals.toolsets} toolsets, generated from the server's own <code>tools/list</code>: what each one can change, what it returns, and what it costs in context. <a href="#builder">Build a toolset line</a> to load only what you need.</p>
+  <p class="lead"><span data-total>${totals.tools}</span> tools in ${totals.toolsets} toolsets, generated from the server's own <code>tools/list</code>: what each one can change, what it returns, and what it costs in context. To load fewer of them, <a href="${UP}toolsets/#builder">build your toolset line</a>.</p>
 </div>
-<div class="wrap layout">
+<div class="wrap layout cat-layout">
+  <div class="search" id="search">
+    ${ICONS.search}
+    <label class="vh" for="q">Search tools by task, name or parameter</label>
+    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name" data-wide-placeholder="Search by task or name, for example: ban a member" aria-keyshortcuts="${SEARCH_KEYS}">
+    ${searchHint()}
+  </div>
+  <aside class="rail" aria-label="Filters">${facets(site)}${stripKey("rail-key")}</aside>
   <section class="catalog" id="catalog" aria-label="Tool catalog">
-    <div class="search" id="search">
-      ${ICONS.search}
-      <label class="vh" for="q">Search tools by task, name or parameter</label>
-      <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name" data-wide-placeholder="Search by task or name, for example: ban a member" aria-keyshortcuts="${SEARCH_KEYS}">
-      ${searchHint()}
-    </div>
-    ${facets(site)}
     <div class="count-row">
       <p class="count" id="count" aria-live="polite">Showing all <span data-total>${totals.tools}</span> tools</p>
       <button class="clear" type="button" id="clear" hidden>Clear filters</button>
@@ -149,7 +148,6 @@ export function renderCatalog(site) {
       <button class="btn" type="button" id="empty-clear">Clear search and filters</button>
     </div>
   </section>
-  ${builder(site, { up: UP, showInCatalog: true })}
 </div>
 <dialog id="tool" aria-labelledby="dlg-title">
   <div class="dlg">
@@ -168,7 +166,7 @@ export function renderCatalog(site) {
     title: "discord-mcp tool catalog",
     description: firstFitting(
       [
-        `All ${totals.tools} tools of the discord-mcp server: what each one can change, its parameters and output, and a toolset builder that estimates context cost.`,
+        `All ${totals.tools} tools of the discord-mcp server: what each one can change, its parameters and output, and what it costs in context.`,
       ],
       160,
     ),

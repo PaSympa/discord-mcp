@@ -27,7 +27,7 @@ Version ${site.version}. Run it with \`npx -y @pasympa/discord-mcp\` and your bo
 
 ## Toolsets
 
-One page per toolset, with its tools, risk mix, context cost and the README profiles that include it. [All toolsets](${SITE_URL}${TOOLSETS_PATH}) also has the builder for the \`DISCORD_MCP_TOOLSETS\` line.
+One page per toolset, with its tools, risk mix, context cost and the README profiles that include it. [All toolsets](${SITE_URL}${TOOLSETS_PATH}) is where you build the \`DISCORD_MCP_TOOLSETS\` line.
 
 ${sets.join("\n")}
 
@@ -35,7 +35,7 @@ ${sections.join("\n")}
 ## Optional
 
 - [tools.json](${SITE_URL}tools.json): the ${totals.tools} tool definitions as \`tools/list\` serves them, with toolset, risk and estimated token cost.
-- [Tool catalog](${SITE_URL}tools/): search, risk filters and the toolset builder.
+- [Tool catalog](${SITE_URL}tools/): search, risk and toolset filters, and each tool's schemas.
 - [README](${REPO}#readme): setup for each client, configuration and safety.
 `;
 }

@@ -23,6 +23,7 @@ function capturePinFetches(hasMore: boolean, items: PinFixture[]): Record<string
   const channel = {
     name: "chan",
     guildId: GUILD,
+    guild: { members: { me: null } },
     isDMBased: () => false,
     isTextBased: () => true,
     messages: {

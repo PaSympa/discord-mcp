@@ -1,6 +1,6 @@
 import { ChannelType, CategoryChannel, GuildChannel } from "discord.js";
 import { z } from "zod";
-import { discord, isGuildAllowed } from "../client.js";
+import { discord, isGuildAllowed, isObfuscated, splitObfuscated } from "../client.js";
 import { defineTool, defineModule, guildId, structured } from "./define.js";
 
 const guildSummary = z.object({
@@ -76,7 +76,7 @@ const tools = [
   defineTool({
     name: "discord_list_channels",
     description:
-      "List all channels in a server, grouped by their parent category and ordered by position. Returns a JSON object keyed by category name. Read-only. Use discord_find_channel_by_name to locate a specific channel.",
+      'List all channels in a server, grouped by their parent category and ordered by position. Returns a JSON object keyed by category name. Channels that Discord hides from the bot behind the placeholder name ___hidden___ are left out, and discord_find_channel_by_name reports how many; a visible channel whose category is hidden is listed under "Hidden parent". Read-only. Use discord_find_channel_by_name to locate a specific channel.',
     annotations: { title: "List channels", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -85,7 +85,8 @@ const tools = [
     handle: async ({ guild_id }) => {
       const guild = await discord.guilds.fetch(guild_id);
       await guild.channels.fetch();
-      const categories = guild.channels.cache
+      const { visible } = splitObfuscated(guild.channels.cache);
+      const categories = visible
         .filter((c) => c.type === ChannelType.GuildCategory)
         .sort((a, b) => (a as CategoryChannel).position - (b as CategoryChannel).position);
 
@@ -94,12 +95,17 @@ const tools = [
         result[cat.name] = [];
       });
 
-      guild.channels.cache
+      visible
         .filter((c) => c.type !== ChannelType.GuildCategory)
         .sort((a, b) => (a as GuildChannel).position - (b as GuildChannel).position)
         .forEach((ch) => {
           const entry = { id: ch.id, name: ch.name, type: ChannelType[ch.type] };
-          const parentName = (ch as GuildChannel).parent?.name ?? "No Category";
+          const parent = (ch as GuildChannel).parent;
+          const parentName = !parent
+            ? "No Category"
+            : isObfuscated(parent)
+              ? "Hidden parent"
+              : parent.name;
           if (!result[parentName]) result[parentName] = [];
           result[parentName].push(entry);
         });
@@ -110,21 +116,32 @@ const tools = [
   defineTool({
     name: "discord_find_channel_by_name",
     description:
-      "Find channels whose name contains a substring (case-insensitive). Returns { matches: [...] } with the id, name and type of every match, active threads included. The list is empty when nothing matches. Useful for resolving a channel_id when you only know the channel's name. Use discord_list_channels to see every channel grouped by category.",
+      "Find channels whose name contains a substring (case-insensitive). Returns { matches: [...], hiddenChannels } with the id, name and type of every match, active threads included. Channels that Discord hides from the bot behind the placeholder name ___hidden___ are left out of matches and counted in hiddenChannels; when it is above 0, a note field says a channel missing from matches may still exist. The list is empty when nothing matches. Useful for resolving a channel_id when you only know the channel's name. Use discord_list_channels to see every channel grouped by category.",
     annotations: { title: "Find channel by name", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
       name: z.string().describe("Case-insensitive substring to match against channel names."),
     }),
-    outputSchema: z.object({ matches: z.array(channelSummary) }),
+    outputSchema: z.object({
+      matches: z.array(channelSummary),
+      hiddenChannels: z.number().int(),
+      note: z.string().optional(),
+    }),
     handle: async ({ guild_id, name }) => {
       const guild = await discord.guilds.fetch(guild_id);
       await guild.channels.fetch();
       const keyword = name.toLowerCase();
-      const matches = guild.channels.cache
+      const { visible, hidden: hiddenChannels } = splitObfuscated(guild.channels.cache);
+      const matches = visible
         .filter((c) => c.name.toLowerCase().includes(keyword))
         .map((c) => ({ id: c.id, name: c.name, type: ChannelType[c.type] }));
-      return structured({ matches });
+      return structured({
+        matches,
+        hiddenChannels,
+        ...(hiddenChannels > 0 && {
+          note: `${hiddenChannels} channel(s) are hidden from the bot and left out of matches, so a channel missing here may still exist. Grant the bot View Channel on it to find it.`,
+        }),
+      });
     },
   }),
 ];

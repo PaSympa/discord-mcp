@@ -543,7 +543,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 
 - **Every call fails with close code `4014`.** The bot requests a privileged intent that is off in the Developer Portal. Enable Server Members and Message Content there, or set `DISCORD_GUILD_MEMBERS=false` / `DISCORD_MESSAGE_CONTENT=false`.
 - **Messages come back with empty text.** Message Content is off in the portal. Enable it; the flag alone does not change what the REST API returns.
-- **A channel reads as empty.** The bot lacks Read Message History there: Discord returns an empty list rather than an error.
+- **A read fails with "lacks the Read Message History permission".** Without it, Discord returns an empty list rather than an error, so the read tools report the missing permission instead of an empty channel. Grant it in the channel, or in the parent channel of a thread.
 - **`Missing Access` or `Missing Permissions`.** The bot cannot see the channel, or the target role or member sits above the bot's highest role. Check overwrites with `discord_get_channel_permissions`.
 - **Finding IDs.** Enable **Developer Mode** in Discord (Settings, Advanced), then right-click a server, channel or user and choose **Copy ID**.
 

@@ -38,6 +38,7 @@ test("bulk_delete_messages: default previews via fetch; dry_run:false calls bulk
   const fakeChannel = {
     name: "chan",
     guildId: GUILD,
+    guild: { members: { me: null } },
     isDMBased: () => false,
     isTextBased: () => true,
     messages: { fetch: async () => ({ filter: () => ({ size: 1 }), size: 3 }) },

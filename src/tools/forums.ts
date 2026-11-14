@@ -1,6 +1,6 @@
 import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
 import { z } from "zod";
-import { discord, fetchChannelChecked } from "../client.js";
+import { discord, fetchChannelChecked, assertCanReadHistory } from "../client.js";
 import { MAX_FETCH_LIMIT, MIN_ARCHIVED_THREAD_LIMIT } from "../constants.js";
 import { embedSummary, embedField } from "../embeds.js";
 import {
@@ -157,7 +157,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_post",
     description:
-      "Get a forum post's details (title, archived/locked state, applied tags, message count) plus its recent messages, oldest-to-newest. Read-only. Pass the post's thread_id. Returns a JSON object.",
+      "Get a forum post's details (title, archived/locked state, applied tags, message count) plus its recent messages, oldest-to-newest. Read-only. Pass the post's thread_id. Requires the View Channel and Read Message History permissions on the forum; without Read Message History an empty message list fails with an error naming the permission. Returns a JSON object.",
     annotations: { title: "Get forum post", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       thread_id: threadId,
@@ -180,6 +180,7 @@ const tools = [
     handle: async ({ thread_id, limit }) => {
       const thread = await getThreadChannel(thread_id);
       const messages = await thread.messages.fetch({ limit, cache: false });
+      if (messages.size === 0) assertCanReadHistory(thread);
       const result = {
         id: thread.id,
         name: thread.name,

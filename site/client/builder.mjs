@@ -31,7 +31,7 @@ export function initBuilder(data, { onRender } = {}) {
     }
     const start = performance.now();
     const step = (now) => {
-      const k = Math.min(1, (now - start) / 260);
+      const k = Math.min(1, Math.max(0, (now - start) / 260));
       el.textContent = fmtBig(from + (to - from) * (1 - Math.pow(1 - k, 3)));
       if (k < 1 && shownTokens === to) requestAnimationFrame(step);
     };
@@ -136,6 +136,8 @@ export function initBuilder(data, { onRender } = {}) {
         : "No destructive tool in this selection.";
     }
     const lines = configLines(list);
+    $(".term-title", env).textContent =
+      format === "json" ? "JSON, in the env block" : "Environment";
     setTerminalLines(env, usable ? lines : ["# Nothing to copy yet"]);
     copy.disabled = !usable;
     onRender?.(list, { lines, usable, tools: picked.length, tokens, readOnly: ro });

@@ -24,7 +24,6 @@
   align-items: start;
 }
 
-/* Wide: the filters in a rail on the left. Narrow: search, filters, results, in source order. */
 @media (min-width: 1100px) {
   .cat-layout {
     grid-template-columns: 208px minmax(0, 1fr);

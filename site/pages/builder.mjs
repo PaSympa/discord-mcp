@@ -26,7 +26,7 @@ export function presets(site) {
 /** One toolset of the list on /toolsets/: its box ticks it into the line, its title opens its page. */
 export function pickRow(set, max) {
   return tpl`<li class="tsx ts-row on" id="ts-${set.name}" data-set="${set.name}">
-  <label class="tsx-pick"><input type="checkbox" value="${set.name}" checked><span class="vh">Load ${set.label}</span></label>
+  <label class="tsx-pick"><input type="checkbox" value="${set.name}" checked autocomplete="off"><span class="vh">Load ${set.label}</span></label>
   <div class="tsx-head">
     <h2><a href="${set.name}/">${set.label}</a></h2>
     <code>${set.name}</code>
@@ -55,18 +55,18 @@ export function linePanel(site, { up }) {
     <div class="env-top">
       <h3>Paste this in your config</h3>
       <div class="seg" role="radiogroup" aria-label="Line format">
-        <label><input type="radio" name="fmt" value="env" checked><span>Env lines</span></label>
-        <label><input type="radio" name="fmt" value="json"><span>JSON</span></label>
+        <label><input type="radio" name="fmt" value="env" checked autocomplete="off"><span>Env lines</span></label>
+        <label><input type="radio" name="fmt" value="json" autocomplete="off"><span>JSON</span></label>
       </div>
     </div>
     ${terminal({ code: ALL_LINE, lang: "text", title: "Environment", copyLabel: "Copy your configuration", id: "b-env" })}
     <p class="hint" id="b-hint" aria-live="polite">Same as leaving DISCORD_MCP_TOOLSETS unset: every toolset loads.</p>
   </div>
   <div class="ro-box">
-    <label class="switch"><input type="checkbox" id="b-ro"><span class="switch-ui" aria-hidden="true"></span><span>Read-only mode</span></label>
+    <label class="switch"><input type="checkbox" id="b-ro" autocomplete="off"><span class="switch-ui" aria-hidden="true"></span><span>Read-only mode</span></label>
     <p class="note">Keeps the ${totals.risk.read} tools that only read. <a href="#read-only">How it works</a></p>
   </div>
-  <a class="btn show-sel" id="show-cat" href="${up}tools/">See these tools in the catalog</a>
+  <a class="btn cat-link" id="show-cat" href="${up}tools/">See these tools in the catalog</a>
   </div>
 </aside>`;
 }
@@ -77,7 +77,7 @@ export function lineBar(site) {
   return tpl`<div class="linebar" id="linebar">
   <div class="linebar-in">
     <p class="lb-what"><b id="lb-tokens">${formatTokens(totals.tokens)} tokens</b><span id="lb-count">${plural(totals.tools, "tool")} in ${plural(totals.toolsets, "toolset")}</span></p>
-    <a class="btn btn-sm lb-see" href="#line">See the line</a>
+    <a class="btn btn-sm lb-see" href="#line"><span>See<span class="lb-the"> the</span> line</span></a>
     <button class="btn btn-sm btn-primary" type="button" id="lb-copy" data-copy-text="${ALL_LINE}">Copy line</button>
   </div>
 </div>`;

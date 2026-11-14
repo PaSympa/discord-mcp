@@ -156,12 +156,26 @@ function applyFilters() {
       ? `Showing all ${TOOLS.length} tools`
       : `Showing ${shown.length} of ${TOOLS.length} tools`;
   $("#clear").hidden = !active;
+  syncUrl(q);
   $("#mode-note").hidden = !(ranking && ranking.mode === "or" && shown.length);
   $("#empty").hidden = shown.length !== 0;
   if (shown.length === 0)
     $("#empty-msg").textContent = q
       ? `No tool matches “${q}” with these filters. Try other words, or clear the filters.`
       : "No tool matches these filters.";
+}
+
+/** Keeps the address in step with the filters, so a reload or a shared link shows the same list. */
+function syncUrl(q) {
+  const query = [
+    ...(q ? ["q=" + encodeURIComponent(q)] : []),
+    ...(state.sets.size ? ["sets=" + SETS.filter((s) => state.sets.has(s)).join(",")] : []),
+    ...(state.risks.size ? ["risk=" + RISKS.filter((r) => state.risks.has(r)).join(",")] : []),
+    ...(state.dry ? ["dry"] : []),
+  ].join("&");
+  const url = location.pathname + (query ? "?" + query : "") + location.hash;
+  if (url !== location.pathname + location.search + location.hash)
+    history.replaceState(history.state, "", url);
 }
 
 const toggle = (set, value) => (set.has(value) ? set.delete(value) : set.add(value));
@@ -301,7 +315,8 @@ window.addEventListener("hashchange", route);
 
 const params = new URLSearchParams(location.search);
 for (const s of (params.get("sets") || "").split(",")) if (SETS.includes(s)) state.sets.add(s);
-if (params.get("risk") === "read") state.risks.add("read");
+for (const r of (params.get("risk") || "").split(",")) if (RISKS.includes(r)) state.risks.add(r);
+state.dry = params.has("dry");
 const q0 = (params.get("q") || "").trim();
 if (q0) {
   input.value = q0;

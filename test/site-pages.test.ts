@@ -965,7 +965,7 @@ test("/toolsets/ is the toolset builder: its list ticks the toolsets, its panel 
   )![1];
   const rows = [
     ...pick.matchAll(
-      /<li class="tsx ts-row on" id="ts-([a-z_]+)" data-set="\1">\s*<label class="tsx-pick"><input type="checkbox" value="\1" checked>[\s\S]*?<span data-n>(\d+)<\/span>/g,
+      /<li class="tsx ts-row on" id="ts-([a-z_]+)" data-set="\1">\s*<label class="tsx-pick"><input type="checkbox" value="\1" checked autocomplete="off">[\s\S]*?<span data-n>(\d+)<\/span>/g,
     ),
   ];
   assert.deepEqual(
@@ -982,7 +982,13 @@ test("/toolsets/ is the toolset builder: its list ticks the toolsets, its panel 
   );
   const panel = /<aside class="builder" id="line"[\s\S]*?<\/aside>/.exec(html)![0];
   assert.doesNotMatch(panel, /data-preset|id="ts-list"/, "the panel no longer lists the toolsets");
-  assert.match(panel, /<a class="btn show-sel" id="show-cat" href="\.\.\/tools\/">/);
+  assert.match(panel, /<a class="btn cat-link" id="show-cat" href="\.\.\/tools\/">/);
+  const controls = [...html.matchAll(/<input type="(?:checkbox|radio)"[^>]*>/g)].map(
+    ([tag]) => tag,
+  );
+  assert.equal(controls.length, catalog.toolsets.length + 3, "boxes, read-only switch, format");
+  for (const tag of controls)
+    assert.match(tag, /autocomplete="off"/, `${tag}: a restored page keeps box and line in step`);
   assert.equal(html.match(/<aside class="builder"/g)!.length, 1);
   const data = JSON.parse(
     /<script type="application\/json" id="builder-data">([\s\S]*?)<\/script>/.exec(html)![1],
@@ -1020,7 +1026,12 @@ test("/tools/ is the catalog alone, and its lead sends to the builder on /toolse
   assert.match(lead, /<a href="\.\.\/toolsets\/#builder">build your toolset line<\/a>/);
   assert.match(html, /<aside class="rail" aria-label="Filters">\s*<div class="facets">/);
   assert.match(js, /params\.get\("sets"\)/, "the builder's link to the catalog is read");
-  assert.match(js, /params\.get\("risk"\) === "read"/);
+  assert.match(js, /params\.get\("risk"\)/);
+  assert.match(
+    js,
+    /history\.replaceState\(history\.state, "", url\)/,
+    "the address follows the filters",
+  );
 });
 
 test("every link to the builder lands on the toolset list of /toolsets/", () => {
@@ -1056,13 +1067,26 @@ test("narrow screens keep the line at hand with a bar that rides along with the 
     bar!.includes(`<b id="lb-tokens">~${k}k tokens</b>`),
     "the full set before the script runs",
   );
-  assert.match(bar!, /<a class="btn btn-sm lb-see" href="#line">See the line<\/a>/);
+  assert.match(
+    bar!,
+    /<a class="btn btn-sm lb-see" href="#line"><span>See<span class="lb-the"> the<\/span> line<\/span><\/a>/,
+  );
   assert.match(
     bar!,
     /<button class="btn btn-sm btn-primary" type="button" id="lb-copy" data-copy-text="DISCORD_MCP_TOOLSETS=all">Copy line<\/button>/,
   );
   const css = read("assets/site.css");
   assert.match(css, /\.linebar \{\s*display: none;/, "hidden where the panel stays in view");
+  const z = (selector: string) =>
+    Number(
+      new RegExp(`\\n\\s*${selector.replace(/\./g, "\\.")} \\{[^}]*z-index: (\\d+);`).exec(css)![1],
+    );
+  assert.ok(z(".linebar") < z(".top"), "the bar passes under the sticky header");
+  assert.match(
+    css,
+    /:root:has\(#linebar\) \{\s*scroll-padding-bottom: 88px;/,
+    "focus clears the bar",
+  );
   assert.match(
     read("assets/toolsets.js"),
     /lineCopy\.disabled = !usable;/,

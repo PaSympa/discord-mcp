@@ -1,7 +1,6 @@
 .tsx-main {
   min-width: 0;
 }
-/* The panel starts level with the title, so short windows still show it whole. */
 @media (min-width: 1100px) {
   .ts-layout > .builder {
     margin-top: var(--s7);
@@ -137,7 +136,6 @@
   white-space: nowrap;
 }
 
-/* The list is the selection: a box per toolset, its title still a link to its page. */
 .presets {
   margin-bottom: var(--s4);
 }
@@ -312,7 +310,7 @@
   gap: var(--s1) var(--s3);
 }
 /* A short window: the summary tightens so the options keep room under it. */
-@media (max-height: 800px) and (min-width: 1100px) {
+@media (max-height: 860px) and (min-width: 1100px) {
   .b-head {
     padding: var(--s4) var(--s5) var(--s3);
   }
@@ -389,16 +387,15 @@
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
-.show-sel {
+.cat-link {
   width: 100%;
   margin-top: var(--s4);
 }
-.show-sel[aria-disabled="true"] {
+.cat-link[aria-disabled="true"] {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* Narrow screens put the panel after the list, so the line rides along with the list. */
 .linebar {
   display: none;
 }
@@ -438,6 +435,9 @@
   border-color: var(--t-line-strong);
   color: var(--t-fg);
 }
+#lb-copy {
+  min-width: 6.5em;
+}
 
 @media (max-width: 1099px) {
   .builder {
@@ -456,18 +456,20 @@
   .b-body::after {
     content: none;
   }
+  /* Below the sticky header (z-index 20), and focus never lands under the bar. */
   .linebar {
     display: block;
     position: sticky;
-    bottom: var(--s3);
-    z-index: 20;
-    margin-top: var(--s6);
-    padding: 0 var(--s2) 0 var(--s4);
+    bottom: 0;
+    z-index: 10;
+    margin: var(--s6) calc(-1 * var(--s6)) 0;
+    padding-inline: var(--s6);
     background: var(--t-bg);
     color: var(--t-fg);
-    border: 1px solid var(--t-line-strong);
-    border-radius: var(--r3);
-    box-shadow: 0 8px 24px rgba(6, 6, 7, 0.24);
+    border-top: 1px solid var(--t-line-strong);
+  }
+  :root:has(#linebar) {
+    scroll-padding-bottom: 88px;
   }
 }
 
@@ -484,7 +486,8 @@
     grid-template-columns: 32px minmax(0, 1fr);
   }
   .linebar {
-    padding-left: var(--s3);
+    margin-inline: calc(-1 * var(--s4));
+    padding-inline: var(--s4);
   }
   .linebar .btn {
     padding: 0 var(--s2);
@@ -501,5 +504,10 @@
   .tsp-profiles code {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+}
+@media (max-width: 380px) {
+  .lb-the {
+    display: none;
   }
 }

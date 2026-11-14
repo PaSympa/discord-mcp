@@ -1014,7 +1014,8 @@ test("/tools/ is the catalog alone, and its lead sends to the builder on /toolse
   const data = JSON.parse(
     /<script type="application\/json" id="catalog-data">([\s\S]*?)<\/script>/.exec(html)![1],
   );
-  assert.equal(data.profiles, undefined, "the profiles were only for the builder");
+  assert.deepEqual(Object.keys(data), ["toolsets", "tools"], "no builder data left");
+  assert.deepEqual(Object.keys(data.toolsets[0]), ["name", "label", "tools"]);
   const lead = /<p class="lead">([\s\S]*?)<\/p>/.exec(html)![1];
   assert.match(lead, /<a href="\.\.\/toolsets\/#builder">build your toolset line<\/a>/);
   assert.match(html, /<aside class="rail" aria-label="Filters">\s*<div class="facets">/);

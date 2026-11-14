@@ -80,16 +80,7 @@ function facets(site) {
 /** What the catalog script needs, as compact JSON: definitions and toolsets. */
 function payload(site) {
   const data = {
-    totals: site.totals,
-    toolsets: site.toolsets.map(({ name, label, blurb, tools, bytes, tokens, risk }) => ({
-      name,
-      label,
-      blurb,
-      tools,
-      bytes,
-      tokens,
-      risk,
-    })),
+    toolsets: site.toolsets.map(({ name, label, tools }) => ({ name, label, tools })),
     tools: site.tools.map(
       ({
         name,

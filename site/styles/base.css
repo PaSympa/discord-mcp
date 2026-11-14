@@ -372,17 +372,6 @@ kbd {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.link-btn {
-  background: none;
-  border: 0;
-  padding: 0;
-  color: var(--brand-ink);
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  font-size: inherit;
-}
 .chips {
   display: flex;
   flex-wrap: wrap;

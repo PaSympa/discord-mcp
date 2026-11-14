@@ -15,6 +15,7 @@
 
 - `discord_edit_message` and `discord_edit_embed` name the permissions they need: View Channel and Read Message History, plus Embed Links for `discord_edit_embed`
 - The hint for Discord error 50001 also names a missing Read Message History, since Discord answers a single-message fetch without it with 50001
+- New logo: a chat bubble crossed by circuit traces. It replaces the old one in the server icons, the Claude Desktop bundle icon, the README banners and the social preview
 - The npm, MCP Registry and Docker image descriptions name Codex next to Claude, Cursor and VS Code
 - 23 tool descriptions name the tool to use instead and state behavior the schemas do not show, so an agent picks the right tool among similar ones. Examples: `discord_get_guild_info` and `discord_get_server_stats` point at each other, `discord_update_membership_screening` warns that `form_fields` deletes question fields, and `discord_find_channel_by_name` describes its `{ matches }` result instead of a JSON array
 - `discord_bulk_ban`'s dry run replies with the JSON structure `{ dry_run, would_ban }` instead of the prose "Dry run: N users would be banned". `would_ban` echoes the requested IDs unchecked: a real call can still fail some of them

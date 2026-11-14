@@ -95,5 +95,18 @@ test("formatToolError flattens ZodError paths and surfaces Discord hints", () =>
   );
   assert.match(formatToolError(accessErr), /lacks Read Message History to fetch a single message/);
 
+  const banErr = new DiscordAPIError(
+    { code: 500000, message: "Failed to ban users" },
+    500000,
+    400,
+    "POST",
+    "https://discord.com/api/v10/guilds/1/bulk-ban",
+    {},
+  );
+  assert.match(
+    formatToolError(banErr),
+    /Failed to ban users\. None of the users were banned\. Known causes: IDs that match no user, or users already banned\.$/,
+  );
+
   assert.equal(formatToolError(new Error("boom")), "boom");
 });

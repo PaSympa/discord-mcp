@@ -9,6 +9,7 @@
 - A Claude Desktop bundle, `discord-mcp.mcpb`, is attached to each GitHub Release and listed in the MCP Registry. Opening it installs the server and asks for the bot token; it runs on the Node.js built into Claude Desktop
 - `DISCORD_MCP_TRANSPORT=http` serves MCP over Streamable HTTP on `/mcp`, for remote clients such as the OpenAI Responses API, Codex and n8n. Every request must carry the `DISCORD_MCP_HTTP_TOKEN` bearer token. The server listens on `127.0.0.1:3000` by default and refuses a foreign `Host` header and any `Origin`. stdio stays the default
 - `discord_read_messages`, `discord_search_messages`, `discord_search_guild_messages`, `discord_fetch_pinned_messages`, `discord_get_forum_post` and `discord_read_dms` add `author_id` to every message, and `webhook_id` when a webhook, or an app replying to a command, sent it. A client can act on an author without searching members by name. `discord_read_messages` and `discord_fetch_pinned_messages` also return the channel's `guild_id`, enough to build a message link
+- `discord_get_forum_tags` adds `emoji_id` to each tag, so a tag with a custom server emoji no longer reads like a tag without one
 
 ### Changed
 
@@ -16,6 +17,7 @@
 - The hint for Discord error 50001 also names a missing Read Message History, since Discord answers a single-message fetch without it with 50001
 - The npm, MCP Registry and Docker image descriptions name Codex next to Claude, Cursor and VS Code
 - 23 tool descriptions name the tool to use instead and state behavior the schemas do not show, so an agent picks the right tool among similar ones. Examples: `discord_get_guild_info` and `discord_get_server_stats` point at each other, `discord_update_membership_screening` warns that `form_fields` deletes question fields, and `discord_find_channel_by_name` describes its `{ matches }` result instead of a JSON array
+- `discord_bulk_ban`'s dry run replies with the JSON structure `{ dry_run, would_ban }` instead of the prose "Dry run: N users would be banned". `would_ban` echoes the requested IDs unchecked: a real call can still fail some of them
 
 ### Fixed
 
@@ -27,6 +29,10 @@
 - `discord_get_channel_permissions` refuses a channel Discord hides from the bot behind the `___hidden___` placeholder, and the error says to grant the bot View Channel on it. Discord gives such a channel a single @everyone View Channel deny in place of its real overwrites, and the tool returned that deny as the channel's overwrites
 - `discord_audit_permissions` leaves out the `___hidden___` placeholders Discord shows for channels the bot cannot view, and counts them in `hiddenChannels`. From 2026-11-16, Discord's REST channel list omits those channels, so the audit would have reported each placeholder's @everyone View Channel deny as a real overwrite
 - `discord_set_forum_tags` keeps the ID of each existing tag it lists again, matched by name case-insensitively as Discord itself does, so posts keep that tag. Every call used to recreate all tags under new IDs, which stripped them from existing posts
+- `discord_set_forum_tags` keeps the emoji and moderated flag of a tag listed again without them. It used to send them as no emoji and `moderated: false`, so a moderator-only tag opened to everyone and a custom emoji was always lost. It accepts `emoji_id` for a custom emoji, `null` on `emoji_name` or `emoji_id` removes an emoji, and the reply names the tags created, deleted and changed, with the fields that changed
+- `discord_remove_reactions` rejects `user_id` without `emoji`, and an empty `emoji`, before any request. Both used to remove every reaction from every user and report success
+- `discord_bulk_ban` returns the IDs it banned and the IDs that failed, as `banned` and `failed` in structured output, instead of two counts. `failed` includes users who were already banned
+- `discord_bulk_ban` says plainly that none of the users were banned when Discord answers error 500000, and names the known causes: IDs that match no user, or users already banned. It used to show only Discord's "Failed to ban users"
 - `discord_get_scheduled_event` returns the interested count instead of `null`. It read the cached gateway copy of the event, which never carries `user_count`, while `discord_list_scheduled_events` already asked the API
 
 ## [2.3.0] - 2026-11-07

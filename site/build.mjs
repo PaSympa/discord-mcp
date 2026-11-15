@@ -36,6 +36,7 @@ const BUTTON_FILES = {
   "Install in VS Code": "install-vscode.svg",
   "Install in VS Code Insiders": "install-vscode-insiders.svg",
   "Install in Cursor": "install-cursor.svg",
+  "Install in Claude Desktop": "install-claude-desktop.svg",
 };
 const COPIED = {
   "assets/fonts/bricolage-grotesque-latin.woff2": join(

@@ -50,6 +50,7 @@ function clientPanel(site, client) {
   if (text.includes("**Install in VS Code**"))
     buttons.push("Install in VS Code", "Install in VS Code Insiders");
   if (text.includes("**Install in Cursor**")) buttons.push("Install in Cursor");
+  if (text.includes("**Install in Claude Desktop**")) buttons.push("Install in Claude Desktop");
   const titleOf = (block) =>
     block.lang === "bash" ? "Terminal" : codes.length === 1 && fileName ? fileName : "MCP config";
   const block = (b, i) =>

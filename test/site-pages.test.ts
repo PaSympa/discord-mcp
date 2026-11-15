@@ -768,7 +768,7 @@ test("permission lines keep the bracketed clauses, and the label follows the cou
       .map(unescape);
   assert.deepEqual(facts("discord_crosspost_message"), [
     "Discord permissions",
-    '<span class="perm">Send Messages</span><span class="perm">Manage Messages for messages authored by others</span>',
+    '<span class="perm">Read Message History and Send Messages</span><span class="perm">Manage Messages for messages authored by others</span>',
   ]);
   assert.deepEqual(facts("discord_set_nickname"), [
     "Discord permissions",
@@ -783,8 +783,8 @@ test("permission lines keep the bracketed clauses, and the label follows the cou
     '<span class="perm">Ban Members</span>',
   ]);
   assert.deepEqual(facts("discord_pin_message"), [
-    "Discord permission",
-    '<span class="perm">Pin Messages</span>',
+    "Discord permissions",
+    '<span class="perm">Pin Messages and Read Message History</span>',
   ]);
 });
 

@@ -2,8 +2,8 @@ import { $, $$, announce, initCommon, setTerminalLines } from "./common.mjs";
 import { formatInt, formatTokens } from "./tpl.mjs";
 
 initCommon({
-  onSlash: () => {
-    location.href = "tools/#search";
+  onSearch: () => {
+    location.href = "tools/#q";
   },
 });
 
@@ -66,6 +66,7 @@ function showProfile(say) {
     const tokens = Number(ro ? input.dataset.roTokens : input.dataset.tokens);
     row.classList.toggle("on", input === picked);
     $(".pf-tools", row).textContent = String(tools);
+    $(".pf-unit", row).textContent = tools === 1 ? " tool" : " tools";
     $(".pf-tok-short", row).textContent = formatTokens(tokens);
     $(".pf-tok-long", row).textContent =
       "about " + formatInt(Math.round(tokens / 100) * 100) + " tokens";
@@ -85,56 +86,37 @@ for (const input of profileInputs) input.addEventListener("change", () => showPr
 readOnly.addEventListener("change", () => showProfile(true));
 showProfile(false);
 
-// The recording loads only when asked for. Pausing draws the current frame on a canvas.
+// The recording loads only when asked for: the video keeps preload="none" until the first Play.
 const play = $("#demo-play");
 const frame = $("#demo-frame");
-let image = null;
-let still = null;
-let paused = false;
-function setButton(label, icon) {
-  play.querySelector("span").textContent = label;
-  play.querySelector("svg path").setAttribute("d", icon);
+const video = $("#demo-video");
+const [playIcon, pauseIcon] = $$("svg", play);
+play.setAttribute("role", "button");
+function showPlaying(playing) {
+  playIcon.toggleAttribute("hidden", playing);
+  pauseIcon.toggleAttribute("hidden", !playing);
+  $("span", play).textContent = playing ? "Pause the recording" : "Play the recording";
 }
-const PLAY_ICON = "M7 4.5v15l12-7.5z";
-const PAUSE_ICON = "M8 5h3v14H8zM13 5h3v14h-3z";
+video.addEventListener("play", () => {
+  showPlaying(true);
+  announce("Recording playing");
+});
+video.addEventListener("pause", () => {
+  showPlaying(false);
+  announce("Recording paused");
+});
+$("source", video).addEventListener("error", () => {
+  frame.hidden = true;
+  play.hidden = true;
+});
+play.addEventListener("keydown", (event) => {
+  if (event.key !== " ") return;
+  event.preventDefault();
+  play.click();
+});
 play.addEventListener("click", (event) => {
   event.preventDefault();
-  if (!image) {
-    image = document.createElement("img");
-    image.src = play.getAttribute("href");
-    image.alt = play.dataset.alt;
-    image.width = Number(play.dataset.width);
-    image.height = Number(play.dataset.height);
-    image.decoding = "async";
-    still = document.createElement("canvas");
-    still.setAttribute("role", "img");
-    still.setAttribute("aria-label", play.dataset.alt + ". Paused.");
-    still.hidden = true;
-    frame.append(image, still);
-    frame.hidden = false;
-    image.addEventListener("error", () => {
-      frame.hidden = true;
-      play.hidden = true;
-    });
-    setButton("Pause", PAUSE_ICON);
-    announce("Recording playing");
-    return;
-  }
-  if (paused) {
-    image.hidden = false;
-    still.hidden = true;
-    paused = false;
-    setButton("Pause", PAUSE_ICON);
-    announce("Recording playing");
-    return;
-  }
-  if (!image.complete || !image.naturalWidth) return;
-  still.width = image.naturalWidth;
-  still.height = image.naturalHeight;
-  still.getContext("2d").drawImage(image, 0, 0);
-  still.hidden = false;
-  image.hidden = true;
-  paused = true;
-  setButton("Play", PLAY_ICON);
-  announce("Recording paused");
+  frame.hidden = false;
+  if (video.paused) video.play().catch(() => showPlaying(false));
+  else video.pause();
 });

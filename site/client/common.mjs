@@ -1,3 +1,5 @@
+import { isApple, isSearchShortcut } from "./keys.mjs";
+
 export const $ = (selector, root = document) => root.querySelector(selector);
 export const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 export const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
@@ -75,8 +77,39 @@ const THEME_LABEL = {
   dark: "Color theme: dark",
 };
 
-/** Theme toggle, Copy buttons and the "/" shortcut, shared by every page. */
-export function initCommon({ onSlash }) {
+/** Theme toggle, menu, Copy buttons and the Ctrl+K or Cmd+K search shortcut, on every page. */
+export function initCommon({ onSearch }) {
+  const apple = isApple(navigator.platform || navigator.userAgent);
+  if (apple) {
+    for (const hint of $$("kbd[data-shortcut]")) hint.textContent = "⌘K";
+    for (const el of $$("[aria-keyshortcuts]")) el.setAttribute("aria-keyshortcuts", "Meta+K");
+  }
+
+  const menu = $("#menu-btn");
+  const nav = $("#site-nav");
+  const isOpen = () => nav.classList.contains("open");
+  const setMenu = (open) => {
+    menu.setAttribute("aria-expanded", String(open));
+    nav.classList.toggle("open", open);
+  };
+  const outside = (event) => !event.target.closest("#site-nav, #menu-btn");
+  menu.addEventListener("click", () => setMenu(!isOpen()));
+  // In-page links ("Install") keep the page, so the menu must close itself.
+  nav.addEventListener("click", (event) => {
+    if (event.target.closest("a")) setMenu(false);
+  });
+  document.addEventListener("click", (event) => {
+    if (isOpen() && outside(event)) setMenu(false);
+  });
+  document.addEventListener("focusin", (event) => {
+    if (isOpen() && outside(event)) setMenu(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !isOpen()) return;
+    setMenu(false);
+    menu.focus();
+  });
+
   const root = document.documentElement;
   const themeButton = $("#theme-btn");
   let theme = root.getAttribute("data-theme") || "auto";
@@ -109,11 +142,8 @@ export function initCommon({ onSlash }) {
   });
 
   document.addEventListener("keydown", (event) => {
-    if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
-    const el = document.activeElement;
-    if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
-    if ($("dialog[open]")) return;
+    if (!isSearchShortcut(event, apple)) return;
     event.preventDefault();
-    onSlash();
+    onSearch();
   });
 }

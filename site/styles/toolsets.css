@@ -1,0 +1,513 @@
+.tsx-main {
+  min-width: 0;
+}
+@media (min-width: 1100px) {
+  .ts-layout > .builder {
+    margin-top: var(--s7);
+  }
+}
+.tsx-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+}
+.tsx {
+  padding: var(--s4) 0;
+  border-top: 1px solid var(--line);
+}
+.tsx-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s3);
+}
+.tsx-head h2 {
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.tsx-head code {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+.tsx-tok {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tsx-blurb {
+  margin-top: var(--s1);
+  max-width: 68ch;
+  color: var(--ink-2);
+}
+.tsx-mix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s3);
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.tsx-none,
+.tsp-note strong {
+  font-weight: 600;
+}
+.tsx-key {
+  margin-top: var(--s3);
+}
+.tsx-ro {
+  margin-top: var(--s7);
+}
+.tsx-ro h2,
+.tsp .d-sec > h2 {
+  margin-bottom: var(--s3);
+  font-size: 1.375rem;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.tsx-ro p {
+  max-width: 68ch;
+}
+.tsx-ro p + p {
+  margin-top: var(--s3);
+}
+
+.tsx-ro code,
+.tsp-note code,
+.tsp .note code {
+  overflow-wrap: anywhere;
+}
+.tsp-mix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s4);
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.tsp .row-purpose {
+  white-space: normal;
+}
+.tsp-note {
+  margin-top: var(--s5);
+  padding: var(--s3) var(--s4);
+  max-width: 68ch;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r2);
+}
+.tsp-profiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tsp-profiles li {
+  display: grid;
+  grid-template-columns: 11em minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s1) var(--s4);
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--line);
+}
+.tsp-profiles li:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.tsp-pf {
+  font-weight: 600;
+}
+.tsp-profiles code {
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+.tsp-pf-n {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.presets {
+  margin-bottom: var(--s4);
+}
+.presets-title {
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+.presets .chips {
+  margin-top: var(--s2);
+}
+.ts-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+}
+.ts-row > * {
+  grid-column: 2;
+}
+.ts-row > .tsx-pick {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  align-self: stretch;
+  padding-top: 5px;
+  cursor: pointer;
+}
+.tsx-pick input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+.ts-row:not(.on) .tsx-head h2 a {
+  color: var(--ink-2);
+}
+.ts-row:not(.on) .strip i {
+  background: var(--bar-off);
+}
+.ts-list.ro .strip i:not([data-risk="read"]) {
+  display: none;
+}
+.ts-row.none .tsx-head h2 a,
+.ts-row.none .tsx-tok {
+  text-decoration: line-through;
+}
+.ts-mix {
+  display: inline-flex;
+  min-height: 11px;
+}
+.ts-bar {
+  display: block;
+  width: 112px;
+  height: 4px;
+  margin-left: auto;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--line);
+}
+.ts-row.on:not(.none) .ts-bar {
+  background: var(--brand-track);
+}
+.ts-bar i {
+  display: block;
+  min-width: 2px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--bar-off);
+  transition: background-color 0.15s;
+}
+.ts-row.on .ts-bar i {
+  background: var(--bar);
+}
+.ts-legend {
+  margin-top: var(--s2);
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+}
+
+/* The panel never cuts its own content: the summary stays whole, and the options scroll
+   below it behind a rule, with a scrollbar that shows and a fading edge. */
+.builder {
+  position: sticky;
+  top: calc(var(--header) + var(--s4));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--header) - var(--s5));
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r3);
+}
+.b-head {
+  flex: none;
+  padding: var(--s5) var(--s5) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.b-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: var(--s4) var(--s6);
+  padding: 0 var(--s5);
+}
+.b-body::after {
+  content: "";
+  position: sticky;
+  bottom: 0;
+  display: block;
+  height: var(--s5);
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  pointer-events: none;
+}
+.b-body::-webkit-scrollbar {
+  width: 12px;
+}
+.b-body::-webkit-scrollbar-thumb {
+  border: 3px solid var(--surface);
+  border-radius: 6px;
+  background: var(--line-strong);
+}
+@supports not selector(::-webkit-scrollbar) {
+  .b-body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+.builder h2 {
+  font-size: 1.5rem;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.012em;
+}
+.builder h3 {
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+.figure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s2);
+  margin-top: var(--s5);
+}
+.figure .big {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variation-settings: "opsz" 72;
+  font-variant-numeric: tabular-nums;
+}
+.figure .unit {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+.meter {
+  height: 6px;
+  margin-top: var(--s3);
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--brand-track);
+}
+.meter i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--bar);
+  transition: width 0.25s ease;
+}
+.builder .mix {
+  margin-top: var(--s3);
+  gap: var(--s1) var(--s3);
+}
+/* A short window: the summary tightens so the options keep room under it. */
+@media (max-height: 860px) and (min-width: 1100px) {
+  .b-head {
+    padding: var(--s4) var(--s5) var(--s3);
+  }
+  .builder h2 {
+    font-size: 1.25rem;
+  }
+  .figure {
+    margin-top: var(--s2);
+  }
+  .figure .big {
+    font-size: 2rem;
+  }
+  .figure .unit {
+    font-size: 0.8125rem;
+  }
+  .meter,
+  .builder .mix {
+    margin-top: var(--s2);
+  }
+  .builder .ro-box .note {
+    display: none;
+  }
+}
+.builder .ro-box {
+  margin-top: var(--s4);
+  padding: var(--s3);
+  background: var(--surface-2);
+}
+.builder .ro-box .note {
+  font-size: 0.8125rem;
+}
+.env {
+  margin-top: var(--s4);
+}
+.env-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-bottom: var(--s2);
+}
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+}
+.seg label {
+  position: relative;
+}
+.seg input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.seg span {
+  display: block;
+  padding: 2px var(--s2);
+  border-radius: var(--r1);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.seg input:checked + span {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.seg input:focus-visible + span {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+.cat-link {
+  width: 100%;
+  margin-top: var(--s4);
+}
+.cat-link[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.linebar {
+  display: none;
+}
+.linebar-in {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 60px;
+  padding-block: var(--s2);
+}
+.lb-what {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-right: auto;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--t-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.lb-what > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lb-what b {
+  color: var(--t-fg);
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+.linebar .btn {
+  height: 36px;
+  padding: 0 var(--s3);
+}
+.linebar .lb-see {
+  background: transparent;
+  border-color: var(--t-line-strong);
+  color: var(--t-fg);
+}
+#lb-copy {
+  min-width: 6.5em;
+}
+
+@media (max-width: 1099px) {
+  .builder {
+    position: static;
+    display: block;
+    max-height: none;
+    overflow: visible;
+  }
+  .b-head {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  .b-body {
+    overflow: visible;
+  }
+  .b-body::after {
+    content: none;
+  }
+  /* Below the sticky header (z-index 20), and focus never lands under the bar. */
+  .linebar {
+    display: block;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    margin: var(--s6) calc(-1 * var(--s6)) 0;
+    padding-inline: var(--s6);
+    background: var(--t-bg);
+    color: var(--t-fg);
+    border-top: 1px solid var(--t-line-strong);
+  }
+  :root:has(#linebar) {
+    scroll-padding-bottom: 88px;
+  }
+}
+
+@media (max-width: 640px) {
+  .tsp .row-purpose {
+    display: block;
+    overflow: visible;
+  }
+  .tsx-tok {
+    margin-left: 0;
+    width: 100%;
+  }
+  .ts-row {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+  .linebar {
+    margin-inline: calc(-1 * var(--s4));
+    padding-inline: var(--s4);
+  }
+  .linebar .btn {
+    padding: 0 var(--s2);
+  }
+  .b-head {
+    padding: var(--s4) var(--s4) 0;
+  }
+  .b-body {
+    padding: 0 var(--s4);
+  }
+  .tsp-profiles li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .tsp-profiles code {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+@media (max-width: 380px) {
+  .lb-the {
+    display: none;
+  }
+}

@@ -10,7 +10,11 @@
     },
     "channels": {
       "label": "Channels",
-      "blurb": "Create, edit, move, clone, follow and delete channels."
+      "blurb": "Create, edit, move, clone, follow and delete channels.",
+      "readsElsewhere": {
+        "task": "list or find channels",
+        "tools": ["discord_list_channels", "discord_find_channel_by_name"]
+      }
     },
     "permissions": {
       "label": "Permissions",

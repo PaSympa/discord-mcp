@@ -47,7 +47,7 @@ const COPIED = {
   "assets/demo.mp4": join(SITE, "assets/demo.mp4"),
   [OG_IMAGE]: join(GITHUB_ASSETS, "social-preview.png"),
   [TOUCH_ICON]: join(GITHUB_ASSETS, "logo-512.png"),
-  [FAVICON]: join(GITHUB_ASSETS, "logo.svg"),
+  [FAVICON]: join(GITHUB_ASSETS, "favicon.svg"),
   ...Object.fromEntries(
     Object.values(BUTTON_FILES).map((file) => [`assets/${file}`, join(GITHUB_ASSETS, file)]),
   ),

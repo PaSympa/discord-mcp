@@ -10,9 +10,9 @@ export function renderPrivacy(site) {
     title: "In short",
     body: tpl`<ul>
   <li>The server runs on your machine, or on a host you run. There is no discord-mcp service in between.</li>
-  <li>It connects to Discord with your own bot token, and reads or changes something only when your assistant calls a tool.</li>
+  <li>It connects to Discord with your own bot token. Discord data reaches your assistant only when it calls a tool.</li>
   <li>It sends nothing to the maintainer. It has no telemetry, no analytics, no crash reports and no account.</li>
-  <li>It writes nothing to disk. What it caches stays in memory and is gone when it stops.</li>
+  <li>It writes nothing to disk. Its memory cache of servers, channels and members follows Discord's updates and is gone when it stops.</li>
   <li>What a tool returns goes to your AI client, and from there to the client's model provider.</li>
 </ul>`,
   });

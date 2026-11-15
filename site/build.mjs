@@ -1,14 +1,18 @@
+import { PermissionsBitField } from "discord.js";
 import { copyFileSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { esc } from "./client/tpl.mjs";
 import { renderCatalog } from "./pages/catalog.mjs";
+import { renderConfiguration } from "./pages/configuration.mjs";
 import { renderLlms, renderRobots, renderSitemap } from "./pages/files.mjs";
+import { renderGuide } from "./pages/guide.mjs";
 import { renderLanding } from "./pages/landing.mjs";
 import { inlineLogo } from "./pages/layout.mjs";
 import { renderNotFound } from "./pages/notfound.mjs";
-import { slug } from "./pages/parts.mjs";
+import { channels, slug } from "./pages/parts.mjs";
+import { renderRecipes } from "./pages/recipes.mjs";
 import { renderToolPage, toolPath } from "./pages/tool.mjs";
+import { renderTroubleshooting } from "./pages/troubleshooting.mjs";
 import {
   renderToolsetPage,
   renderToolsets,
@@ -21,7 +25,7 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SITE = join(ROOT, "site");
 const GITHUB_ASSETS = join(ROOT, ".github", "assets");
 
-const STYLES = ["base", "landing", "catalog", "tool", "toolsets"];
+const STYLES = ["base", "landing", "catalog", "tool", "toolsets", "docs"];
 const BUNDLES = {
   "landing.js": ["tpl", "keys", "common", "landing"],
   "catalog.js": ["tpl", "keys", "common", "search", "detail", "catalog"],
@@ -90,6 +94,93 @@ export function buildDate(value = process.env.SITE_BUILD_DATE) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date)))
     fail(`the build date must read YYYY-MM-DD, not ${date}.`);
   return date;
+}
+
+/** The names the tool descriptions use where they differ from the API flag names. */
+const PERMISSION_NAMES = { ManageGuild: "Manage Server" };
+
+/** The permissions an invite link requests, named as the tool pages name them. */
+export function invitePermissions(link) {
+  const bits =
+    /[?&]permissions=(\d+)/.exec(link)?.[1] ?? fail("the invite link has no permissions.");
+  const field = new PermissionsBitField(BigInt(bits));
+  const known = Object.values(PermissionsBitField.Flags).reduce((all, bit) => all | bit, 0n);
+  if (BigInt(bits) & ~known)
+    fail(`the invite link requests permission bits discord.js does not know: ${bits}.`);
+  return field
+    .toArray()
+    .map((flag) =>
+      (PERMISSION_NAMES[flag] ?? flag.replace(/(?<=[a-z])(?=[A-Z])/g, " ")).replace(" In ", " in "),
+    );
+}
+
+/**
+ * Each README configuration variable, with the setting of the Claude Code plugin and of the
+ * Claude Desktop bundle that sets it. Both read `${user_config.key}` into the variable.
+ */
+function configModel(readme) {
+  const settings = (file, keyName, configName) => {
+    const json = JSON.parse(readFileSync(join(ROOT, file), "utf8"));
+    const env = keyName(json) ?? fail(`${file} declares no server env.`);
+    const config = json[configName] ?? fail(`${file} has no ${configName}.`);
+    return Object.fromEntries(
+      Object.entries(env).map(([name, value]) => {
+        const key =
+          /^\$\{user_config\.(\w+)\}$/.exec(value)?.[1] ??
+          fail(`${file} sets ${name} to ${value}, not to a user_config value.`);
+        return [name, { key, ...(config[key] ?? fail(`${file} has no setting ${key}.`)) }];
+      }),
+    );
+  };
+  const plugin = settings(
+    "plugin/.claude-plugin/plugin.json",
+    (j) => j.mcpServers?.discord?.env,
+    "userConfig",
+  );
+  const bundle = settings("manifest.json", (j) => j.server?.mcp_config?.env, "user_config");
+  const names = readme.configuration.variables.map((v) => v.name);
+  for (const name of [...Object.keys(plugin), ...Object.keys(bundle)])
+    if (!names.includes(name)) fail(`${name} is set by the plugin or the bundle, not in README.`);
+  return {
+    variables: readme.configuration.variables.map((v) => ({
+      ...v,
+      plugin: plugin[v.name] ?? null,
+      bundle: bundle[v.name] ?? null,
+    })),
+    notes: readme.configuration.notes,
+  };
+}
+
+/**
+ * The recipes of site/content.json, each with the toolsets its tools need (discovery always
+ * comes along, for the IDs) and what that selection costs.
+ */
+function recipeModel(recipes, tools, byName, setNames) {
+  const ids = new Set();
+  return (recipes ?? fail("content.json has no recipes.")).map((recipe) => {
+    if (ids.has(recipe.id)) fail(`content.json repeats the recipe id ${recipe.id}.`);
+    ids.add(recipe.id);
+    const names = [...new Set(recipe.steps.flatMap((step) => step.tools))];
+    const used = names.map(
+      (name) => byName.get(name) ?? fail(`Unknown tool ${name} in the recipe ${recipe.id}.`),
+    );
+    const sets = setNames.filter(
+      (set) => set === "discovery" || used.some((tool) => tool.toolset === set),
+    );
+    return {
+      ...recipe,
+      sets,
+      ...summarize(tools.filter((tool) => sets.includes(tool.toolset))),
+      readOnly: used.every((tool) => tool.risk === "read"),
+      readSteps: recipe.steps
+        .map((step, i) =>
+          step.tools.every((name) => byName.get(name).risk === "read") ? i + 1 : 0,
+        )
+        .filter(Boolean),
+      dryRun: used.filter((tool) => tool.dryRunDefault).map((tool) => tool.name),
+      destructive: used.filter((tool) => tool.risk === "destructive").map((tool) => tool.name),
+    };
+  });
 }
 
 function summarize(tools) {
@@ -229,7 +320,7 @@ export function siteModel(catalog, readme, content) {
     return {
       ...a,
       ...mapped,
-      promptHtml: esc(a.prompt).replace(/#[a-z0-9-]+/g, (m) => `<span class="ch">${m}</span>`),
+      promptHtml: String(channels(a.prompt)),
     };
   });
 
@@ -260,6 +351,12 @@ export function siteModel(catalog, readme, content) {
     size: (statSync(join(SITE, "assets/demo.mp4")).size / 1e6).toFixed(1) + " MB",
   };
 
+  const invite =
+    steps
+      .flat()
+      .find((b) => b.type === "code" && b.code.includes("/oauth2/authorize"))
+      ?.code.trim() ?? fail("README Quick start has no invite link.");
+
   const logoSvg = readFileSync(join(GITHUB_ASSETS, "logo.svg"), "utf8");
   return {
     version: catalog.server.version,
@@ -272,6 +369,9 @@ export function siteModel(catalog, readme, content) {
     asks,
     clients,
     quickConfig,
+    invite: { link: invite, permissions: invitePermissions(invite) },
+    recipes: recipeModel(content.recipes, tools, byName, setNames),
+    config: configModel(readme),
     session: content.session,
     demo,
     readme,
@@ -299,6 +399,10 @@ export function writeSite(catalog, outDir, { date } = {}) {
   const site = siteModel(catalog, readme, content);
   const pages = {
     "": renderLanding(site),
+    "guide/": renderGuide(site),
+    "recipes/": renderRecipes(site),
+    "configuration/": renderConfiguration(site),
+    "troubleshooting/": renderTroubleshooting(site),
     "tools/": renderCatalog(site),
     [TOOLSETS_PATH]: renderToolsets(site),
     ...Object.fromEntries(

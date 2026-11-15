@@ -2,6 +2,18 @@ import { raw, tpl } from "../client/tpl.mjs";
 
 export const REPO = "https://github.com/PaSympa/discord-mcp";
 export const NPM = "https://www.npmjs.com/package/@pasympa/discord-mcp";
+/** The documentation pages, in reading order. Each lives one folder below the root. */
+export const DOCS = [
+  { key: "guide", path: "guide/", name: "Guide", llms: "setup and every client" },
+  { key: "recipes", path: "recipes/", name: "Recipes", llms: "whole tasks, prompt by prompt" },
+  { key: "configuration", path: "configuration/", name: "Configuration", llms: "every variable" },
+  {
+    key: "troubleshooting",
+    path: "troubleshooting/",
+    name: "Troubleshooting",
+    llms: "errors and FAQ",
+  },
+];
 export const SITE_URL = process.env.SITE_URL || "https://pasympa.github.io/discord-mcp/";
 if (!/^https:\/\/[^/]+\/(.+\/)?$/.test(SITE_URL))
   throw new Error(`SITE_URL must be an https URL ending with a slash, not ${SITE_URL}.`);
@@ -69,14 +81,22 @@ export function layout(
     ? tpl`<script type="application/ld+json">${raw(JSON.stringify(jsonLd).replace(/</g, "\\u003c"))}</script>`
     : "";
   const nav = [
+    ["guide", `${up}guide/`, "Guide"],
+    ["recipes", `${up}recipes/`, "Recipes"],
     ["tools", `${up}tools/`, "Tools"],
     ["toolsets", `${up}toolsets/`, "Toolsets"],
-    ["install", `${up}#install`, "Install"],
   ];
+  const docs = [
+    ...DOCS.map((d) => [d.path, d.name]),
+    ["tools/", "Tools"],
+    ["toolsets/", "Toolsets"],
+  ];
+  // Narrow screens hide the visible label, so the control names itself.
+  const searchName = `Search ${site.totals.tools} tools`;
   const label = tpl`${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span>${searchHint()}`;
   const search = searchButton
-    ? tpl`<button class="search-btn" type="button" id="search-jump" aria-keyshortcuts="${SEARCH_KEYS}">${label}</button>`
-    : tpl`<a class="search-btn" href="${up}tools/#q" aria-keyshortcuts="${SEARCH_KEYS}">${label}</a>`;
+    ? tpl`<button class="search-btn" type="button" id="search-jump" aria-label="${searchName}" aria-keyshortcuts="${SEARCH_KEYS}">${label}</button>`
+    : tpl`<a class="search-btn" href="${up}tools/#q" aria-label="${searchName}" aria-keyshortcuts="${SEARCH_KEYS}">${label}</a>`;
   const indexing = indexed
     ? tpl`<link rel="canonical" href="${canonical}">
 <meta property="og:url" content="${canonical}">`
@@ -131,6 +151,7 @@ ${body}
 </main>
 ${tpl`<footer class="foot">
   <div class="wrap foot-in">
+    <nav class="foot-nav" aria-label="Footer"><ul>${docs.map(([href, label]) => tpl`<li><a href="${up}${href}">${label}</a></li>`)}</ul></nav>
     <p>discord-mcp ${site.version} is open source under the MIT license: <a href="${REPO}">GitHub</a>, <a href="${NPM}">npm</a>. Tool counts and token figures come from the server's own <code>tools/list</code>: <span data-total>${site.totals.tools}</span> tools in ${site.totals.toolsets} toolsets, also published as <a href="${up}tools.json">tools.json</a> and <a href="${up}llms.txt">llms.txt</a>. Fonts: Bricolage Grotesque and JetBrains Mono, under the <a href="${up}assets/fonts/OFL.txt">SIL Open Font License</a>.</p>
     <p>Not affiliated with Discord.</p>
   </div>

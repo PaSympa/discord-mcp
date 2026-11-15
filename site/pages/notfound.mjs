@@ -25,7 +25,7 @@ export function renderNotFound(site) {
     <input id="nf-q" name="q" type="search" autocomplete="off" spellcheck="false" placeholder="Search by task or name">
     <button class="btn" type="submit">Search</button>
   </form>
-  <p class="nf-links">Or start again from <a href="${base}">the home page</a>, browse <a href="${base}tools/">all <span data-total>${site.totals.tools}</span> tools</a>, or pick from <a href="${base}toolsets/">the ${site.totals.toolsets} toolsets</a>.</p>
+  <p class="nf-links">Or start again from <a href="${base}">the home page</a> or <a href="${base}guide/">the guide</a>, check <a href="${base}troubleshooting/">Troubleshooting</a>, browse <a href="${base}tools/">all <span data-total>${site.totals.tools}</span> tools</a>, or pick from <a href="${base}toolsets/">the ${site.totals.toolsets} toolsets</a>.</p>
 </div>
 <script type="application/json" id="nf-data">${raw(JSON.stringify(data).replace(/</g, "\\u003c"))}</script>`;
   return layout(site, {

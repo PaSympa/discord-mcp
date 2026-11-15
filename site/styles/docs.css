@@ -1,0 +1,368 @@
+.doc-id {
+  max-height: calc(100vh - var(--header) - var(--s5) * 2);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.doc-lead {
+  margin-top: var(--s3);
+  max-width: 36ch;
+  color: var(--ink-2);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.doc-nav {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+.doc-nav ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.doc-nav > ol > li > a {
+  display: block;
+  padding: 6px var(--s3);
+  border-left: 2px solid transparent;
+  color: var(--ink-2);
+  font-weight: 600;
+  text-decoration: none;
+}
+.doc-nav > ol > li > a:hover {
+  color: var(--ink);
+}
+.doc-nav > ol > li > a[aria-current="page"] {
+  color: var(--ink);
+  border-left-color: var(--brand);
+}
+.doc-nav .toc {
+  margin: 2px 0 var(--s2) var(--s3);
+  border-left: 1px solid var(--line);
+}
+.toc a {
+  display: block;
+  padding: 4px var(--s3);
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+.toc a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.doc-main > * + * {
+  margin-top: var(--s8);
+}
+.doc-main > .doc-intro + * {
+  margin-top: var(--s6);
+}
+.doc-intro,
+.doc-sec > p,
+.doc-sec > ul:not([class]),
+.doc-sec .panel > p,
+.doc-sec .panel > ul,
+.issue > p,
+.env > p,
+.doc-next {
+  max-width: 68ch;
+  color: var(--ink-2);
+  line-height: 1.65;
+}
+.doc-intro {
+  font-size: 1.0625rem;
+}
+.doc-sec > h2 {
+  font-size: clamp(1.5rem, 1.25rem + 0.6vw, 1.875rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.doc-sec > h2 + * {
+  margin-top: var(--s3);
+}
+.doc-sec > * + * {
+  margin-top: var(--s4);
+}
+.doc-sec strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.doc-sec :where(p, li) code {
+  font-size: 0.9em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.doc-sec h3 code {
+  font-size: 0.95em;
+}
+.doc-sec .note {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.doc-steps {
+  gap: var(--s6);
+  margin-top: var(--s5);
+}
+.doc-steps .step h3 {
+  font-size: 1.1875rem;
+}
+
+.perm-list {
+  margin: var(--s4) 0 0;
+  padding: var(--s4) var(--s5);
+  list-style: none;
+  columns: 3 9em;
+  column-gap: var(--s5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+.perm-list li {
+  padding-block: 3px;
+  break-inside: avoid;
+}
+
+.clients {
+  border-top: 1px solid var(--line);
+}
+.client {
+  border-bottom: 1px solid var(--line);
+}
+.client > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 48px;
+  padding: var(--s2) var(--s1);
+  cursor: pointer;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  list-style: none;
+}
+.client > summary::-webkit-details-marker {
+  display: none;
+}
+.client > summary::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-2);
+  border-bottom: 2px solid var(--ink-2);
+  transform: rotate(-45deg);
+}
+.client[open] > summary::before {
+  transform: rotate(45deg);
+}
+.client > summary:hover {
+  color: var(--brand-ink);
+}
+.client > .panel {
+  padding: 0 0 var(--s5) calc(var(--s1) + 8px + var(--s3));
+}
+.doc-next-step {
+  font-weight: 600;
+}
+.doc-sec > .panel,
+.issue,
+.env {
+  margin-top: var(--s6);
+  padding-top: var(--s5);
+  border-top: 1px solid var(--line);
+}
+.doc-sec > .panel > h3,
+.issue > h3,
+.env > h3 {
+  font-size: 1.1875rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.doc-sec > .panel > h3 + * {
+  margin-top: var(--s3);
+}
+.issue > * + *,
+.env > * + * {
+  margin-top: var(--s3);
+}
+.issue q {
+  color: var(--ink);
+}
+
+.said {
+  margin: 0;
+  max-width: 68ch;
+  padding: var(--s3) var(--s4);
+  border-left: 3px solid var(--destructive-mark);
+  border-radius: 0 var(--r1) var(--r1) 0;
+  background: var(--surface);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+* + .said {
+  margin-top: var(--s3);
+}
+.said + .said {
+  margin-top: var(--s2);
+}
+
+.env-facts {
+  margin-top: var(--s3);
+}
+.env-facts > div {
+  grid-template-columns: 12em minmax(0, 1fr);
+}
+.env-facts dd code {
+  margin-left: 0;
+}
+.doc-callout {
+  max-width: 68ch;
+  margin-top: var(--s6);
+  padding: var(--s4) var(--s5);
+  border-radius: var(--r2);
+  background: var(--brand-wash);
+}
+.doc-callout p {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+.doc-callout p + p {
+  margin-top: var(--s2);
+}
+.doc-callout code {
+  font-size: 0.9em;
+}
+
+.doc-asks {
+  gap: var(--s5);
+}
+.doc-asks .prompt {
+  font-size: 1.125rem;
+}
+.doc-next {
+  margin: 0;
+  padding-left: var(--s5);
+}
+.doc-next li + li {
+  margin-top: var(--s2);
+}
+
+.recipe-goal {
+  font-size: 1.0625rem;
+}
+.recipe-steps {
+  margin: var(--s5) 0 0;
+  padding: 0;
+  list-style: none;
+  border-left: 2px solid var(--brand-track);
+}
+.recipe-step {
+  padding: 0 0 var(--s5) var(--s4);
+}
+.recipe-step:last-child {
+  padding-bottom: 0;
+}
+.recipe-step .prompt {
+  margin-top: 0;
+  font-size: 1.125rem;
+}
+.recipe-does {
+  margin-top: var(--s2);
+  padding-left: 28px;
+  max-width: 64ch;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+.recipe-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: var(--s4);
+  align-items: start;
+  margin-top: var(--s5);
+}
+.recipe-box {
+  padding: var(--s4) var(--s5) var(--s5);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r3);
+}
+.recipe-box h3 {
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+.recipe-box > * + * {
+  margin-top: var(--s3);
+}
+.recipe-box ul {
+  margin-bottom: 0;
+  padding-left: var(--s4);
+}
+.recipe-box li {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.recipe-box li + li {
+  margin-top: var(--s2);
+}
+.recipe-box .note {
+  margin-top: var(--s3);
+}
+
+.foot-nav {
+  flex-basis: 100%;
+}
+.foot-nav a {
+  display: inline-block;
+  padding-block: 4px;
+}
+.foot-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+@media (max-width: 1099px) {
+  .doc-id {
+    max-height: none;
+    overflow: visible;
+  }
+  .doc-lead {
+    max-width: 60ch;
+  }
+}
+@media (max-width: 760px) {
+  .recipe-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .doc-main > * + * {
+    margin-top: var(--s7);
+  }
+  .env-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .recipe-step {
+    padding-left: var(--s3);
+  }
+  .recipe-does,
+  .recipe-step .uses {
+    padding-left: 0;
+  }
+  .perm-list {
+    padding-inline: var(--s4);
+  }
+}

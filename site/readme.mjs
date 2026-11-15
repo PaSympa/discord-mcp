@@ -13,9 +13,22 @@ function sections(text) {
   return { head: parts[0], map };
 }
 
+const leadOf = (item, what) => {
+  const m = need(/^\*\*(.+?)\*\*\s*(.*)$/.exec(item), `bold lead in ${what} item "${item}"`);
+  return { lead: m[1].replace(/\.$/, ""), text: m[2] };
+};
+
+const detailsOf = (text) =>
+  [
+    ...text.matchAll(
+      /<details>\s*<summary><strong>(.+?)<\/strong><\/summary>([\s\S]*?)<\/details>/g,
+    ),
+  ].map((m) => ({ label: m[1], blocks: blocks(m[2]) }));
+
 /**
  * Reads the parts of README.md the site renders: the promise, the install links, the demo,
- * the prompts, the quick start, the profiles, the safety notes and the client setups.
+ * the prompts, the quick start, the profiles, the safety notes, the client setups, the
+ * remote clients, the configuration table and the troubleshooting list.
  */
 export function parseReadme(text) {
   const { head, map } = sections(text);
@@ -78,17 +91,42 @@ export function parseReadme(text) {
     blocks(section("Safety")).find((b) => b.type === "ul"),
     "safety list",
   );
-  const safety = safetyList.items.map((item) => {
-    const m = need(/^\*\*(.+?)\*\*\s*(.*)$/.exec(item), `bold lead in safety item "${item}"`);
-    return { lead: m[1].replace(/\.$/, ""), text: m[2] };
-  });
+  const safety = safetyList.items.map((item) => leadOf(item, "safety"));
 
-  const clients = [
-    ...section("Clients").matchAll(
-      /<details>\s*<summary><strong>(.+?)<\/strong><\/summary>([\s\S]*?)<\/details>/g,
-    ),
-  ].map((m) => ({ label: m[1], blocks: blocks(m[2]) }));
+  const clients = detailsOf(section("Clients"));
   need(clients, "client setups");
+
+  const [remoteText, securityText] = need(
+    section("Remote clients over HTTP"),
+    "HTTP section",
+  ).split(/^### Security over HTTP$/m);
+  const remote = {
+    intro: blocks(remoteText.slice(0, remoteText.indexOf("<details>"))),
+    clients: need(detailsOf(remoteText), "remote client setups"),
+    security: need(
+      blocks(need(securityText, 'section "### Security over HTTP"')).find((b) => b.type === "ul"),
+      "HTTP security list",
+    ).items.map((item) => leadOf(item, "HTTP security")),
+  };
+
+  const configBlocks = blocks(section("Configuration"));
+  const configTable = need(
+    configBlocks.find((b) => b.type === "table"),
+    "configuration table",
+  );
+  const configuration = {
+    variables: configTable.rows.map(([name, fallback, text]) => ({
+      name: plain(name),
+      fallback,
+      text,
+    })),
+    notes: configBlocks.filter((b) => b.type === "p").map((b) => b.text),
+  };
+
+  const troubleshooting = need(
+    blocks(section("Troubleshooting")).find((b) => b.type === "ul"),
+    "troubleshooting list",
+  ).items.map((item) => leadOf(item, "troubleshooting"));
 
   return {
     tagline,
@@ -101,5 +139,8 @@ export function parseReadme(text) {
     profiles,
     safety,
     clients,
+    remote,
+    configuration,
+    troubleshooting,
   };
 }

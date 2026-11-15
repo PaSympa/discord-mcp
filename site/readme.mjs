@@ -29,7 +29,12 @@ export function parseReadme(text) {
       m[2],
     ]),
   );
-  for (const label of ["Install in VS Code", "Install in VS Code Insiders", "Install in Cursor"])
+  for (const label of [
+    "Install in VS Code",
+    "Install in VS Code Insiders",
+    "Install in Cursor",
+    "Install in Claude Desktop",
+  ])
     need(installLinks[label], `"${label}" button`);
   const intro = need(
     blocks(head.slice(head.lastIndexOf("</div>") + 6)).find((b) => b.type === "p")?.text,

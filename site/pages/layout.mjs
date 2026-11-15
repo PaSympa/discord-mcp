@@ -69,9 +69,18 @@ export function layout(
     ? tpl`<script type="application/ld+json">${raw(JSON.stringify(jsonLd).replace(/</g, "\\u003c"))}</script>`
     : "";
   const nav = [
+    ["guide", `${up}guide/`, "Guide"],
+    ["recipes", `${up}recipes/`, "Recipes"],
     ["tools", `${up}tools/`, "Tools"],
     ["toolsets", `${up}toolsets/`, "Toolsets"],
-    ["install", `${up}#install`, "Install"],
+  ];
+  const docs = [
+    ["guide/", "Guide"],
+    ["recipes/", "Recipes"],
+    ["configuration/", "Configuration"],
+    ["troubleshooting/", "Troubleshooting"],
+    ["tools/", "Tools"],
+    ["toolsets/", "Toolsets"],
   ];
   const label = tpl`${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span>${searchHint()}`;
   const search = searchButton
@@ -131,6 +140,7 @@ ${body}
 </main>
 ${tpl`<footer class="foot">
   <div class="wrap foot-in">
+    <nav class="foot-nav" aria-label="Footer"><ul>${docs.map(([href, label]) => tpl`<li><a href="${up}${href}">${label}</a></li>`)}</ul></nav>
     <p>discord-mcp ${site.version} is open source under the MIT license: <a href="${REPO}">GitHub</a>, <a href="${NPM}">npm</a>. Tool counts and token figures come from the server's own <code>tools/list</code>: <span data-total>${site.totals.tools}</span> tools in ${site.totals.toolsets} toolsets, also published as <a href="${up}tools.json">tools.json</a> and <a href="${up}llms.txt">llms.txt</a>. Fonts: Bricolage Grotesque and JetBrains Mono, under the <a href="${up}assets/fonts/OFL.txt">SIL Open Font License</a>.</p>
     <p>Not affiliated with Discord.</p>
   </div>

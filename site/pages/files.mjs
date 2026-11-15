@@ -25,6 +25,13 @@ export function renderLlms(site) {
 
 Version ${site.version}. Run it with \`npx -y @pasympa/discord-mcp\` and your bot's token in \`DISCORD_TOKEN\`. Under each toolset heading, a line names a tool, gives its purpose (the first sentence of its description) and its risk from its annotations: read-only, write or destructive. Toolset names in headings are the values of \`DISCORD_MCP_TOOLSETS\`. Every definition, with its input and output schemas, is in [tools.json](${SITE_URL}tools.json).
 
+## Documentation
+
+- [Guide](${SITE_URL}guide/): bot setup and every client, HTTP included.
+- [Recipes](${SITE_URL}recipes/): ${site.recipes.length} tasks, prompt by prompt, with tools, toolsets and safety notes.
+- [Configuration](${SITE_URL}configuration/): every environment variable and its default.
+- [Troubleshooting](${SITE_URL}troubleshooting/): errors, fixes and common questions.
+
 ## Toolsets
 
 One page per toolset, with its tools, risk mix, context cost and the README profiles that include it. [All toolsets](${SITE_URL}${TOOLSETS_PATH}) is where you build the \`DISCORD_MCP_TOOLSETS\` line.

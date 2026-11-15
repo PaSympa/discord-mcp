@@ -7,7 +7,7 @@ import { stripKey, terminal, toolChip } from "./parts.mjs";
 export const TOOLSETS_PATH = "toolsets/";
 export const toolsetPath = (name) => `${TOOLSETS_PATH}${name}/`;
 
-const listOf = (items) =>
+export const listOf = (items) =>
   items.length < 2
     ? items
     : [

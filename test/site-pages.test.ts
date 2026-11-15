@@ -17,6 +17,8 @@ const BUDGET = 200_000;
 const TOOL_PAGE_BUDGET = { raw: 40_000, gzip: 8_000 };
 const LLMS_BUDGET = 24_000;
 const DATE = "2026-11-08";
+const DOCS = ["guide", "recipes", "configuration", "troubleshooting"];
+const docPage = (key: string) => `${key}/index.html`;
 const TEXT = /\.(html|css|js|json|svg|txt|xml)$/;
 
 type Permission = { name: string; when: string | null };
@@ -186,6 +188,7 @@ test("the site builds a home page, a catalog, one page per tool and per toolset,
     "tools/index.html",
     "404.html",
     "toolsets/index.html",
+    ...DOCS.map(docPage),
     ...catalog.tools.map((t) => toolPage(t.name)),
     ...catalog.toolsets.map((s) => toolsetPage(s.name)),
   ];
@@ -292,7 +295,9 @@ test("every page has a unique title and description, its canonical URL, one h1 a
 
     assert.deepEqual(metas(html, "og:title"), title, `${page}: og:title`);
     assert.deepEqual(metas(html, "og:description"), description, `${page}: og:description`);
-    const ogType = /^tools(ets)?\//.test(page) ? "article" : "website";
+    const ogType = /^(tools(ets)?|guide|recipes|configuration|troubleshooting)\//.test(page)
+      ? "article"
+      : "website";
     assert.deepEqual(metas(html, "og:type"), [ogType], `${page}: og:type`);
     const [ogImage] = metas(html, "og:image");
     assert.equal(pageOf(ogImage), "assets/social-preview.png", `${page}: og:image`);
@@ -450,7 +455,14 @@ test("the first load of /, /tools/, /toolsets/, the largest tool and toolset pag
     list.sort((a, b) => statSync(join(out, b)).size - statSync(join(out, a)).size)[0];
   const largest = largestOf(catalog.tools.map((t) => toolPage(t.name)));
   const largestSet = largestOf(catalog.toolsets.map((s) => toolsetPage(s.name)));
-  const first = ["index.html", "tools/index.html", "toolsets/index.html", largest, largestSet];
+  const first = [
+    "index.html",
+    "tools/index.html",
+    "toolsets/index.html",
+    ...DOCS.map(docPage),
+    largest,
+    largestSet,
+  ];
   for (const page of [...first, "404.html"]) {
     const bytes = firstLoad(page);
     assert.ok(bytes < BUDGET, `${page}: ${bytes} bytes on first load, budget ${BUDGET}`);
@@ -1433,4 +1445,244 @@ test("the risk marks use one color token each, defined for both themes", () => {
     assert.equal(defs.length, 3, `--${level}-mark: light, dark by preference, dark by choice`);
     assert.doesNotMatch(css, new RegExp(`var\\(--${level}\\)`), `--${level} is gone`);
   }
+});
+
+const DOC_NAMES: Record<string, string> = {
+  guide: "Guide",
+  recipes: "Recipes",
+  configuration: "Configuration",
+  troubleshooting: "Troubleshooting",
+};
+const navOf = (html: string) =>
+  /<nav class="nav" id="site-nav" aria-label="Site">([\s\S]*?)<\/nav>/.exec(html)![1];
+const srcText = () =>
+  ["client.ts", "errors.ts", "http.ts", "index.ts", "tools/index.ts", "tools/discovery.ts"]
+    .map((file) => readFileSync(join(__dirname, "..", "src", file), "utf8"))
+    .join("\n");
+
+test("the four documentation pages are in the header or footer of every page, and in the sitemap", () => {
+  const sitemap = read("sitemap.xml");
+  for (const key of DOCS)
+    assert.ok(sitemap.includes(`<loc>${siteUrl}${key}/</loc>`), `${key} in sitemap.xml`);
+  for (const page of pages) {
+    const html = read(page);
+    const nav = navOf(html);
+    for (const key of ["guide", "recipes"]) {
+      const link = new RegExp(
+        `<a href="([^"]+)"( aria-current="page")?>${DOC_NAMES[key]}</a>`,
+      ).exec(nav);
+      assert.ok(link, `${page}: ${key} in the header`);
+      assert.deepEqual(resolve(page, link![1]), { target: docPage(key), fragment: "" }, page);
+      assert.equal(Boolean(link![2]), page === docPage(key), `${page}: ${key} aria-current`);
+    }
+    assert.doesNotMatch(nav, />Install</, `${page}: the guide replaces the Install link`);
+    const foot = /<nav class="foot-nav" aria-label="Footer">([\s\S]*?)<\/nav>/.exec(html)?.[1];
+    assert.ok(foot, `${page}: footer links`);
+    for (const key of DOCS) {
+      const href = new RegExp(`<a href="([^"]+)">${DOC_NAMES[key]}</a>`).exec(foot!)?.[1];
+      assert.ok(href, `${page}: ${key} in the footer`);
+      assert.equal(resolve(page, href!)!.target, docPage(key), `${page}: footer ${key}`);
+    }
+  }
+  const home = read("index.html");
+  assert.match(home, /<a class="btn" href="guide\/">Read the full guide<\/a>/);
+  assert.match(home, /<a class="btn" href="recipes\/">See the recipes<\/a>/);
+  const notFound = read("404.html");
+  for (const key of ["guide", "troubleshooting"])
+    assert.ok(notFound.includes(`href="${base}${key}/"`), `404.html links ${key}`);
+  const llms = read("llms.txt");
+  const section = /\n## Documentation\n([\s\S]*?)\n## /.exec(llms)![1];
+  for (const key of DOCS)
+    assert.ok(section.includes(`[${DOC_NAMES[key]}](${siteUrl}${key}/)`), `llms.txt: ${key}`);
+});
+
+test("each documentation page has its breadcrumb, the documentation list and its contents", () => {
+  for (const key of DOCS) {
+    const page = docPage(key);
+    assert.deepEqual(trails(page), [
+      { name: "Home", url: siteUrl },
+      { name: DOC_NAMES[key], url: siteUrl + key + "/" },
+    ]);
+    const html = read(page);
+    const nav = /<nav class="doc-nav" aria-label="Documentation">([\s\S]*?)<\/nav>/.exec(html)![1];
+    const listed = [...nav.matchAll(/<a href="\.\.\/([a-z]+)\/"( aria-current="page")?>/g)];
+    assert.deepEqual(
+      listed.map((m) => m[1]),
+      DOCS,
+      page,
+    );
+    assert.deepEqual(
+      listed.filter((m) => m[2]).map((m) => m[1]),
+      [key],
+      page,
+    );
+    const toc = [...nav.matchAll(/<a href="#([^"]+)">/g)].map((m) => m[1]);
+    assert.ok(toc.length >= 3, `${page}: contents`);
+    for (const id of toc) {
+      assert.ok(idsOf(page).has(id), `${page}: #${id}`);
+      assert.match(html, new RegExp(`<(section|article) class="doc-sec[^"]*" id="${id}"`), id);
+    }
+  }
+});
+
+test("every tool name on the documentation pages links to its tool page", () => {
+  const names = new Set(catalog.tools.map((t) => t.name));
+  let linked = 0;
+  for (const key of DOCS) {
+    const page = docPage(key);
+    const html = withoutData(read(page))
+      .replace(/<div class="term"[\s\S]*?<\/pre>\s*<\/div>/g, "")
+      .replace(/<script[\s\S]*?<\/script>/g, "");
+    const chips = [
+      ...html.matchAll(
+        /<a class="tool" href="\.\.\/tools\/(discord_[a-z_]+)\/" data-risk="(\w+)">[\s\S]*?<\/a>/g,
+      ),
+    ];
+    for (const [, name, risk] of chips) {
+      assert.ok(names.has(name), `${page}: ${name} is a tool`);
+      assert.equal(risk, catalog.tools.find((t) => t.name === name)!.risk, `${page}: ${name}`);
+      linked++;
+    }
+    const rest = html
+      .replace(/<a class="tool"[\s\S]*?<\/a>/g, "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/<wbr>/g, "");
+    const unlinked = (rest.match(/discord_[a-z_]+/g) ?? []).filter((name) => names.has(name));
+    assert.deepEqual(unlinked, [], `${page}: unlinked tool names`);
+  }
+  assert.ok(linked > 60, `${linked} tool links checked`);
+});
+
+test("each recipe loads the toolsets its tools need, with the cost and dry runs from tools.json", () => {
+  const recipes = (
+    JSON.parse(readFileSync(join(__dirname, "..", "site", "content.json"), "utf8")) as {
+      recipes: { id: string; steps: { prompt: string; tools: string[] }[] }[];
+    }
+  ).recipes;
+  assert.ok(recipes.length >= 7, "at least seven recipes");
+  const html = read("recipes/index.html");
+  const byName = new Map(catalog.tools.map((t) => [t.name, t]));
+  for (const r of recipes) {
+    const article = new RegExp(
+      `<article class="doc-sec recipe" id="${r.id}"[\\s\\S]*?</article>`,
+    ).exec(html)![0];
+    const used = [...new Set(r.steps.flatMap((s) => s.tools))].map((n) => byName.get(n)!);
+    const sets = catalog.toolsets
+      .map((s) => s.name)
+      .filter((s) => s === "discovery" || used.some((t) => t.toolset === s));
+    const line = /DISCORD_MCP_TOOLSETS=[^<]*(?:<wbr>[^<]*)*/
+      .exec(article)![0]
+      .replace(/<wbr>/g, "");
+    assert.equal(line, `DISCORD_MCP_TOOLSETS=${sets.join(",")}`, r.id);
+    const loaded = catalog.tools.filter((t) => sets.includes(t.toolset));
+    assert.ok(article.includes(`${loaded.length} tools, about `), `${r.id}: tool count`);
+    for (const step of r.steps)
+      assert.ok(textOf(article).includes(step.prompt), `${r.id}: prompt "${step.prompt}"`);
+    for (const tool of used.filter((t) => t.dryRunDefault))
+      assert.match(
+        article,
+        new RegExp(`tools/${tool.name}/[^]*?as a dry run by default`),
+        `${r.id}: ${tool.name} dry run`,
+      );
+    const reads = r.steps
+      .map((step, i) => (step.tools.every((n) => byName.get(n)!.risk === "read") ? i + 1 : 0))
+      .filter(Boolean);
+    const text = textOf(article);
+    if (reads.length === r.steps.length)
+      assert.ok(text.includes("Every step only reads, so the recipe works with read-only mode on"));
+    else if (reads.length === 0)
+      assert.ok(
+        text.includes("Every step writes, so it needs read-only mode off"),
+        `${r.id}: read-only`,
+      );
+    else {
+      const said = /With read-only mode on, steps? ([\d, and]+?) still runs?/.exec(text);
+      assert.ok(said, `${r.id}: read-only note`);
+      assert.deepEqual(said![1].match(/\d+/g)!.map(Number), reads, `${r.id}: read-only steps`);
+    }
+  }
+});
+
+test("the troubleshooting page quotes the server's messages as the code words them", async () => {
+  const { QUOTES } = await import("../site/pages/troubleshooting.mjs");
+  const sources =
+    srcText() +
+    readFileSync(join(__dirname, "..", "node_modules/discord.js/src/errors/Messages.js"), "utf8");
+  const page = unescape(read("troubleshooting/index.html").replace(/<wbr>/g, ""));
+  for (const [key, quote] of Object.entries(QUOTES as Record<string, string>)) {
+    assert.ok(sources.includes(quote), `${key}: "${quote}" is not in src/ or discord.js`);
+    assert.ok(page.includes(quote), `${key}: not on the page`);
+  }
+  const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
+  const items = [
+    .../\n## Troubleshooting\n([\s\S]*?)\n## /.exec(readme)![1].matchAll(/^- \*\*.+?\*\* (.+)$/gm),
+  ].map((m) => m[1].replace(/`|\*\*/g, ""));
+  assert.ok(items.length >= 5, "README troubleshooting items");
+  const chipless = read("troubleshooting/index.html").replace(
+    /<span class="vh"> \([a-z-]+\)<\/span>/g,
+    "",
+  );
+  const text = unescape(textOf(chipless));
+  for (const item of items) assert.ok(text.includes(item), `README item "${item}" on the page`);
+});
+
+test("the configuration page documents every README variable with its plugin and bundle setting", () => {
+  const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
+  const vars = [
+    ...readme
+      .split("\n## Configuration\n")[1]
+      .split("\n## ")[0]
+      .matchAll(/^\| `([A-Z_]+)` /gm),
+  ].map((m) => m[1]);
+  assert.ok(vars.length >= 10, "README variables");
+  const html = read("configuration/index.html");
+  const src = readFileSync(join(__dirname, "..", "src", "client.ts"), "utf8") + srcText();
+  const plugin = JSON.parse(
+    readFileSync(join(__dirname, "..", "plugin", ".claude-plugin", "plugin.json"), "utf8"),
+  );
+  const bundle = JSON.parse(readFileSync(join(__dirname, "..", "manifest.json"), "utf8"));
+  const keyOf = (env: Record<string, string>, name: string) =>
+    /user_config\.(\w+)/.exec(env[name] ?? "")?.[1];
+  for (const name of vars) {
+    assert.ok(src.includes(name), `${name} is read by the server`);
+    const block = new RegExp(`<section class="env" id="${name}"[\\s\\S]*?</section>`).exec(html);
+    assert.ok(block, `${name} has its own section`);
+    const p = keyOf(plugin.mcpServers.discord.env, name);
+    const b = keyOf(bundle.server.mcp_config.env, name);
+    const facts = [...block![0].matchAll(/<dt>([^<]+)<\/dt><dd>([\s\S]*?)<\/dd>/g)].map(
+      ([, dt, dd]) => [dt, dd],
+    );
+    if (!p && !b) {
+      assert.doesNotMatch(block![0], /plugin|bundle/i, `${name}: no setting row`);
+      continue;
+    }
+    const both = facts.find(([dt]) => dt === "Plugin and bundle")?.[1];
+    const plug = both ?? facts.find(([dt]) => dt === "Claude Code plugin")![1];
+    const bund = both ?? facts.find(([dt]) => dt === "Claude Desktop bundle")![1];
+    if (both) assert.equal(p, b, `${name}: one row for the same setting`);
+    assert.equal(plug.includes(`<code>${p}</code>`), Boolean(p), `${name}: plugin ${p}`);
+    assert.equal(bund.includes(`<code>${b}</code>`), Boolean(b), `${name}: bundle ${b}`);
+    if (p) assert.ok(plug.startsWith(plugin.userConfig[p].title), `${name}: plugin title`);
+  }
+});
+
+test("the guide sets up every README client and asks for the permissions the invite link holds", async () => {
+  const { PermissionsBitField } = await import("discord.js");
+  const html = read("guide/index.html");
+  const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
+  const clients = [...readme.matchAll(/<summary><strong>(.+?)<\/strong><\/summary>/g)].map(
+    (m) => m[1],
+  );
+  for (const label of clients)
+    assert.match(
+      html,
+      new RegExp(`<h3 id="[a-z0-9-]+-h">${label.replace(/[/]/g, "\\/")}</h3>`),
+      label,
+    );
+  const bits = /permissions=(\d+)/.exec(readme)![1];
+  const count = new PermissionsBitField(BigInt(bits)).toArray().length;
+  const items = /<ul class="perm-list"[^>]*>([\s\S]*?)<\/ul>/.exec(html)![1].match(/<li>/g)!;
+  assert.equal(items.length, count, "one item per requested permission");
+  assert.ok(html.includes(`permissions=<wbr>${bits}`), "the invite link of the README");
+  assert.match(html, /<a class="tool" href="\.\.\/tools\/discord_list_guilds\/"/, "check prompt");
 });

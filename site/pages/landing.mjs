@@ -14,7 +14,7 @@ import {
 } from "../client/tpl.mjs";
 import { inline } from "../markdown.mjs";
 import { firstFitting, ICONS, layout } from "./layout.mjs";
-import { md, stripKey, terminal, toolChip } from "./parts.mjs";
+import { clientPanel, md, oneClick, stripKey, terminal, toolChip } from "./parts.mjs";
 
 const UP = "";
 
@@ -28,68 +28,6 @@ function section(id, title, head, body) {
     <div class="sec-body">${body}</div>
   </div></div>
 </section>`;
-}
-
-function oneClick(site, labels, lazy = false) {
-  return labels.map(
-    (label) =>
-      tpl`<a class="ocb" href="${site.installLinks[label]}"><img src="assets/${site.buttonFiles[label]}" width="196" height="40" alt="${label}"${lazy ? raw(' loading="lazy"') : ""}></a>`,
-  );
-}
-
-function clientPanel(site, client) {
-  const parts = [];
-  const prose = client.blocks.filter((b) => b.type !== "code");
-  const codes = client.blocks.filter((b) => b.type === "code");
-  const fileName = (prose
-    .map((b) => b.text ?? b.items?.join(" ") ?? "")
-    .join(" ")
-    .match(/`([^`]+\.json)`/) ?? [])[1];
-  const buttons = [];
-  const text = JSON.stringify(client.blocks);
-  if (text.includes("**Install in VS Code**"))
-    buttons.push("Install in VS Code", "Install in VS Code Insiders");
-  if (text.includes("**Install in Cursor**")) buttons.push("Install in Cursor");
-  if (text.includes("**Install in Claude Desktop**")) buttons.push("Install in Claude Desktop");
-  const titleOf = (block) =>
-    block.lang === "bash" ? "Terminal" : codes.length === 1 && fileName ? fileName : "MCP config";
-  const block = (b, i) =>
-    terminal({
-      code: b.code,
-      lang: b.lang,
-      title: titleOf(b),
-      copyLabel: `Copy the ${client.short} ${b.lang === "bash" ? "command" : "config"}${codes.length > 1 ? ` (${i + 1} of ${codes.length})` : ""}`,
-    });
-  // A client without a block of its own gets the Quick start config, right after the
-  // paragraph that points to it, or first when no paragraph does.
-  let quick =
-    codes.length === 0
-      ? terminal({
-          code: site.quickConfig,
-          lang: "json",
-          title: fileName ?? "MCP config",
-          copyLabel: `Copy the ${client.short} config`,
-        })
-      : null;
-  let codeIndex = 0;
-  let placedButtons = false;
-  for (const b of client.blocks) {
-    if (b.type === "code") parts.push(block(b, codeIndex++));
-    else if (b.type === "p") parts.push(tpl`<p>${md(site, b.text, UP)}</p>`);
-    else if (b.type === "ul")
-      parts.push(tpl`<ul>${b.items.map((item) => tpl`<li>${md(site, item, UP)}</li>`)}</ul>`);
-    if (b.type !== "p") continue;
-    if (!placedButtons && buttons.length) {
-      parts.push(tpl`<p class="ocl">${oneClick(site, buttons, true)}</p>`);
-      placedButtons = true;
-    }
-    if (quick && b.text.includes("(#quick-start)")) {
-      parts.push(quick);
-      quick = null;
-    }
-  }
-  if (quick) parts.unshift(quick);
-  return tpl`<section class="panel" id="${client.id}" aria-label="${client.label}">${parts}</section>`;
 }
 
 function hero(site) {
@@ -167,7 +105,7 @@ function asks(site) {
   return section(
     "what-you-can-ask",
     "What you can ask",
-    tpl`<p>Ask in plain language; the assistant picks the tools.</p>
+    tpl`<p>Ask in plain language; the assistant picks the tools.</p><a class="btn" href="recipes/">See the recipes</a>
 <p class="legend" aria-hidden="true">${RISKS.map((risk) => tpl`<span data-risk="${risk}">${glyph()}${RISK_LABEL[risk]}</span>`)}</p>`,
     tpl`<ul class="asks" role="list">${items}</ul>`,
   );
@@ -205,7 +143,7 @@ function quickStart(site) {
   return section(
     "quick-start",
     "Set it up in three steps",
-    tpl`<p>A bot of your own, invited to your server, then one entry in your client's MCP config.</p>`,
+    tpl`<p>A bot of your own, invited to your server, then one entry in your client's MCP config.</p><a class="btn" href="guide/">Read the full guide</a>`,
     tpl`<ol class="steps" role="list">${steps}</ol>${after}`,
   );
 }

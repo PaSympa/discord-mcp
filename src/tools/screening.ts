@@ -7,7 +7,7 @@ const tools = [
   defineTool({
     name: "discord_get_membership_screening",
     description:
-      "Fetch the server's membership screening form, the rules/questions new members must accept before gaining access. Requires the server to have the Community feature enabled. Read-only. Returns the form as JSON, including its version.",
+      "Fetch the server's membership screening form, the rules/questions new members must accept before gaining access. Requires the server to have the Community feature enabled. Read-only. Returns { version, description, form_fields } with each field's type, label, values, required flag and description; any other key Discord returns on a field is dropped.",
     annotations: { title: "Get membership screening", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

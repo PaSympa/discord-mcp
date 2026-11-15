@@ -99,7 +99,7 @@ ${tpl`${indexing}
 <meta property="og:image:alt" content="${og.alt}">
 <meta name="twitter:card" content="summary_large_image">`}
 <meta name="color-scheme" content="light dark">
-<link rel="icon" href="${tpl`${site.favicon}`}">
+<link rel="icon" type="image/svg+xml" href="${up}${site.favicon}">
 <link rel="apple-touch-icon" href="${up}${site.touchIcon}">
 <link rel="preload" href="${up}${FONTS.text}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${up}${FONTS.mono}" as="font" type="font/woff2" crossorigin>

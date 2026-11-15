@@ -315,6 +315,13 @@ test("every page has a unique title and description, its canonical URL, one h1 a
       hit.target.endsWith(".png") && existsSync(join(out, hit.target)),
       `${page}: apple-touch-icon`,
     );
+
+    const [favicon] = links(html, "icon");
+    const fav = resolve(page, favicon)!;
+    assert.ok(
+      fav.target.endsWith(".svg") && existsSync(join(out, fav.target)),
+      `${page}: icon is a served SVG file, not a data URI`,
+    );
   }
 });
 

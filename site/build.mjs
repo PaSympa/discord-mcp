@@ -31,6 +31,7 @@ const BUNDLES = {
 };
 const OG_IMAGE = "assets/social-preview.png";
 const TOUCH_ICON = "assets/apple-touch-icon.png";
+const FAVICON = "assets/favicon.svg";
 const BUTTON_FILES = {
   "Install in VS Code": "install-vscode.svg",
   "Install in VS Code Insiders": "install-vscode-insiders.svg",
@@ -46,6 +47,7 @@ const COPIED = {
   "assets/demo.mp4": join(SITE, "assets/demo.mp4"),
   [OG_IMAGE]: join(GITHUB_ASSETS, "social-preview.png"),
   [TOUCH_ICON]: join(GITHUB_ASSETS, "logo-512.png"),
+  [FAVICON]: join(GITHUB_ASSETS, "logo.svg"),
   ...Object.fromEntries(
     Object.values(BUTTON_FILES).map((file) => [`assets/${file}`, join(GITHUB_ASSETS, file)]),
   ),
@@ -275,7 +277,7 @@ export function siteModel(catalog, readme, content) {
     installLinks: readme.installLinks,
     buttonFiles: BUTTON_FILES,
     logo: inlineLogo(logoSvg),
-    favicon: "data:image/svg+xml," + encodeURIComponent(logoSvg.trim()),
+    favicon: FAVICON,
     touchIcon: TOUCH_ICON,
     ogImage: {
       path: OG_IMAGE,

@@ -38,14 +38,15 @@ jobs:
           # Trusted publishing needs npm >= 11.5.1, which Node 22 does not ship.
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - name: Check tag matches package.json, server.json and manifest.json
+      - name: Check tag matches package.json, server.json, manifest.json and plugin.json
         run: |
           TAG_VERSION="${GITHUB_REF#refs/tags/v}"
           PKG_VERSION="$(node -p "require('./package.json').version")"
           SRV_VERSION="$(node -p "require('./server.json').version")"
           MCPB_VERSION="$(node -p "require('./manifest.json').version")"
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$TAG_VERSION" != "$SRV_VERSION" ] || [ "$TAG_VERSION" != "$MCPB_VERSION" ]; then
-            echo "Version mismatch: tag=$TAG_VERSION package.json=$PKG_VERSION server.json=$SRV_VERSION manifest.json=$MCPB_VERSION"
+          PLUGIN_VERSION="$(node -p "require('./plugin/.claude-plugin/plugin.json').version")"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ] || [ "$TAG_VERSION" != "$SRV_VERSION" ] || [ "$TAG_VERSION" != "$MCPB_VERSION" ] || [ "$TAG_VERSION" != "$PLUGIN_VERSION" ]; then
+            echo "Version mismatch: tag=$TAG_VERSION package.json=$PKG_VERSION server.json=$SRV_VERSION manifest.json=$MCPB_VERSION plugin.json=$PLUGIN_VERSION"
             exit 1
           fi
           node -e '
@@ -54,6 +55,13 @@ jobs:
               const v = pkg.registryType === "oci" ? pkg.identifier.split(":").pop() : pkg.version;
               if (v !== tag) {
                 console.error(`Version mismatch in server.json package ${pkg.identifier}: ${v} != ${tag}`);
+                process.exit(1);
+              }
+            }
+            const { name } = require("./package.json");
+            for (const [server, { args }] of Object.entries(require("./plugin/.claude-plugin/plugin.json").mcpServers)) {
+              if (!args.includes(`${name}@${tag}`)) {
+                console.error(`Version mismatch in plugin.json server ${server}: ${args.join(" ")} does not run ${name}@${tag}`);
                 process.exit(1);
               }
             }

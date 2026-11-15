@@ -1,0 +1,14 @@
+{
+  "name": "pasympa",
+  "owner": {
+    "name": "PaSympa",
+    "url": "https://github.com/PaSympa"
+  },
+  "description": "Claude Code plugins by PaSympa.",
+  "plugins": [
+    {
+      "name": "discord-mcp",
+      "source": "./plugin"
+    }
+  ]
+}

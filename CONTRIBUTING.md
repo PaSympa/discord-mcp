@@ -94,7 +94,7 @@ npm run bundle    # after a build: packs discord-mcp.mcpb for Claude Desktop
 
 ## Releasing (maintainers)
 
-Versions live in four files and must always agree: `package.json`, `package-lock.json`, `server.json` (the MCP Registry manifest) and `manifest.json` (the Claude Desktop bundle manifest). Never edit them by hand. `main` only accepts pull requests, so the flow is:
+Versions live in five files and must always agree: `package.json`, `package-lock.json`, `server.json` (the MCP Registry manifest), `manifest.json` (the Claude Desktop bundle manifest) and `plugin/.claude-plugin/plugin.json` (the Claude Code plugin, which also pins the npm version it runs). Never edit them by hand. `main` only accepts pull requests, so the flow is:
 
 ```bash
 git switch -c release/x.y.z main   # from an up-to-date main
@@ -102,9 +102,9 @@ npm version patch                  # or minor / major
 git push -u origin release/x.y.z
 ```
 
-`npm version` bumps all four files (`server.json` and `manifest.json` via the `version` lifecycle script in `scripts/sync-version.js`), commits, and creates the `vX.Y.Z` tag locally. Make sure `CHANGELOG.md` has an entry for the new version (commit it on the branch if not).
+`npm version` bumps all five files (`server.json`, `manifest.json` and `plugin.json` via the `version` lifecycle script in `scripts/sync-version.js`), commits, and creates the `vX.Y.Z` tag locally. Make sure `CHANGELOG.md` has an entry for the new version (commit it on the branch if not).
 
-Open a PR and **merge it with a merge commit** (not squash or rebase: the tagged commit must end up in `main`'s history). Then push the tag:
+Open a PR and **merge it with a merge commit** (not squash or rebase: the tagged commit must end up in `main`'s history). The plugin on `main` then pins a version npm does not have yet, so its installs fail until the release publishes it. Push the tag right away:
 
 ```bash
 git push origin vX.Y.Z
@@ -113,7 +113,7 @@ git push origin vX.Y.Z
 The tag triggers `.github/workflows/release.yml`, which does everything else automatically:
 
 1. Builds the Claude Desktop bundle, `discord-mcp.mcpb`, with `npm run bundle`, then starts it once with `scripts/check-bundle.mjs`. A broken bundle stops the release before anything is published
-2. Fails fast if the tag does not match `package.json`, `server.json` and `manifest.json`
+2. Fails fast if the tag does not match `package.json`, `server.json`, `manifest.json`, `plugin.json` and the npm version the plugin runs
 3. Lints, builds, tests, then publishes to npm through trusted publishing (GitHub OIDC). No npm token is stored: the trusted publisher on npmjs.com must name `release.yml`
 4. Pushes the Docker images
 5. Creates the GitHub Release and attaches `discord-mcp.mcpb` to it

@@ -122,6 +122,10 @@ Set `DISCORD_MCP_READ_ONLY=true` to keep only the 35 tools annotated `readOnlyHi
 <details>
 <summary><strong>Claude Code</strong></summary>
 
+**Plugin.** In a Claude Code session, run `/plugin marketplace add PaSympa/discord-mcp`, then `/plugin install discord-mcp@pasympa`. Claude Code asks for the bot token and stores it as a secret, not in `settings.json`. To change it or the other settings later, run `/plugin configure discord-mcp@pasympa`. The plugin also brings two skills, `/discord-mcp:channel-digest` and `/discord-mcp:moderation-sweep`. They read without a permission prompt, and nothing that changes Discord happens before you approve it.
+
+**Without the plugin.** You can also add the server with `claude mcp add`, as before. Keep only one of the two, or every tool loads twice.
+
 ```bash
 claude mcp add discord -e DISCORD_TOKEN=YOUR_BOT_TOKEN -- npx -y @pasympa/discord-mcp
 ```

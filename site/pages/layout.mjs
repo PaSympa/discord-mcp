@@ -13,6 +13,12 @@ export const DOCS = [
     name: "Troubleshooting",
     llms: "errors and FAQ",
   },
+  {
+    key: "privacy",
+    path: "privacy/",
+    name: "Privacy",
+    llms: "what the server connects to and where the token is stored",
+  },
 ];
 export const SITE_URL = process.env.SITE_URL || "https://pasympa.github.io/discord-mcp/";
 if (!/^https:\/\/[^/]+\/(.+\/)?$/.test(SITE_URL))

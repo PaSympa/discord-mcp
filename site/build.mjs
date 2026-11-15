@@ -10,6 +10,7 @@ import { renderLanding } from "./pages/landing.mjs";
 import { inlineLogo } from "./pages/layout.mjs";
 import { renderNotFound } from "./pages/notfound.mjs";
 import { channels, slug } from "./pages/parts.mjs";
+import { renderPrivacy } from "./pages/privacy.mjs";
 import { renderRecipes } from "./pages/recipes.mjs";
 import { renderToolPage, toolPath } from "./pages/tool.mjs";
 import { renderTroubleshooting } from "./pages/troubleshooting.mjs";
@@ -403,6 +404,7 @@ export function writeSite(catalog, outDir, { date } = {}) {
     "recipes/": renderRecipes(site),
     "configuration/": renderConfiguration(site),
     "troubleshooting/": renderTroubleshooting(site),
+    "privacy/": renderPrivacy(site),
     "tools/": renderCatalog(site),
     [TOOLSETS_PATH]: renderToolsets(site),
     ...Object.fromEntries(

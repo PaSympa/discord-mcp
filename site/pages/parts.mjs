@@ -127,12 +127,13 @@ export function oneClick(site, labels, { up = "", lazy = false } = {}) {
 /**
  * One client's setup from the README: its prose and code blocks, the one-click buttons it
  * names, and the Quick start config when it has no code of its own, unless `quickConfig` is
- * false. `id` overrides the panel id and `heading` puts a heading of that level inside it.
+ * false. `id` overrides the panel id. `collapsed` renders it as a closed <details> whose
+ * summary names the client, so a list of clients stays short without a script.
  */
 export function clientPanel(
   site,
   client,
-  { up = "", id = client.id, heading, local, quickConfig = true } = {},
+  { up = "", id = client.id, collapsed = false, local, quickConfig = true } = {},
 ) {
   const parts = [];
   const prose = client.blocks.filter((b) => b.type !== "code");
@@ -187,7 +188,7 @@ export function clientPanel(
     }
   }
   if (quick) parts.unshift(quick);
-  if (heading)
-    return tpl`<section class="panel" id="${id}" aria-labelledby="${id}-h"><h${heading} id="${id}-h">${client.label}</h${heading}>${parts}</section>`;
+  if (collapsed)
+    return tpl`<details class="client" id="${id}"><summary>${client.label}</summary><div class="panel">${parts}</div></details>`;
   return tpl`<section class="panel" id="${id}" aria-label="${client.label}">${parts}</section>`;
 }

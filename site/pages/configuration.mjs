@@ -10,8 +10,23 @@ const EXAMPLE = {
 };
 const PACKAGE = "@pasympa/discord-mcp";
 
+/** JSON with each array of plain values on one line, as the README writes `args`. */
+const json = (value) =>
+  JSON.stringify(value, null, 2).replace(
+    /\[\s+([^[\]{}]*?)\s+\]/g,
+    (_, inner) => `[${inner.split(/,\s+/).join(", ")}]`,
+  );
+
 const jsonConfig = (env, command = "npx", args = ["-y", PACKAGE]) =>
-  JSON.stringify({ mcpServers: { discord: { command, args, env } } }, null, 2);
+  json({ mcpServers: { discord: { command, args, env } } });
+
+/** A shell command with one flag and its variable per line, so neither wraps apart. */
+const command = (start, flag) =>
+  [
+    start,
+    ...Object.entries(EXAMPLE).map(([k, v]) => `${flag} ${k}=${v}`),
+    `-- npx -y ${PACKAGE}`,
+  ].join(" \\\n  ");
 
 function variable(site, v, local) {
   const setting = (label, s) =>
@@ -71,14 +86,7 @@ export function renderConfiguration(site) {
   <h3 id="set-claude-code-h">Claude Code</h3>
   <p>With the plugin, run <code>/plugin configure discord-mcp@pasympa</code>. It asks for each setting listed above and stores the token as a secret. Restart Claude Code after you set or change the token.</p>
   <p>Without the plugin, pass one <code>-e</code> per variable:</p>
-  ${term(
-    `claude mcp add discord ${Object.entries(EXAMPLE)
-      .map(([k, v]) => `-e ${k}=${v}`)
-      .join(" ")} -- npx -y ${PACKAGE}`,
-    "bash",
-    "Terminal",
-    "Claude Code command",
-  )}
+  ${term(command("claude mcp add discord", "-e"), "bash", "Terminal", "Claude Code command")}
 </section>
 <section class="panel" id="set-claude-desktop-bundle" aria-labelledby="set-claude-desktop-bundle-h">
   <h3 id="set-claude-desktop-bundle-h">Claude Desktop bundle</h3>
@@ -87,22 +95,13 @@ export function renderConfiguration(site) {
 <section class="panel" id="set-vs-code" aria-labelledby="set-vs-code-h">
   <h3 id="set-vs-code-h">VS Code</h3>
   <p>In <code>.vscode/mcp.json</code>, next to the token VS Code asks for:</p>
-  ${term(JSON.stringify({ servers: { discord: { command: "npx", args: ["-y", PACKAGE], env: { ...EXAMPLE, DISCORD_TOKEN: "${input:discord_token}" } } } }, null, 2), "json", ".vscode/mcp.json", "VS Code config")}
+  ${term(json({ servers: { discord: { command: "npx", args: ["-y", PACKAGE], env: { ...EXAMPLE, DISCORD_TOKEN: "${input:discord_token}" } } } }), "json", ".vscode/mcp.json", "VS Code config")}
   <p>The <code>inputs</code> entry that defines <code>discord_token</code> is in the <a href="${UP}guide/#client-vs-code">guide</a>.</p>
 </section>
 <section class="panel" id="set-codex" aria-labelledby="set-codex-h">
   <h3 id="set-codex-h">Codex CLI</h3>
-  <p>In <code>~/.codex/config.toml</code>:</p>
-  ${term(
-    `[mcp_servers.discord]\ncommand = "npx"\nargs = ["-y", "${PACKAGE}"]\nenv = { ${Object.entries(
-      EXAMPLE,
-    )
-      .map(([k, v]) => `${k} = "${v}"`)
-      .join(", ")} }`,
-    "toml",
-    "~/.codex/config.toml",
-    "Codex config",
-  )}
+  <p>Pass one <code>--env</code> per variable:</p>
+  ${term(command("codex mcp add discord", "--env"), "bash", "Terminal", "Codex command")}
 </section>
 <section class="panel" id="set-docker" aria-labelledby="set-docker-h">
   <h3 id="set-docker-h">Docker</h3>

@@ -17,16 +17,19 @@ function readOnlyNote(r) {
 
 function recipe(site, r) {
   const local = new Set();
+  const unpreviewed = r.destructive.filter((name) => !r.dryRun.includes(name));
   const chips = (names) => listOf(names.map((name) => toolChip(site, name, UP)));
   const safety = [
     ...(r.dryRun.length
       ? [
-          tpl`${chips(r.dryRun)} ${r.dryRun.length === 1 ? "runs" : "run"} as a dry run by default: ${r.dryRun.length === 1 ? "it reports" : "they report"} what would happen and change nothing until called again with <code>dry_run: false</code>.`,
+          r.dryRun.length === 1
+            ? tpl`${chips(r.dryRun)} runs as a dry run by default: it reports what would happen and changes nothing until called again with <code>dry_run: false</code>.`
+            : tpl`${chips(r.dryRun)} run as a dry run by default: they report what would happen and change nothing until called again with <code>dry_run: false</code>.`,
         ]
       : []),
-    ...(r.destructive.length > r.dryRun.length
+    ...(unpreviewed.length
       ? [
-          tpl`Destructive here: ${chips(r.destructive.filter((n) => !r.dryRun.includes(n)))}. Your client can ask before each destructive call.`,
+          tpl`Destructive here: ${chips(unpreviewed)}. Your client can ask before each destructive call.`,
         ]
       : []),
     readOnlyNote(r),
@@ -44,15 +47,15 @@ function recipe(site, r) {
   </li>`,
   )}</ol>
   <div class="recipe-meta">
-    <section class="recipe-box" aria-labelledby="${r.id}-sets">
-      <h3 id="${r.id}-sets">Toolsets to load</h3>
+    <div class="recipe-box">
+      <h3>Toolsets to load</h3>
       ${terminal({ code: line, lang: "text", title: "Environment", copyLabel: `Copy the toolsets for ${r.title.toLowerCase()}` })}
       <p class="note">${plural(r.tools, "tool")}, about ${formatTokens(r.tokens).slice(1)} tokens of context. Discovery comes along for the server and channel IDs.</p>
-    </section>
-    <section class="recipe-box" aria-labelledby="${r.id}-safe">
-      <h3 id="${r.id}-safe">Safety</h3>
+    </div>
+    <div class="recipe-box">
+      <h3>Safety</h3>
       <ul>${safety.map((s) => tpl`<li>${s}</li>`)}</ul>
-    </section>
+    </div>
   </div>
 </article>`;
 }

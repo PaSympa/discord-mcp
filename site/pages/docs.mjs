@@ -1,15 +1,10 @@
 import { tpl } from "../client/tpl.mjs";
-import { layout, SITE_URL } from "./layout.mjs";
+import { DOCS, layout, SITE_URL } from "./layout.mjs";
+
+export { DOCS };
 import { md, terminal } from "./parts.mjs";
 import { breadcrumbLd, breadcrumbs } from "./toolsets.mjs";
 
-/** The documentation pages, in reading order. Each lives one folder below the root. */
-export const DOCS = [
-  { key: "guide", path: "guide/", name: "Guide" },
-  { key: "recipes", path: "recipes/", name: "Recipes" },
-  { key: "configuration", path: "configuration/", name: "Configuration" },
-  { key: "troubleshooting", path: "troubleshooting/", name: "Troubleshooting" },
-];
 export const UP = "../";
 
 export const docTrail = (doc) => [

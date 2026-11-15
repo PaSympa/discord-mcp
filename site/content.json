@@ -154,7 +154,6 @@
         }
       ],
       "notes": [
-        "The first two steps only read. To summarize without ever posting, turn on read-only mode: the last step then has no tool to call.",
         "Message bodies come back empty when Message Content is off in the Developer Portal. See [Troubleshooting](#empty-messages)."
       ]
     },
@@ -259,7 +258,7 @@
         }
       ],
       "notes": [
-        "Only the delete has a dry run. For the rest, the preview is the plan in the first step, and your client's prompt before each write, if it asks.",
+        "For the steps with no dry run, the preview is the plan in the first step, and your client's prompt before each write, if it asks.",
         "Deny @everyone View Channel only after the bot has its own allow: otherwise the bot loses sight of the channel. Only Administrator ignores channel overwrites.",
         "The bot can only edit, assign or move roles below its own highest role. New roles are placed below it."
       ]

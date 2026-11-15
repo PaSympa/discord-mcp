@@ -1676,13 +1676,45 @@ test("the guide sets up every README client and asks for the permissions the inv
   for (const label of clients)
     assert.match(
       html,
-      new RegExp(`<h3 id="[a-z0-9-]+-h">${label.replace(/[/]/g, "\\/")}</h3>`),
+      new RegExp(
+        `<details class="client" id="[a-z0-9-]+"><summary>${label.replace(/[/]/g, "\\/")}</summary>`,
+      ),
       label,
     );
+  const order = [...html.matchAll(/<section class="doc-sec" id="([a-z-]+)"/g)].map((m) => m[1]);
+  assert.ok(
+    order.indexOf("check-that-it-works") === order.indexOf("add-it-to-your-client") + 1,
+    `the check follows the client step: ${order.join(", ")}`,
+  );
+  assert.ok(order.indexOf("remote-clients-over-http") > order.indexOf("first-prompts-to-try"));
   const bits = /permissions=(\d+)/.exec(readme)![1];
   const count = new PermissionsBitField(BigInt(bits)).toArray().length;
   const items = /<ul class="perm-list"[^>]*>([\s\S]*?)<\/ul>/.exec(html)![1].match(/<li>/g)!;
   assert.equal(items.length, count, "one item per requested permission");
   assert.ok(html.includes(`permissions=<wbr>${bits}`), "the invite link of the README");
   assert.match(html, /<a class="tool" href="\.\.\/tools\/discord_list_guilds\/"/, "check prompt");
+});
+
+test("generated sentences agree in number, commands keep each flag with its value, controls have names", () => {
+  const recipes = read("recipes/index.html");
+  const text = textOf(recipes);
+  assert.doesNotMatch(text, /\bit reports what would happen and change nothing/, "singular verb");
+  assert.doesNotMatch(text, /\bthey report what would happen and changes nothing/, "plural verb");
+  assert.match(text, /it reports what would happen and changes nothing/);
+  assert.match(text, /they report what would happen and change nothing/);
+  assert.doesNotMatch(recipes, /<section class="recipe-box"/, "recipe boxes are not landmarks");
+  const config = read("configuration/index.html");
+  for (const id of ["set-claude-code", "set-codex"]) {
+    const block = new RegExp(`id="${id}"[\\s\\S]*?</section>`).exec(config)![0];
+    const lines = [
+      ...block.matchAll(/<span class="l"[^>]*>([\s\S]*?)<\/span>(?=<span class="l"|<\/code>)/g),
+    ].map((m) => unescape(m[1].replace(/<[^>]+>/g, "")));
+    assert.ok(lines.length >= 5, `${id}: one flag per line`);
+    for (const line of lines.slice(1, -1))
+      assert.match(line, /^ {2}(-e|--env) [A-Z_]+=\S+ \\$/, `${id}: "${line}"`);
+  }
+  for (const page of pages) {
+    const control = /<(a|button) class="search-btn"[^>]*>/.exec(read(page))![0];
+    assert.equal(attr(control, "aria-label"), `Search ${catalog.totals.tools} tools`, page);
+  }
 });

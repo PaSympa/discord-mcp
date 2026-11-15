@@ -112,7 +112,7 @@
 }
 
 .perm-list {
-  margin: 0;
+  margin: var(--s4) 0 0;
   padding: var(--s4) var(--s5);
   list-style: none;
   columns: 3 9em;
@@ -128,29 +128,47 @@
   break-inside: avoid;
 }
 
-.doc-jump ul {
+.clients {
+  border-top: 1px solid var(--line);
+}
+.client {
+  border-bottom: 1px solid var(--line);
+}
+.client > summary {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2);
-  margin: 0;
-  padding: 0;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 48px;
+  padding: var(--s2) var(--s1);
+  cursor: pointer;
+  font-size: 1.0625rem;
+  font-weight: 650;
   list-style: none;
 }
-.doc-jump a {
-  display: inline-block;
-  padding: 5px var(--s3);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--ink);
-  font-size: 0.875rem;
-  font-weight: 500;
-  text-decoration: none;
+.client > summary::-webkit-details-marker {
+  display: none;
 }
-.doc-jump a:hover {
-  border-color: var(--line-strong);
+.client > summary::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-2);
+  border-bottom: 2px solid var(--ink-2);
+  transform: rotate(-45deg);
 }
-
+.client[open] > summary::before {
+  transform: rotate(45deg);
+}
+.client > summary:hover {
+  color: var(--brand-ink);
+}
+.client > .panel {
+  padding: 0 0 var(--s5) calc(var(--s1) + 8px + var(--s3));
+}
+.doc-next-step {
+  font-weight: 600;
+}
 .doc-sec > .panel,
 .issue,
 .env {
@@ -300,6 +318,10 @@
 
 .foot-nav {
   flex-basis: 100%;
+}
+.foot-nav a {
+  display: inline-block;
+  padding-block: 4px;
 }
 .foot-nav ul {
   display: flex;

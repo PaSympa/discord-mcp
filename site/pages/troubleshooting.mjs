@@ -65,7 +65,7 @@ export function renderTroubleshooting(site) {
       item(
         "startup",
         "The server stops at startup",
-        tpl`<p>An invalid setting stops the server before it lists any tool, with a message that names the variable:</p>${said(`${QUOTES.unknownToolset} "chanels". Known: all, ${site.toolsets.map((t) => t.name).join(", ")}.`)}${said(`${QUOTES.noReadOnly}: the toolsets in DISCORD_MCP_TOOLSETS ("channels") have no read-only tool.`)}<p>Your client then shows the server as failed, and its MCP log holds the message. The <a href="${UP}configuration/">configuration reference</a> lists the accepted values.</p>`,
+        tpl`<p>An invalid setting stops the server before it lists any tool, with a message that names the variable:</p>${said(`${QUOTES.unknownToolset} "chanels". Known: all, ${site.toolsets.map((t) => t.name).join(", ")}.`)}${said(`${QUOTES.noReadOnly}: the toolsets in DISCORD_MCP_TOOLSETS ("channels") have no read-only tool. Add a toolset with read tools, such as discovery, or turn read-only mode off.`)}<p>Your client then shows the server as failed, and its MCP log holds the message. The <a href="${UP}configuration/">configuration reference</a> lists the accepted values.</p>`,
       ),
       item(
         "tools-twice",
@@ -103,12 +103,12 @@ export function renderTroubleshooting(site) {
       item(
         "hidden-channels",
         "A channel is missing from the lists",
-        tpl`<p>From 2026-11-16, Discord hides from a bot the channels it cannot view: their name reads <code>___hidden___</code> and their overwrites are replaced. ${chip("discord_list_channels")} and ${chip("discord_audit_permissions")} leave them out, and ${chip("discord_find_channel_by_name")} counts them in <code>hiddenChannels</code> with a note:</p>${said("N channel(s) " + QUOTES.hidden)}<p>${chip("discord_get_channel_permissions")}, ${chip("discord_copy_permissions")} and ${chip("discord_clone_channel")} refuse such a channel rather than act on placeholder data. Grant the bot View Channel on it.</p>`,
+        tpl`<p>Discord hides from a bot the channels it cannot view: their name reads <code>___hidden___</code> and their overwrites are replaced by a single @everyone View Channel deny. From 2026-11-16, its REST channel list also omits them. ${chip("discord_list_channels")} leaves them out. ${chip("discord_audit_permissions")} and ${chip("discord_find_channel_by_name")} leave them out and count them in <code>hiddenChannels</code>; the search adds a note:</p>${said("N channel(s) " + QUOTES.hidden)}<p>${chip("discord_get_channel_permissions")}, ${chip("discord_copy_permissions")} and ${chip("discord_clone_channel")} refuse such a channel rather than act on placeholder data. Grant the bot View Channel on it.</p>`,
       ),
       item(
         "allow-list",
         "The guild is not in the allow-list",
-        tpl`${said("guild_id " + QUOTES.allowList)}<p><code>DISCORD_ALLOWED_GUILDS</code> is set and the call targets another server, directly or through a channel, thread, webhook or invite. Add the server's ID to the list, or check that the ID is the one you meant. <a href="${UP}configuration/#DISCORD_ALLOWED_GUILDS">Configuration</a> covers the variable.</p>`,
+        tpl`${said("guild_id " + QUOTES.allowList)}${said("Guild 123456789012345678 " + QUOTES.allowList)}<p>The first form answers a <code>guild_id</code> argument, the second a channel, thread, webhook or invite that belongs to another server. <code>DISCORD_ALLOWED_GUILDS</code> is set and the call targets a server outside it. Add the server's ID to the list, or check that the ID is the one you meant. <a href="${UP}configuration/#DISCORD_ALLOWED_GUILDS">Configuration</a> covers the variable.</p>`,
       ),
       readmeItem("empty-messages", "Messages come back with empty text"),
       readmeItem("finding-ids", "Finding IDs"),
@@ -134,7 +134,7 @@ export function renderTroubleshooting(site) {
       item(
         "which-permissions",
         "Which permissions should the bot get?",
-        tpl`<p>The ones your tasks need. The <a href="${UP}guide/#invite-the-bot">invite link</a> asks for every permission the tools use; untick the rest in the authorization screen. Each tool page names its own. Avoid Administrator unless a task needs it, as pruning does on servers that require it: Administrator ignores channel overwrites, so a mistake reaches every channel.</p>`,
+        tpl`<p>The ones your tasks need. The <a href="${UP}guide/#invite-the-bot">invite link</a> asks for every permission the tools use; untick the rest in the authorization screen. Each tool page names its own. Avoid Administrator unless a task needs it, such as pruning on a server that requires Administrator for it. Administrator ignores channel overwrites, so a mistake reaches every channel.</p>`,
       ),
       item(
         "context-cost",

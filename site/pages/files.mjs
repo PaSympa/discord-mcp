@@ -1,5 +1,5 @@
 import { esc, RISK_WORD } from "../client/tpl.mjs";
-import { REPO, SITE_URL } from "./layout.mjs";
+import { DOCS, REPO, SITE_URL } from "./layout.mjs";
 import { toolPath } from "./tool.mjs";
 import { TOOLSETS_PATH, toolsetPath } from "./toolsets.mjs";
 
@@ -23,14 +23,11 @@ export function renderLlms(site) {
 
 > ${site.description}
 
-Version ${site.version}. Run it with \`npx -y @pasympa/discord-mcp\` and your bot's token in \`DISCORD_TOKEN\`. Under each toolset heading, a line names a tool, gives its purpose (the first sentence of its description) and its risk from its annotations: read-only, write or destructive. Toolset names in headings are the values of \`DISCORD_MCP_TOOLSETS\`. Every definition, with its input and output schemas, is in [tools.json](${SITE_URL}tools.json).
+Version ${site.version}. Run it with \`npx -y @pasympa/discord-mcp\` and your bot's token in \`DISCORD_TOKEN\`. Each tool line gives its purpose (the first sentence of its description) and its risk: read-only, write or destructive. Toolset names in headings are the values of \`DISCORD_MCP_TOOLSETS\`.
 
 ## Documentation
 
-- [Guide](${SITE_URL}guide/): bot setup and every client, HTTP included.
-- [Recipes](${SITE_URL}recipes/): ${site.recipes.length} tasks, prompt by prompt, with tools, toolsets and safety notes.
-- [Configuration](${SITE_URL}configuration/): every environment variable and its default.
-- [Troubleshooting](${SITE_URL}troubleshooting/): errors, fixes and common questions.
+${DOCS.map((d) => `- [${d.name}](${SITE_URL}${d.path}): ${d.llms}.`).join("\n")}
 
 ## Toolsets
 
@@ -43,7 +40,7 @@ ${sections.join("\n")}
 
 - [tools.json](${SITE_URL}tools.json): the ${totals.tools} tool definitions as \`tools/list\` serves them, with toolset, risk and estimated token cost.
 - [Tool catalog](${SITE_URL}tools/): search, risk and toolset filters, and each tool's schemas.
-- [README](${REPO}#readme): setup for each client, configuration and safety.
+- [README](${REPO}#readme): the project README.
 `;
 }
 

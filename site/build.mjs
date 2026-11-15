@@ -103,7 +103,11 @@ const PERMISSION_NAMES = { ManageGuild: "Manage Server" };
 export function invitePermissions(link) {
   const bits =
     /[?&]permissions=(\d+)/.exec(link)?.[1] ?? fail("the invite link has no permissions.");
-  return new PermissionsBitField(BigInt(bits))
+  const field = new PermissionsBitField(BigInt(bits));
+  const known = Object.values(PermissionsBitField.Flags).reduce((all, bit) => all | bit, 0n);
+  if (BigInt(bits) & ~known)
+    fail(`the invite link requests permission bits discord.js does not know: ${bits}.`);
+  return field
     .toArray()
     .map((flag) =>
       (PERMISSION_NAMES[flag] ?? flag.replace(/(?<=[a-z])(?=[A-Z])/g, " ")).replace(" In ", " in "),

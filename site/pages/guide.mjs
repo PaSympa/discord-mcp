@@ -33,7 +33,7 @@ export function renderGuide(site) {
     body: tpl`<ol class="steps doc-steps" role="list">
   ${step(1, "Create an application", tpl`<p>Open the <a href="${PORTAL}">Developer Portal</a> and sign in. Choose <strong>New Application</strong>, give it a name, and create it. The name is what your server sees.</p>`)}
   ${step(2, "Copy the token", tpl`<p>Open the <strong>Bot</strong> page. Under the token, choose <strong>Reset Token</strong> and copy the new token. Discord shows it once: keep it somewhere safe. Anyone who holds it controls the bot.</p>`)}
-  ${step(3, "Turn on the two privileged intents", tpl`<p>On the same page, under <strong>Privileged Gateway Intents</strong>, turn on <strong>Server Members Intent</strong> and <strong>Message Content Intent</strong>, then save. Without Message Content, messages come back with empty text. Without Server Members, member lists fail. To run without one of them, see <a href="${UP}configuration/#DISCORD_MESSAGE_CONTENT">the intent flags</a>.</p>`)}
+  ${step(3, "Turn on the two privileged intents", tpl`<p>On the same page, under <strong>Privileged Gateway Intents</strong>, turn on <strong>Server Members Intent</strong> and <strong>Message Content Intent</strong>, then save. The server asks for both when it connects: if one is off in the portal, Discord closes the connection with code <code>4014</code> and every call fails. To run without one of them, see <a href="${UP}configuration/#DISCORD_MESSAGE_CONTENT">the intent flags</a>.</p>`)}
   ${step(4, "Note the Application ID", tpl`<p>Open <strong>General Information</strong> and copy the <strong>Application ID</strong>. The invite link below needs it.</p>`)}
 </ol>`,
   });
@@ -43,9 +43,9 @@ export function renderGuide(site) {
     title: "Invite it to your server",
     intro: tpl`<p>Replace <code>YOUR_CLIENT_ID</code> with the Application ID, then open the link. Pick your server and authorize. You need the Manage Server permission on that server.</p>`,
     body: tpl`${terminal({ code: site.invite.link, lang: "text", title: "Invite link", copyLabel: "Copy the invite link" })}
-<p>The link asks for the ${site.invite.permissions.length} permissions the tools use. Untick the ones you do not want in the authorization screen; each tool page names the permissions it needs.</p>
+<p>The link asks for the permissions most tools use, ${site.invite.permissions.length} in all. Untick the ones you do not want in the authorization screen; each tool page names the permissions it needs.</p>
 <ul class="perm-list" role="list" aria-label="Permissions the invite link requests">${site.invite.permissions.map((p) => tpl`<li>${p}</li>`)}</ul>
-<p class="note">Avoid Administrator unless a task needs it: pruning does on servers that require it. Administrator ignores every channel overwrite, so a mistake would reach every channel.</p>`,
+<p class="note">Avoid Administrator unless a task needs it, such as pruning on a server that requires Administrator for it. Administrator ignores every channel overwrite, so a mistake would reach every channel.</p>`,
   });
 
   const clients = docSection({
@@ -53,10 +53,11 @@ export function renderGuide(site) {
     title: "Add it to your client",
     intro: tpl`<p id="quick-start">Most clients start the server with <code>npx</code> and read the same entry. Node.js 22 or later runs it; nothing else to install. Put your bot token in place of <code>YOUR_BOT_TOKEN</code>.</p>
 ${terminal({ code: site.quickConfig, lang: "json", title: "MCP config", copyLabel: "Copy the MCP config" })}
-<nav class="doc-jump" aria-label="Clients"><ul role="list">${clientIds.map((c) => tpl`<li><a href="#${c.docId}">${c.short}</a></li>`)}<li><a href="#remote-clients-over-http">Over HTTP</a></li></ul></nav>`,
-    body: clientIds.map((c) =>
-      clientPanel(site, c, { up: UP, id: c.docId, heading: 3, local, quickConfig: false }),
-    ),
+<p>Open your client below for where the entry goes, or for a one-click install. A client that reaches the server by URL is under <a href="#remote-clients-over-http">remote clients</a>.</p>`,
+    body: tpl`<div class="clients">${clientIds.map((c) =>
+      clientPanel(site, c, { up: UP, id: c.docId, collapsed: true, local, quickConfig: false }),
+    )}</div>
+<p class="doc-next-step">Next: <a href="#check-that-it-works">check that it works</a>.</p>`,
   });
 
   const remote = docSection({
@@ -65,7 +66,7 @@ ${terminal({ code: site.quickConfig, lang: "json", title: "MCP config", copyLabe
     body: tpl`${readmeBlocks(site, site.readme.remote.intro, { local, titleOf: fileTitle, label: "HTTP" })}
 ${remoteIds.map(
   (c) =>
-    tpl`<section class="panel" id="${c.docId}" aria-labelledby="${c.docId}-h"><h3 id="${c.docId}-h">${c.label}</h3>${readmeBlocks(site, c.blocks, { local, titleOf: fileTitle, label: c.label })}</section>`,
+    tpl`<details class="client" id="${c.docId}"><summary>${c.label}</summary><div class="panel">${readmeBlocks(site, c.blocks, { local, titleOf: fileTitle, label: c.label })}</div></details>`,
 )}
 <section class="panel" id="security-over-http" aria-labelledby="security-over-http-h"><h3 id="security-over-http-h">Security over HTTP</h3>
 <ul>${site.readme.remote.security.map((s) => tpl`<li><strong>${s.lead}.</strong> ${md(site, s.text, UP, local)}</li>`)}</ul></section>`,
@@ -110,11 +111,11 @@ ${remoteIds.map(
       { id: "create-the-bot", label: "Create the bot" },
       { id: "invite-the-bot", label: "Invite it" },
       { id: "add-it-to-your-client", label: "Add it to your client" },
-      { id: "remote-clients-over-http", label: "Remote clients over HTTP" },
       { id: "check-that-it-works", label: "Check that it works" },
       { id: "first-prompts-to-try", label: "First prompts to try" },
+      { id: "remote-clients-over-http", label: "Remote clients over HTTP" },
       { id: "next-steps", label: "Next steps" },
     ],
-    body: [bot, invite, clients, remote, check, first, next],
+    body: [bot, invite, clients, check, first, remote, next],
   });
 }

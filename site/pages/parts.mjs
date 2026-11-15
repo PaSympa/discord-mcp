@@ -1,4 +1,4 @@
-import { breakable, esc, glyph, raw, RISK_LABEL, tpl } from "../client/tpl.mjs";
+import { breakable, esc, glyph, raw, RISK_WORD, RISKS, tpl } from "../client/tpl.mjs";
 import { inline } from "../markdown.mjs";
 import { REPO } from "./layout.mjs";
 
@@ -17,8 +17,12 @@ export const LANDING_IDS = new Set([
 export function toolChip(site, name, up) {
   const tool = site.byName.get(name);
   if (!tool) throw new Error(`Unknown tool in the site content: ${name}.`);
-  return tpl`<a class="tool" href="${up}tools/#${name}" data-risk="${tool.risk}">${glyph()}<code>${breakable(name)}</code><span class="vh"> (${RISK_LABEL[tool.risk].toLowerCase()})</span></a>`;
+  return tpl`<a class="tool" href="${up}tools/${name}/" data-risk="${tool.risk}">${glyph()}<code>${breakable(name)}</code><span class="vh"> (${RISK_WORD[tool.risk]})</span></a>`;
 }
+
+/** The key of the strips: what a bar of each height stands for. */
+export const stripKey = (className) =>
+  tpl`<p class="strip-key ${className}" aria-hidden="true">One bar per tool:${RISKS.map((risk) => tpl`<span><span class="strip"><i data-risk="${risk}"></i></span>${RISK_WORD[risk]}</span>`)}</p>`;
 
 /** README links: anchors the landing has stay on the site, the rest go to GitHub. */
 export function readmeLink(url, up) {

@@ -129,7 +129,7 @@ const tools = [
   defineTool({
     name: "discord_create_scheduled_event",
     description:
-      "Create a scheduled event. For 'VOICE'/'STAGE_INSTANCE' events provide channel_id; for 'EXTERNAL' events provide location AND scheduled_end_time. Requires the Manage Events permission. Returns the new event's name and ID. To change, start or cancel an existing event, use discord_edit_scheduled_event.",
+      "Create a scheduled event. For 'VOICE'/'STAGE_INSTANCE' events provide channel_id; for 'EXTERNAL' events provide location AND scheduled_end_time. Requires the Create Events permission (Manage Events alone no longer suffices), plus View Channel and Connect in the channel for VOICE events, or Manage Channels, Mute Members and Move Members for STAGE_INSTANCE events. Returns the new event's name and ID. To change, start or cancel an existing event, use discord_edit_scheduled_event.",
     annotations: {
       title: "Create scheduled event",
       readOnlyHint: false,
@@ -221,7 +221,7 @@ const tools = [
   defineTool({
     name: "discord_edit_scheduled_event",
     description:
-      "Update a scheduled event; only provided fields change. Use the status field to start ('ACTIVE'), end ('COMPLETED'), or cancel ('CANCELED') an event; Discord only allows certain status transitions. Requires the Manage Events permission.",
+      "Update a scheduled event; only provided fields change. Use the status field to start ('ACTIVE'), end ('COMPLETED'), or cancel ('CANCELED') an event; Discord only allows certain status transitions. Discord rejects a location on VOICE and STAGE_INSTANCE events. An ACTIVE voice or stage event ends on its own a few minutes after its channel empties. Requires the Manage Events permission, or Create Events for an event the bot created, plus the same channel permissions as creating it.",
     annotations: {
       title: "Edit scheduled event",
       readOnlyHint: false,
@@ -299,7 +299,7 @@ const tools = [
   defineTool({
     name: "discord_delete_scheduled_event",
     description:
-      "Permanently delete a scheduled event. IRREVERSIBLE. To cancel an event while keeping a record, use discord_edit_scheduled_event with status:'CANCELED' instead. Requires the Manage Events permission.",
+      "Permanently delete a scheduled event. IRREVERSIBLE. To cancel an event while keeping a record, use discord_edit_scheduled_event with status:'CANCELED' instead. Requires the Manage Events permission, or Create Events for an event the bot created, plus the same channel permissions as creating it.",
     annotations: {
       title: "Delete scheduled event",
       readOnlyHint: false,
@@ -359,7 +359,7 @@ const tools = [
   defineTool({
     name: "discord_create_event_invite",
     description:
-      "Create a shareable invite URL that points to a scheduled event, so recipients land on the event when joining. Requires the Create Instant Invite permission. Returns the invite URL. EXTERNAL events need channel_id; other events reject it and use their own channel. For a plain channel invite with no event attached, use discord_create_invite.",
+      "Create a shareable invite URL that points to a scheduled event, so recipients land on the event when joining. Requires the Create Instant Invite permission. Returns the invite URL; Discord may reuse a similar existing invite instead of creating a new one. EXTERNAL events need channel_id; other events reject it and use their own channel. The URL is an ordinary channel invite with ?event=<event ID> appended. Use discord_create_invite for a channel invite with the unique or temporary options.",
     annotations: {
       title: "Create event invite",
       readOnlyHint: false,

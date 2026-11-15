@@ -12,7 +12,14 @@ import {
   DiscordAPIError,
 } from "discord.js";
 import { z } from "zod";
-import { discord, getTextChannel, fetchChannelChecked, validateId } from "../client.js";
+import {
+  discord,
+  getTextChannel,
+  fetchChannelChecked,
+  validateId,
+  assertCanEmbed,
+  assertCanReadHistory,
+} from "../client.js";
 import {
   MAX_FETCH_LIMIT,
   MAX_PINS_LIMIT,
@@ -169,7 +176,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions; without Read Message History Discord returns an empty list, not an error. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag, and the text of any embeds. Use discord_search_messages or discord_search_guild_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions; without Read Message History an empty result fails with an error naming the permission. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag, and the text of any embeds. Use discord_search_messages or discord_search_guild_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({
@@ -200,6 +207,7 @@ const tools = [
         after: resolvedAfter,
         around,
       });
+      if (messages.size === 0) assertCanReadHistory(channel);
       const result = [...messages.values()]
         .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
         .map((m) => ({
@@ -241,7 +249,7 @@ const tools = [
   defineTool({
     name: "discord_reply_message",
     description:
-      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages permission. Returns the new reply's message ID.",
+      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages and Read Message History permissions. Discord refuses some system messages as reply targets. Returns the new reply's message ID.",
     annotations: {
       title: "Reply to message",
       readOnlyHint: false,
@@ -273,7 +281,7 @@ const tools = [
   defineTool({
     name: "discord_edit_message",
     description:
-      "Edit the text content of a message previously sent by this bot. Discord forbids editing other users' messages, so this fails for non-bot messages. Use discord_edit_embed for embed messages. Works in text channels and threads. Returns the edited message ID.",
+      "Edit the text content of a message previously sent by this bot. Discord forbids editing other users' messages, so this fails for non-bot messages. Use discord_edit_embed for embed messages. Works in text channels and threads. Requires the View Channel and Read Message History permissions. Returns the edited message ID.",
     annotations: {
       title: "Edit message",
       readOnlyHint: false,
@@ -308,7 +316,7 @@ const tools = [
   defineTool({
     name: "discord_add_reaction",
     description:
-      "Add a single emoji reaction to a message as the bot. Requires the Add Reactions and Read Message History permissions. Use discord_remove_reactions to undo. Idempotent: re-adding the bot's existing reaction has no effect.",
+      "Add a single emoji reaction to a message as the bot. Requires the Read Message History permission to look the message up, plus Add Reactions when no one has reacted with that emoji yet. Use discord_remove_reactions to undo. Idempotent: re-adding the bot's existing reaction has no effect.",
     annotations: {
       title: "Add reaction",
       readOnlyHint: false,
@@ -342,7 +350,7 @@ const tools = [
   defineTool({
     name: "discord_list_channel_threads",
     description:
-      "List the threads in a text or announcement channel. Returns { threads: [...], hasMore, nextBefore }. The first call includes active threads plus the first page of archived ones; while hasMore is true pass nextBefore back as `before`. hasMore means that page came back full, so the last call can return nothing. Requires the View Channel and Read Message History permissions. Read-only. Use discord_list_forum_threads for a forum's posts.",
+      "List the threads in a text or announcement channel. Returns { threads: [...], hasMore, nextBefore }. The first call includes active threads plus the first page of archived ones; while hasMore is true pass nextBefore back as `before`. hasMore means that page came back full, so the last call can return nothing. messageCount excludes the starter message and deleted messages, and is inaccurate above 50 for threads created before July 1, 2022. Requires the View Channel and Read Message History permissions. Read-only. Use discord_list_forum_threads for a forum's posts.",
     annotations: { title: "List channel threads", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe(
@@ -403,7 +411,7 @@ const tools = [
   defineTool({
     name: "discord_create_thread",
     description:
-      "Create a thread, either branching from an existing message (pass message_id) or as a standalone thread in a text channel (omit message_id). Standalone creation requires a parent text channel and fails if channel_id is itself a thread. Requires the Create Public Threads permission. Returns the new thread's ID.",
+      "Create a thread, either branching from an existing message (pass message_id) or as a standalone thread in a text channel (omit message_id). Standalone creation requires a parent text channel and fails if channel_id is itself a thread. Requires the Create Public Threads permission, plus Read Message History when message_id is set. Returns the new thread's ID.",
     annotations: {
       title: "Create thread",
       readOnlyHint: false,
@@ -461,7 +469,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_delete_messages",
     description:
-      "Permanently delete multiple recent messages in one call. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Discord only allows bulk-deleting messages younger than 14 days; older ones are skipped. Requires the Manage Messages permission. Returns the number deleted.",
+      "Permanently delete multiple recent messages in one call. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Discord only allows bulk-deleting messages younger than 14 days; older ones are skipped. Requires the Manage Messages permission, and refuses to run without Read Message History. Returns the number deleted.",
     annotations: {
       title: "Bulk delete messages",
       readOnlyHint: false,
@@ -483,6 +491,7 @@ const tools = [
     }),
     handle: async ({ channel_id, count, dry_run }) => {
       const channel = await getTextChannel(channel_id);
+      assertCanReadHistory(channel);
       if (dry_run) {
         const recent = await channel.messages.fetch({ limit: count, cache: false });
         const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
@@ -521,6 +530,7 @@ const tools = [
     }),
     handle: async ({ channel_id, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
+      assertCanEmbed(channel);
       const sent = await channel.send({ embeds: [buildEmbed(embedArgs)] });
       return {
         content: [{ type: "text", text: `✅ Embed sent (id: ${sent.id}) in #${channel.name}.` }],
@@ -530,7 +540,7 @@ const tools = [
   defineTool({
     name: "discord_edit_embed",
     description:
-      "Replace the embed on a message previously sent by this bot. Only this bot's messages can be edited. This is a full replace, not a merge: provided fields are applied and omitted fields are dropped from the embed. Returns a confirmation.",
+      "Replace the embed on a message previously sent by this bot. Only this bot's messages can be edited. This is a full replace, not a merge: provided fields are applied and omitted fields are dropped from the embed. Requires the View Channel, Read Message History and Embed Links permissions. Returns a confirmation.",
     annotations: {
       title: "Edit embed",
       readOnlyHint: false,
@@ -549,6 +559,7 @@ const tools = [
     }),
     handle: async ({ channel_id, message_id, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
+      assertCanEmbed(channel);
       const msg = await channel.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
         throw new Error("Can only edit embeds sent by the bot.");
@@ -578,6 +589,7 @@ const tools = [
     }),
     handle: async ({ channel_id, content, embeds }) => {
       const channel = await getTextChannel(channel_id);
+      assertCanEmbed(channel);
       const built = embeds.map((e) => buildEmbed(e));
       const sent = await channel.send({ content: content || undefined, embeds: built });
       return {
@@ -593,7 +605,7 @@ const tools = [
   defineTool({
     name: "discord_delete_message",
     description:
-      "Permanently delete one specific message. IRREVERSIBLE. The bot can always delete its own messages; deleting another user's message requires the Manage Messages permission. Use discord_bulk_delete_messages to remove many at once. An optional reason is recorded in the audit log.",
+      "Permanently delete one specific message. IRREVERSIBLE. Requires the View Channel and Read Message History permissions to find the message. The bot can then delete its own messages; deleting another user's message also requires the Manage Messages permission. Use discord_bulk_delete_messages to remove many at once. Discord does not record a reason for a single message delete in the audit log.",
     annotations: {
       title: "Delete message",
       readOnlyHint: false,
@@ -606,12 +618,16 @@ const tools = [
         "ID (snowflake) of the channel or thread containing the message.",
       ),
       message_id: messageId.describe("ID of the message to delete."),
-      reason: z.string().optional().describe("Optional reason recorded in the server audit log."),
+      reason: z
+        .string()
+        .optional()
+        .describe(
+          "Optional. Not recorded: Discord keeps no audit log reason for a single message delete.",
+        ),
     }),
     handle: async ({ channel_id, message_id, reason }) => {
       const channel = await getTextChannel(channel_id);
       await channel.messages.fetch({ message: message_id, cache: false });
-      // msg.delete() cannot carry an audit-log reason; the raw REST call sets X-Audit-Log-Reason.
       await discord.rest.delete(Routes.channelMessage(channel.id, message_id), { reason });
       return { content: [{ type: "text", text: `✅ Message ${message_id} deleted.` }] };
     },
@@ -619,7 +635,7 @@ const tools = [
   defineTool({
     name: "discord_pin_message",
     description:
-      "Pin or unpin a message in a channel, controlled by the pin flag. Requires the Pin Messages permission (a dedicated permission since early 2026, separate from Manage Messages). A channel holds at most 250 pins. Idempotent: pinning an already-pinned message (or unpinning an unpinned one) has no additional effect.",
+      "Pin or unpin a message in a channel, controlled by the pin flag. Requires the Pin Messages and Read Message History permissions (Pin Messages is a dedicated permission since early 2026, separate from Manage Messages). A channel holds at most 250 pins. Idempotent: pinning an already-pinned message (or unpinning an unpinned one) has no additional effect.",
     annotations: {
       title: "Pin or unpin message",
       readOnlyHint: false,
@@ -648,7 +664,7 @@ const tools = [
   defineTool({
     name: "discord_search_messages",
     description:
-      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, and the text of any embeds. Matching checks message content only, so a word that appears only in an embed is not found. Use discord_read_messages to fetch recent messages without filtering. To search full history, in one channel or the whole server, use discord_search_guild_messages.",
+      "Keyword search over a channel's recent messages using case-insensitive substring matching. Scans only up to the last 100 messages; it does not search full history. Returns { matches: [...] } with id, author, content, timestamp, and the text of any embeds. Matching checks message content only, so a word that appears only in an embed is not found. Requires the View Channel and Read Message History permissions; without Read Message History an empty scan fails with an error naming the permission. Use discord_read_messages to fetch recent messages without filtering. To search full history, in one channel or the whole server, use discord_search_guild_messages.",
     annotations: { title: "Search messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to search."),
@@ -661,6 +677,7 @@ const tools = [
     handle: async ({ channel_id, keyword, limit }) => {
       const channel = await getTextChannel(channel_id);
       const messages = await channel.messages.fetch({ limit, cache: false });
+      if (messages.size === 0) assertCanReadHistory(channel);
       const needle = keyword.toLowerCase();
       const matches = [...messages.values()]
         .filter((m) => m.content.toLowerCase().includes(needle))
@@ -679,7 +696,7 @@ const tools = [
   defineTool({
     name: "discord_search_guild_messages",
     description:
-      "Search for messages across all channels in a guild using Discord's native search API. Returns messages matching the query with channel context. Requires READ_MESSAGE_HISTORY permission. While Discord is still building the server's search index, the call fails and says how many seconds to wait. Use discord_search_messages for a substring scan of one channel's last 100 messages. To read the messages around a hit, use discord_read_messages with around.",
+      "Search for messages across all channels in a guild using Discord's native search API. Returns at most 25 messages matching the query with channel context, with no way to page past them. Age-restricted (NSFW) channels are left out. Requires the Read Message History permission and the Message Content privileged intent, enabled in the Developer Portal. While Discord is still building the server's search index, the call fails and says how many seconds to wait. Use discord_search_messages for a substring scan of one channel's last 100 messages. To read the messages around a hit, use discord_read_messages with around.",
     annotations: { title: "Search guild messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -755,7 +772,7 @@ const tools = [
   defineTool({
     name: "discord_crosspost_message",
     description:
-      "Publish (crosspost) a message from an Announcement channel to every server that follows it. Only works in announcement channels on a message that has not already been published. Requires the Send Messages permission (and Manage Messages for messages authored by others). Returns a confirmation.",
+      "Publish (crosspost) a message from an Announcement channel to every server that follows it. Only works in announcement channels on a message that has not already been published. Requires the Read Message History and Send Messages permissions (and Manage Messages for messages authored by others). Returns a confirmation.",
     annotations: {
       title: "Crosspost message",
       readOnlyHint: false,
@@ -800,7 +817,7 @@ const tools = [
   defineTool({
     name: "discord_remove_reactions",
     description:
-      "Remove reactions from a message. With no emoji: removes ALL reactions. With emoji only: removes every reaction of that emoji. With emoji and user_id: removes that one user's reaction. Removing all reactions or another user's reaction requires the Manage Messages permission. Use discord_add_reaction to add.",
+      "Remove reactions from a message. With no emoji: removes ALL reactions. With emoji only: removes every reaction of that emoji. With emoji and user_id: removes that one user's reaction. user_id without emoji is rejected. Removing all reactions, every reaction of one emoji, or another user's reaction requires the Manage Messages permission. Use discord_add_reaction to add.",
     annotations: {
       title: "Remove reactions",
       readOnlyHint: false,
@@ -808,23 +825,29 @@ const tools = [
       idempotentHint: true,
       openWorldHint: true,
     },
-    schema: z.object({
-      channel_id: channelId.describe(
-        "ID (snowflake) of the channel or thread containing the message.",
+    schema: z
+      .object({
+        channel_id: channelId.describe(
+          "ID (snowflake) of the channel or thread containing the message.",
+        ),
+        message_id: messageId.describe("ID of the message to remove reactions from."),
+        emoji: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Unicode emoji or custom emoji 'name:id'. Omit to remove ALL reactions on the message.",
+          ),
+        user_id: snowflake
+          .optional()
+          .describe(
+            "Remove only this user's reaction for the given emoji. Requires emoji: the call is rejected without it.",
+          ),
+      })
+      .refine(
+        (a) => a.user_id === undefined || a.emoji !== undefined,
+        "user_id requires emoji: without it, every reaction on the message would be removed.",
       ),
-      message_id: messageId.describe("ID of the message to remove reactions from."),
-      emoji: z
-        .string()
-        .optional()
-        .describe(
-          "Unicode emoji or custom emoji 'name:id'. Omit to remove ALL reactions on the message.",
-        ),
-      user_id: snowflake
-        .optional()
-        .describe(
-          "Remove only this user's reaction for the given emoji. Requires emoji to be set.",
-        ),
-    }),
     handle: async ({ channel_id, message_id, emoji, user_id }) => {
       const channel = await getTextChannel(channel_id);
       const msg = await channel.messages.fetch({
@@ -863,7 +886,7 @@ const tools = [
   defineTool({
     name: "discord_get_reactions",
     description:
-      "List the users who reacted to a message with a specific emoji. Returns { reactions: [...] } with id, username, bot flag. At most 100 users come back, with no cursor for the rest. Super reactions are not listed. Fails when no one reacted with that emoji.",
+      "List the users who reacted to a message with a specific emoji. Returns { reactions: [...] } with id, username, bot flag. Returns 25 users by default and at most 100, with no cursor for the rest. Super reactions are not listed. Fails when no one reacted with that emoji. Requires the View Channel and Read Message History permissions.",
     annotations: { title: "Get reactions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(
@@ -906,7 +929,7 @@ const tools = [
   defineTool({
     name: "discord_get_message_attachments",
     description:
-      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Read-only. Use discord_read_messages to find messages with attachments.",
+      "List the file attachments of a message. Returns { attachments: [...] } with id, filename, title (the original name when Discord strips non-ASCII from filename), url, proxyUrl, contentType, size in bytes, width, height, alt-text description, voice-message duration and waveform, spoiler flag. Discord signs CDN urls with a 24-hour expiry and does not re-sign on every fetch; re-call this tool if a stored url has expired. Requires the View Channel and Read Message History permissions. Without the Message Content privileged intent, enabled in the Developer Portal, Discord returns no attachments for other users' messages unless they mention the bot. A forwarded message's files sit in its snapshot and are not listed. Read-only. Use discord_read_messages to find messages with attachments.",
     annotations: { title: "Get message attachments", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(
@@ -939,7 +962,7 @@ const tools = [
   defineTool({
     name: "discord_fetch_pinned_messages",
     description:
-      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt, and the text of any embeds. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires the View Channel and Read Message History permissions; without Read Message History Discord returns an empty list, not an error. Use discord_pin_message to change which messages are pinned, or discord_read_messages to read the whole channel.",
+      "List a channel's pinned messages, most recently pinned first. Returns { messages: [...], hasMore, nextBefore } with id, author, content, timestamp, pinnedAt, and the text of any embeds. Discord serves at most 50 pins per call, so when hasMore is true pass nextBefore back as `before` to fetch the next page. Requires the View Channel and Read Message History permissions; without Read Message History an empty result fails with an error naming the permission. Use discord_pin_message to change which messages are pinned, or discord_read_messages to read the whole channel.",
     annotations: { title: "Fetch pinned messages", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel or thread to list pins from."),
@@ -962,6 +985,7 @@ const tools = [
     handle: async ({ channel_id, limit, before }) => {
       const channel = await getTextChannel(channel_id);
       const pinned = await channel.messages.fetchPins({ limit, before, cache: false });
+      if (pinned.items.length === 0) assertCanReadHistory(channel);
       const messages = pinned.items.map(({ message: m, pinnedAt }) => ({
         id: m.id,
         author: m.author.tag,
@@ -985,7 +1009,7 @@ const tools = [
   defineTool({
     name: "discord_forward_message",
     description:
-      "Forward an existing message to another channel using Discord's native forward, which preserves the original attribution. Works across text channels and threads. Use discord_send_message to compose new content instead. Requires the Send Messages permission in the target channel. Returns a confirmation.",
+      "Forward an existing message to another channel using Discord's native forward, which links back to the original message. The forward carries a snapshot of the content, embeds and attachments, without the original author. Works across text channels and threads. Discord forwards only regular messages, replies and command responses, not polls, and refuses a message whose content the bot cannot read (error 160014). Use discord_send_message to compose new content instead. Requires the View Channel and Read Message History permissions in the source channel and Send Messages in the target channel. Returns a confirmation.",
     annotations: {
       title: "Forward message",
       readOnlyHint: false,

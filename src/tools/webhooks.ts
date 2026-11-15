@@ -21,7 +21,7 @@ const tools = [
   defineTool({
     name: "discord_create_webhook",
     description:
-      "Create a webhook on a channel and return its ID and token. SECURITY: the returned token grants anyone the ability to post as this webhook without authentication; treat it as a secret. Requires the Manage Webhooks permission. Use the returned id+token with discord_send_webhook_message.",
+      "Create a webhook on a channel and return its ID and token. SECURITY: the returned token grants anyone the ability to post as this webhook without authentication; treat it as a secret. Requires the Manage Webhooks permission. Use the returned id+token with discord_send_webhook_message. On a forum or media channel, discord_send_webhook_message cannot post through the webhook, since Discord then requires a thread.",
     annotations: {
       title: "Create webhook",
       readOnlyHint: false,
@@ -176,18 +176,18 @@ const tools = [
   defineTool({
     name: "discord_list_webhooks",
     description:
-      "List the webhooks in a single channel or across a whole server (id, name, channel, token when visible, creator). Provide exactly one of channel_id or guild_id. Requires the Manage Webhooks permission. SECURITY: a returned token lets anyone post as that webhook; treat it as a secret. Pass the id and token to discord_send_webhook_message, or create a webhook with discord_create_webhook.",
+      "List the webhooks in a single channel or across a whole server (id, name, channel, token when visible, creator). Provide channel_id or guild_id; when both are given, only channel_id is used. Requires the Manage Webhooks permission. SECURITY: a returned token lets anyone post as that webhook; treat it as a secret. Pass the id and token to discord_send_webhook_message, or create a webhook with discord_create_webhook.",
     annotations: { title: "List webhooks", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake
         .optional()
         .describe(
-          "ID (snowflake) of a channel to list webhooks for. Mutually exclusive with guild_id.",
+          "ID (snowflake) of a channel to list webhooks for. Takes precedence over guild_id.",
         ),
       guild_id: guildId
         .optional()
         .describe(
-          "Discord server (guild) ID (snowflake) to list all webhooks for. Mutually exclusive with channel_id.",
+          "Discord server (guild) ID (snowflake) to list all webhooks for. Ignored when channel_id is given.",
         ),
     }),
     outputSchema: z.object({ webhooks: z.array(webhookSummary) }),

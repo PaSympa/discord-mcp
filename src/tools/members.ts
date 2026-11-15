@@ -51,7 +51,7 @@ const tools = [
   defineTool({
     name: "discord_get_member_info",
     description:
-      "Get full details for one server member: roles, effective permissions, account/join dates, bot flag, and current timeout status. Permissions come from the member's roles, server-wide: channel overwrites are not applied. The owner and Administrators list every flag. To find a member by name use discord_search_members; to page through members use discord_list_members.",
+      "Get full details for one server member: roles, effective permissions, account/join dates, bot flag, and current timeout status. Permissions come from the member's roles, server-wide: channel overwrites are not applied. The owner and Administrators list every flag. The permissions list ignores an active timeout, during which Discord keeps only View Channel and Read Message History. timedOutUntil can be a past date once a timeout has expired. To find a member by name use discord_search_members; to page through members use discord_list_members.",
     annotations: { title: "Get member info", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -164,7 +164,7 @@ const tools = [
   defineTool({
     name: "discord_timeout_member",
     description:
-      "Mute a member for a set duration (Discord 'timeout'): they cannot send messages, react, or speak until it expires. Pass duration_minutes = 0 to remove an active timeout early. Max 28 days (40320 minutes). Requires the Moderate Members permission.",
+      "Mute a member for a set duration (Discord 'timeout'): they cannot send messages, react, or speak until it expires. Pass duration_minutes = 0 to remove an active timeout early. Max 28 days (40320 minutes). Requires the Moderate Members permission. Discord refuses to time out the server owner or a member with Administrator.",
     annotations: {
       title: "Timeout member",
       readOnlyHint: false,
@@ -238,7 +238,7 @@ const tools = [
   defineTool({
     name: "discord_set_nickname",
     description:
-      "Set or clear a member's server nickname. Pass null (or the string 'null') to clear it. Requires the Manage Nicknames permission (or Change Nickname for the bot itself). The reason is recorded in the audit log.",
+      "Set or clear a member's server nickname. Pass null (or the string 'null') to clear it. Requires the Manage Nicknames permission (or Change Nickname for the bot itself). To rename another member, their highest role must be below the bot's highest role. The reason is recorded in the audit log.",
     annotations: {
       title: "Set nickname",
       readOnlyHint: false,
@@ -276,7 +276,7 @@ const tools = [
   defineTool({
     name: "discord_list_bans",
     description:
-      "List the users banned from the server, with their ban reasons. Returns { bans: [...], nextCursor }. A page holds up to 1000 bans; if nextCursor is non-null, pass it back as `after` to fetch the next page. Requires the Ban Members permission. Read-only.",
+      "List the users banned from the server, with their ban reasons. Returns { bans: [...], nextCursor }. A page holds up to 1000 bans; if nextCursor is non-null, pass it back as `after` to fetch the next page. Requires the Ban Members or View Audit Log permission. Read-only.",
     annotations: { title: "List bans", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -314,7 +314,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_ban",
     description:
-      "Ban many users in a single call, intended for raid mitigation. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the exact list of user IDs that would be banned, then re-call with dry_run:false to actually ban them. Requires both the Ban Members and Manage Server permissions. Returns counts of banned vs failed users; Discord rejects the whole call with an error if no user could be banned. Use discord_ban_member for a single ban with finer control.",
+      "Ban many users in a single call, intended for raid mitigation. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the user IDs a real call would send to Discord, unchecked, then re-call with dry_run:false to actually ban them. Requires both the Ban Members and Manage Server permissions. Returns { dry_run, would_ban } for a preview, and { dry_run, banned, failed } with the user IDs after a real call; failed also lists users who were already banned. Discord rejects the whole call with an error if no user could be banned. Use discord_ban_member for a single ban with finer control.",
     annotations: {
       title: "Bulk ban",
       readOnlyHint: false,
@@ -338,40 +338,36 @@ const tools = [
         .boolean()
         .default(true)
         .describe(
-          "If true (default), only returns the user IDs that would be banned without banning anyone. Set false to actually ban.",
+          "If true (default), returns the user IDs a real call would send, unchecked, and bans no one. Set false to actually ban.",
         ),
       reason: z.string().optional().describe("Optional reason recorded in the server audit log."),
     }),
+    outputSchema: z.object({
+      dry_run: z.boolean().describe("true for a preview: no one was banned."),
+      would_ban: z
+        .array(z.string())
+        .optional()
+        .describe("Dry run only: the user IDs a real call would send to Discord, unchecked."),
+      banned: z.array(z.string()).optional().describe("User IDs banned by this call."),
+      failed: z
+        .array(z.string())
+        .optional()
+        .describe("User IDs not banned, including users who were already banned."),
+    }),
     handle: async ({ guild_id, user_ids, delete_message_seconds, dry_run, reason }) => {
       const guild = await discord.guilds.fetch(guild_id);
-      if (dry_run) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `🔍 Dry run: ${user_ids.length} users would be banned:\n${JSON.stringify(user_ids, null, 2)}`,
-            },
-          ],
-        };
-      }
+      if (dry_run) return structured({ dry_run, would_ban: user_ids });
       const result = await guild.members.bulkBan(user_ids, {
         deleteMessageSeconds: delete_message_seconds,
         reason,
       });
-      return {
-        content: [
-          {
-            type: "text",
-            text: `✅ Bulk ban complete: ${result.bannedUsers.length} banned, ${result.failedUsers.length} failed.`,
-          },
-        ],
-      };
+      return structured({ dry_run, banned: result.bannedUsers, failed: result.failedUsers });
     },
   }),
   defineTool({
     name: "discord_prune_members",
     description:
-      "Remove members who have been inactive (no roles, not seen) for a number of days. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the count, then re-call with dry_run:false to actually remove them. Removal is irreversible (members must rejoin). Requires the Kick Members permission.",
+      "Remove members who have been inactive (no roles, not seen) for a number of days. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the count, then re-call with dry_run:false to actually remove them. Removal is irreversible (members must rejoin). Requires the Manage Server and Kick Members permissions (Administrator when the server has the PRUNE_REQUIRES_ADMIN feature).",
     annotations: {
       title: "Prune inactive members",
       readOnlyHint: false,
@@ -386,7 +382,7 @@ const tools = [
         .array(snowflake)
         .optional()
         .describe(
-          "Optional role IDs (snowflakes) to include; by default only members with no roles are counted.",
+          "Optional role IDs (snowflakes) to include; by default only members with no roles are counted. A member with roles is counted only when every role they hold is in this list.",
         ),
       dry_run: z
         .boolean()

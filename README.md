@@ -7,6 +7,7 @@
 
 [![npm](https://img.shields.io/npm/v/@pasympa/discord-mcp)](https://www.npmjs.com/package/@pasympa/discord-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/@pasympa/discord-mcp)](https://www.npmjs.com/package/@pasympa/discord-mcp)
+[![Docs](https://img.shields.io/badge/docs-pasympa.github.io-5865F2)](https://pasympa.github.io/discord-mcp/)
 [![License](https://img.shields.io/github/license/PaSympa/discord-mcp)](LICENSE)
 [![discord-mcp MCP server](https://glama.ai/mcp/servers/PaSympa/discord-mcp/badges/score.svg)](https://glama.ai/mcp/servers/PaSympa/discord-mcp)
 
@@ -22,10 +23,10 @@
 ## See it in action
 
 <p align="center">
-  <a href="https://github.com/user-attachments/assets/c87d8fe5-6c9c-4186-ab95-c154f4987502"><img src=".github/assets/demo.webp" alt="Claude Code previews a cleanup of four spam messages in #general with a dry run, then deletes them, on a demo Discord server" width="100%"></a>
+  <a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4"><img src=".github/assets/demo.webp" alt="Claude Code previews a cleanup of four spam messages in #general with a dry run, then deletes them, on a demo Discord server" width="100%"></a>
 </p>
 
-<p align="center"><a href="https://github.com/user-attachments/assets/c87d8fe5-6c9c-4186-ab95-c154f4987502">Watch the full one-minute demo</a>: a channel recap, a bug forum, the spam cleanup and an event.</p>
+<p align="center"><a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4">Watch the full one-minute demo</a>: a channel recap, a bug forum, the spam cleanup and an event.</p>
 
 <sub>Calls made live with Claude Code on a demo server; the panel summarizes their results. The Discord window shows real captures, except that the spot of each new message or post stays blank until it appears.</sub>
 

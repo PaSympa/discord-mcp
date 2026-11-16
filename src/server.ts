@@ -23,7 +23,7 @@ export function createServer(version: string): Server {
       name: "discord-mcp",
       title: "discord-mcp",
       version,
-      websiteUrl: "https://github.com/PaSympa/discord-mcp",
+      websiteUrl: "https://pasympa.github.io/discord-mcp/",
       icons: [
         { src: `${ASSETS}/logo.svg`, mimeType: "image/svg+xml" },
         { src: `${ASSETS}/logo-512.png`, mimeType: "image/png" },

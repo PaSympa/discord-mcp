@@ -17,7 +17,7 @@ const BUDGET = 200_000;
 const TOOL_PAGE_BUDGET = { raw: 40_000, gzip: 8_000 };
 const LLMS_BUDGET = 24_000;
 const DATE = "2026-11-08";
-const DOCS = ["guide", "recipes", "configuration", "troubleshooting"];
+const DOCS = ["guide", "recipes", "configuration", "troubleshooting", "privacy"];
 const docPage = (key: string) => `${key}/index.html`;
 const TEXT = /\.(html|css|js|json|svg|txt|xml)$/;
 
@@ -295,7 +295,7 @@ test("every page has a unique title and description, its canonical URL, one h1 a
 
     assert.deepEqual(metas(html, "og:title"), title, `${page}: og:title`);
     assert.deepEqual(metas(html, "og:description"), description, `${page}: og:description`);
-    const ogType = /^(tools(ets)?|guide|recipes|configuration|troubleshooting)\//.test(page)
+    const ogType = /^(tools(ets)?|guide|recipes|configuration|troubleshooting|privacy)\//.test(page)
       ? "article"
       : "website";
     assert.deepEqual(metas(html, "og:type"), [ogType], `${page}: og:type`);
@@ -1452,6 +1452,7 @@ const DOC_NAMES: Record<string, string> = {
   recipes: "Recipes",
   configuration: "Configuration",
   troubleshooting: "Troubleshooting",
+  privacy: "Privacy",
 };
 const navOf = (html: string) =>
   /<nav class="nav" id="site-nav" aria-label="Site">([\s\S]*?)<\/nav>/.exec(html)![1];
@@ -1460,7 +1461,7 @@ const srcText = () =>
     .map((file) => readFileSync(join(__dirname, "..", "src", file), "utf8"))
     .join("\n");
 
-test("the four documentation pages are in the header or footer of every page, and in the sitemap", () => {
+test("the documentation pages are in the header or footer of every page, and in the sitemap", () => {
   const sitemap = read("sitemap.xml");
   for (const key of DOCS)
     assert.ok(sitemap.includes(`<loc>${siteUrl}${key}/</loc>`), `${key} in sitemap.xml`);
@@ -1717,4 +1718,36 @@ test("generated sentences agree in number, commands keep each flag with its valu
     const control = /<(a|button) class="search-btn"[^>]*>/.exec(read(page))![0];
     assert.equal(attr(control, "aria-label"), `Search ${catalog.totals.tools} tools`, page);
   }
+});
+
+test("the privacy page matches what the site, the plugin and the server do", () => {
+  const html = read("privacy/index.html");
+  const plugin = JSON.parse(
+    readFileSync(join(__dirname, "..", "plugin", ".claude-plugin", "plugin.json"), "utf8"),
+  );
+  assert.equal(plugin.privacyPolicyUrl, `${siteUrl}privacy/`);
+  assert.equal(plugin.documentationUrl, siteUrl);
+  const key = /localStorage\.getItem\("([^"]+)"\)/.exec(read("index.html"))![1];
+  assert.ok(textOf(html).includes(`under ${key} `), `the page names the ${key} storage key`);
+  for (const page of pages) {
+    const doc = withoutData(read(page));
+    const loads = [
+      ...doc.matchAll(/<(?:script|img|video|source|iframe)\b[^>]*\ssrc="([^"]+)"/g),
+      ...[...doc.matchAll(/<link\b[^>]*>/g)]
+        .filter(([tag]) => !/rel="canonical"/.test(tag))
+        .map(([tag]) => [tag, attr(tag, "href")!]),
+    ].map((m) => m[1]);
+    for (const url of loads) assert.ok(!/^(https?:)?\/\//.test(url), `${page} loads ${url}`);
+  }
+  for (const css of files.filter((f) => f.endsWith(".css")))
+    for (const [, url] of read(css).matchAll(/url\("?([^")]+)"?\)/g))
+      assert.ok(!/^(https?:)?\/\//.test(url), `${css} loads ${url}`);
+  // A new runtime dependency may reach a new host: review the privacy page with it.
+  const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8"));
+  assert.deepEqual(Object.keys(pkg.dependencies).sort(), [
+    "@modelcontextprotocol/sdk",
+    "discord.js",
+    "dotenv",
+    "zod",
+  ]);
 });

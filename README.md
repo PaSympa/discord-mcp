@@ -7,6 +7,7 @@
 
 [![npm](https://img.shields.io/npm/v/@pasympa/discord-mcp)](https://www.npmjs.com/package/@pasympa/discord-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/@pasympa/discord-mcp)](https://www.npmjs.com/package/@pasympa/discord-mcp)
+[![Docs](https://img.shields.io/badge/docs-pasympa.github.io-5865F2)](https://pasympa.github.io/discord-mcp/)
 [![License](https://img.shields.io/github/license/PaSympa/discord-mcp)](LICENSE)
 [![discord-mcp MCP server](https://glama.ai/mcp/servers/PaSympa/discord-mcp/badges/score.svg)](https://glama.ai/mcp/servers/PaSympa/discord-mcp)
 

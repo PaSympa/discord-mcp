@@ -3,7 +3,7 @@
   "name": "io.github.PaSympa/discord-mcp",
   "description": "Run your Discord from Claude, Codex, Cursor or VS Code: messages, moderation, roles, forums, events",
   "title": "discord-mcp",
-  "websiteUrl": "https://github.com/PaSympa/discord-mcp",
+  "websiteUrl": "https://pasympa.github.io/discord-mcp/",
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/PaSympa/discord-mcp/main/.github/assets/logo.svg",

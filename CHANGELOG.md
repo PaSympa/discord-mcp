@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- A documentation site at https://pasympa.github.io/discord-mcp/: a guide from creating the bot to the first prompts, seven recipes, every configuration variable with its plugin and bundle setting, troubleshooting, a privacy page, the tool catalog and the toolset builder. It is generated from the README and the tool definitions, and `.github/workflows/pages.yml` deploys it on each push to `main`
+- An Install in Claude Desktop button in the README and on the site. It downloads `discord-mcp.mcpb` from the latest GitHub Release
+- The Claude Code plugin has an icon, a README, and the `displayName`, `documentationUrl`, `supportUrl` and `privacyPolicyUrl` fields a plugin directory reads
+
+### Changed
+
+- `homepage` in `package.json`, `manifest.json` and `plugin.json`, and `websiteUrl` in `server.json` and the `initialize` response, point at the documentation site instead of the GitHub repository
+- The README links the full one-minute demo hosted on the site, which shows the new logo
+- The README says when the plugin's bot token takes effect. If you skip the prompt at install, the server stays off until you set the token with `/plugin configure discord-mcp@pasympa`, and Claude Code needs a restart after the token is set or changed
+- The README banners and the social preview name Codex next to Claude, Cursor and VS Code
+- `SECURITY.md` describes the HTTP mode: off by default, a required bearer token, loopback by default, and no TLS or OAuth of its own
+
 ## [2.4.0] - 2026-11-15
 
 ### Added

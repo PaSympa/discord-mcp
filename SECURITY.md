@@ -24,4 +24,4 @@ By default the server speaks MCP over stdio and opens no port. `DISCORD_MCP_TRAN
 - A request needs a `Host` of `localhost`, `127.0.0.1`, `[::1]` or a name in `DISCORD_MCP_HTTP_ALLOWED_HOSTS`. Any request with an `Origin` header is refused, so a web page cannot reach the server, even through DNS rebinding.
 - The token is static: there is no OAuth. The server speaks plain HTTP. Never publish the port on the Internet. To reach it from another machine, put it behind a reverse proxy or a tunnel that terminates TLS.
 
-Details: [Security over HTTP](README.md#security-over-http) in the README.
+Details: [Security over HTTP](https://github.com/PaSympa/discord-mcp#security-over-http) in the README.

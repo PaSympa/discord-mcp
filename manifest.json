@@ -12,7 +12,7 @@
     "type": "git",
     "url": "https://github.com/PaSympa/discord-mcp"
   },
-  "homepage": "https://github.com/PaSympa/discord-mcp#readme",
+  "homepage": "https://pasympa.github.io/discord-mcp/",
   "license": "MIT",
   "keywords": ["discord", "discord-bot", "discord-api", "moderation", "bot", "mcp"],
   "icon": "icon.png",

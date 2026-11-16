@@ -6,7 +6,7 @@ import {
   type GuildForumTagEmoji,
 } from "discord.js";
 import { z } from "zod";
-import { discord, fetchChannelChecked, assertCanReadHistory } from "../client.js";
+import { discord, fetchChannelChecked, getThreadChannel, assertCanReadHistory } from "../client.js";
 import { MAX_FETCH_LIMIT, MIN_ARCHIVED_THREAD_LIMIT } from "../constants.js";
 import { embedSummary, embedField } from "../embeds.js";
 import {
@@ -86,16 +86,6 @@ function tagEmoji(input: TagInput, existing?: GuildForumTag): GuildForumTagEmoji
 function sameEmoji(a: GuildForumTagEmoji | null, b: GuildForumTagEmoji | null): boolean {
   const [x, y] = [oneEmojiField(a), oneEmojiField(b)];
   return x?.id === y?.id && x?.name === y?.name;
-}
-
-/**
- * Fetches a channel by ID and guarantees it is a thread channel.
- */
-async function getThreadChannel(id: string): Promise<ThreadChannel> {
-  const channel = await fetchChannelChecked(id, { force: true });
-  if (!channel || !channel.isThread())
-    throw new Error(`Channel ${id} is not a thread or doesn't exist.`);
-  return channel as ThreadChannel;
 }
 
 /** Tool definitions for managing forum channels, posts, tags, and threads. */

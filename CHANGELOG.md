@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- `discord_create_thread` takes `private: true` to create a standalone private thread, visible only to its members and moderators, and `invitable` to choose whether members without Manage Threads can add others. `member_ids` adds up to 50 people in the same call; a refused add is reported and leaves the thread in place. `private` refuses `message_id`, since Discord branches only public threads from a message. The README invite link adds Create Private Threads
+- `discord_add_thread_member` and `discord_remove_thread_member` add and remove a member in any thread, the only way to bring someone into a private thread. Adding a member twice or removing a non-member changes nothing. If Discord refuses a change because the thread is archived, the thread is unarchived and the change retried; otherwise an archived thread stays archived
+
 ## [2.4.0] - 2026-11-15
 
 ### Added

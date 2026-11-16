@@ -6,7 +6,7 @@ import {
   type GuildScheduledEventEditOptions,
 } from "discord.js";
 import { z } from "zod";
-import { discord } from "../client.js";
+import { discord, getInvitableChannel } from "../client.js";
 import { MAX_FETCH_LIMIT, DEFAULTS } from "../constants.js";
 import {
   defineTool,
@@ -395,8 +395,13 @@ const tools = [
         throw new Error(
           "channel_id is only honored for EXTERNAL events; VOICE/STAGE invites always point at the event's own channel; omit channel_id.",
         );
+      const channel = channel_id ? await getInvitableChannel(channel_id) : undefined;
+      if (channel && channel.guildId !== guild_id)
+        throw new Error(
+          `Channel ${channel_id} is not in server ${guild_id}. Pass a channel_id from the event's own server.`,
+        );
       const url = await event.createInviteURL({
-        channel: channel_id,
+        channel,
         maxAge: max_age,
         maxUses: max_uses,
       });

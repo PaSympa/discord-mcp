@@ -1,4 +1,4 @@
-import { PermissionOverwriteOptions, GuildChannel } from "discord.js";
+import { PermissionOverwriteOptions, GuildChannel, OverwriteType } from "discord.js";
 import { z } from "zod";
 import {
   discord,
@@ -8,6 +8,7 @@ import {
   assertCanCopyFrom,
   isObfuscated,
   splitObfuscated,
+  fetchRole,
 } from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, structured } from "./define.js";
 
@@ -87,7 +88,11 @@ const tools = [
       parsePermissionNames(deny).forEach((p) => {
         (options as Record<string, boolean>)[p] = false;
       });
-      await channel.permissionOverwrites.edit(role_id, options, { reason });
+      const role = await fetchRole(channel.guild, role_id);
+      await channel.permissionOverwrites.edit(role.id, options, {
+        reason,
+        type: OverwriteType.Role,
+      });
       return {
         content: [
           { type: "text", text: `✅ Permissions updated for role ${role_id} on #${channel.name}.` },
@@ -126,7 +131,11 @@ const tools = [
       parsePermissionNames(deny).forEach((p) => {
         (options as Record<string, boolean>)[p] = false;
       });
-      await channel.permissionOverwrites.edit(user_id, options, { reason });
+      const member = await channel.guild.members.fetch(user_id);
+      await channel.permissionOverwrites.edit(member.id, options, {
+        reason,
+        type: OverwriteType.Member,
+      });
       return {
         content: [
           {

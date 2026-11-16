@@ -1,10 +1,11 @@
-import { ColorResolvable, Role, Guild } from "discord.js";
+import { ColorResolvable } from "discord.js";
 import { z } from "zod";
 import {
   discord,
   serializePermissions,
   deserializePermissions,
   parsePermissionNames,
+  fetchRole,
 } from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, structured, httpUrl } from "./define.js";
 
@@ -26,13 +27,6 @@ const roleMember = z.object({
   username: z.string(),
   nickname: z.string().nullable(),
 });
-
-/** Fetches a role by ID, throwing a clear error if it does not exist in the guild. */
-async function fetchRole(guild: Guild, rawId: string): Promise<Role> {
-  const role = await guild.roles.fetch(rawId);
-  if (!role) throw new Error(`Role ${rawId} not found in this server.`);
-  return role;
-}
 
 /** Tool definitions for creating, editing, deleting, and assigning roles. */
 const tools = [

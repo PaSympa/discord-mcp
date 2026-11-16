@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 const DISCORD_ERROR_HINTS: Record<number, string> = {
   10003: "Unknown channel; check channel_id.",
   10004: "Unknown guild; the bot is not in that server or guild_id is wrong.",
+  10007: "Unknown member; the user is not in that server or user_id is wrong.",
   10008: "Unknown message; wrong message_id, or it was already deleted.",
   10011: "Unknown role; check role_id.",
   10013: "Unknown user; check user_id.",

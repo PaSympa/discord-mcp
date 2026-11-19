@@ -191,6 +191,19 @@ export async function getTextChannel(channelId: string): Promise<GuildTextBasedC
   return channel;
 }
 
+/**
+ * Fetches a channel by ID, fresh from Discord so its archived state is current, and
+ * guarantees it is a thread of any kind: public, private, announcement or forum post.
+ * @throws {Error} If the channel does not exist or is not a thread.
+ */
+export async function getThreadChannel(channelId: string): Promise<ThreadChannel> {
+  const id = validateId(channelId, "thread_id");
+  const channel = await fetchChannelChecked(id, { force: true });
+  if (!channel || !channel.isThread())
+    throw new Error(`Channel ${id} is not a thread or doesn't exist.`);
+  return channel as ThreadChannel;
+}
+
 /** A thread resolves through its parent. Null when the bot's member is not cached. */
 function botPermissions(channel: GuildChannel | ThreadChannel) {
   const me = channel.guild.members.me;

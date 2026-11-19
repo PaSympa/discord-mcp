@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { discord, fetchChannelChecked, assertAllowedGuild } from "../client.js";
+import { discord, getInvitableChannel, assertAllowedGuild } from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -119,10 +119,7 @@ const tools = [
         ),
     }),
     handle: async ({ channel_id, max_age, max_uses, unique, temporary }) => {
-      const channel = await fetchChannelChecked(channel_id);
-      if (!channel || !("createInvite" in channel)) {
-        throw new Error(`Channel ${channel_id} does not support invites.`);
-      }
+      const channel = await getInvitableChannel(channel_id);
       const invite = await channel.createInvite({
         maxAge: max_age,
         maxUses: max_uses,
@@ -179,10 +176,7 @@ const tools = [
       invites: z.array(inviteSummary),
     }),
     handle: async ({ channel_id }) => {
-      const channel = await fetchChannelChecked(channel_id);
-      if (!channel || !("fetchInvites" in channel)) {
-        throw new Error(`Channel ${channel_id} does not support invites.`);
-      }
+      const channel = await getInvitableChannel(channel_id);
       const invites = await channel.fetchInvites();
       const list = [...invites.values()].map(serializeInvite);
       return structured({ invites: list });

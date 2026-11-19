@@ -9,7 +9,9 @@ import {
   PermissionsBitField,
   type ChannelFlagsBitField,
   type Collection,
+  type Guild,
   type GuildTextBasedChannel,
+  type Role,
   type ThreadChannel,
 } from "discord.js";
 import { SWEEP } from "./constants.js";
@@ -268,6 +270,21 @@ export async function getGuildChannel(channelId: string): Promise<GuildChannel> 
   if (!channel || !(channel instanceof GuildChannel))
     throw new Error(`Channel ${id} is not a guild channel or doesn't exist.`);
   return channel;
+}
+
+/** Fetches a channel that accepts invites (text, announcement, voice, stage, forum, media). */
+export async function getInvitableChannel(channelId: string) {
+  const channel = await fetchChannelChecked(channelId);
+  if (!channel || !("createInvite" in channel))
+    throw new Error(`Channel ${channelId} does not support invites.`);
+  return channel;
+}
+
+/** Fetches a role by ID, throwing a clear error if it does not exist in the guild. */
+export async function fetchRole(guild: Guild, rawId: string): Promise<Role> {
+  const role = await guild.roles.fetch(rawId);
+  if (!role) throw new Error(`Role ${rawId} not found in this server.`);
+  return role;
 }
 
 /**

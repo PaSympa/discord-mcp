@@ -57,7 +57,7 @@ const tools = [
     annotations: {
       title: "Update membership screening",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

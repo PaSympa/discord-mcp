@@ -49,6 +49,14 @@ test("tools/list serves every definition and rejects unexpected cursors", async 
   await client.close();
 });
 
+test("tools that overwrite existing settings are annotated destructive", async () => {
+  const client = await connectedClient();
+  const { tools } = await client.listTools();
+  for (const name of ["discord_update_membership_screening", "discord_lock_channel_permissions"])
+    assert.equal(tools.find((t) => t.name === name)?.annotations?.destructiveHint, true, name);
+  await client.close();
+});
+
 test("a handler failure surfaces as an isError result, not a protocol error", async () => {
   const { discord } = await import("../src/client.js");
   const { mock } = await import("node:test");

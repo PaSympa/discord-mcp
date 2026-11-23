@@ -42,6 +42,7 @@ test("bulk_delete_messages: default previews the IDs; dry_run:false deletes them
       id: SnowflakeUtil.generate({ timestamp: createdTimestamp }).toString(),
       author: { id: USER },
       webhookId: null,
+      deletable: true,
       createdAt: new Date(createdTimestamp),
       createdTimestamp,
     };

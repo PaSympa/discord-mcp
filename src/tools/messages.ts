@@ -10,6 +10,7 @@ import {
   Routes,
   SnowflakeUtil,
   DiscordAPIError,
+  Constants,
   type GuildTextBasedChannel,
 } from "discord.js";
 import { z } from "zod";
@@ -28,6 +29,7 @@ import {
   failureShape,
   runBatch,
   runStep,
+  type BatchResult,
   type BatchStop,
 } from "../batch.js";
 import {
@@ -206,6 +208,32 @@ function toDelete(m: Message) {
     created_at: m.createdAt.toISOString(),
     older_than_14_days: m.createdTimestamp <= Date.now() - FOURTEEN_DAYS_MS,
   };
+}
+
+const notDeletable = z.object({
+  id: z.string(),
+  reason: z.enum(["system_message", "no_permission"]),
+});
+
+/**
+ * Splits messages on discord.js's `deletable`: the message type, then Manage Messages in
+ * the channel or the bot's own authorship. A message Discord would refuse never reaches
+ * a request, where one refused ID fails a whole bulk delete.
+ */
+function splitDeletable(messages: Message[]) {
+  const deletable: Message[] = [];
+  const refused: z.infer<typeof notDeletable>[] = [];
+  for (const m of messages) {
+    if (m.deletable) deletable.push(m);
+    else
+      refused.push({
+        id: m.id,
+        reason: Constants.UndeletableMessageTypes.some((type) => type === m.type)
+          ? "system_message"
+          : "no_permission",
+      });
+  }
+  return { deletable, refused };
 }
 
 /**
@@ -553,7 +581,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_delete_messages",
     description:
-      "Permanently delete up to 100 messages in a channel or thread, chosen by ID. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Preview first: count lists the most recent messages, message_ids checks which of those IDs are in this channel, and both return would_delete with each message's id, author_id, created_at and older_than_14_days. Then re-call with dry_run:false and the reviewed IDs as message_ids; a real call refuses count. It looks the IDs up again and deletes only those it finds: messages younger than 14 days in one request, older ones one by one, more slowly. A call reads at most 10 pages of history and stops after about 40 seconds; what it did not reach comes back in remaining, with the reason in stopped, so call again with those IDs. Requires the Manage Messages and Read Message History permissions. Returns { dry_run, would_delete } for a preview, with not_found and remaining when it took message_ids, and { dry_run, deleted, not_found, failed, remaining } after a real call. Use discord_delete_message for a single message.",
+      "Permanently delete up to 100 messages in a channel or thread, chosen by ID. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Preview first: count lists the most recent messages, message_ids checks which of those IDs are in this channel. Both return would_delete, the messages a real call would delete, with each one's id, author_id, created_at and older_than_14_days, and not_deletable, the ones the bot may not delete: a system message, or another member's without Manage Messages. Then re-call with dry_run:false and the reviewed IDs as message_ids; a real call refuses count. It looks the IDs up again and deletes only the deletable ones it finds: those younger than 14 days in one request, or one by one if Discord refuses it, older ones one by one, more slowly. A call reads at most 10 pages of history and stops after about 40 seconds; what it did not reach comes back in remaining, with the reason in stopped, so call again with those IDs. Requires the Manage Messages and Read Message History permissions. Returns { dry_run, would_delete, not_deletable } for a preview, with not_found and remaining when it took message_ids, and { dry_run, deleted, not_deletable, not_found, failed, remaining } after a real call. Use discord_delete_message for a single message.",
     annotations: {
       title: "Bulk delete messages",
       readOnlyHint: false,
@@ -596,7 +624,15 @@ const tools = [
       deleted: z
         .array(z.string())
         .optional()
-        .describe("IDs found in the channel and deleted by this call."),
+        .describe(
+          "IDs found in the channel just before the request and accepted by Discord. Discord does not confirm each ID of a bulk request.",
+        ),
+      not_deletable: z
+        .array(notDeletable)
+        .optional()
+        .describe(
+          "Messages in this channel the bot may not delete, never sent to Discord: system_message for a type Discord lets no one delete, no_permission for another member's message where the bot lacks Manage Messages or is timed out.",
+        ),
       not_found: z
         .array(z.string())
         .optional()
@@ -621,43 +657,60 @@ const tools = [
             "A real bulk delete takes message_ids, not count, so it deletes only messages you have seen. Preview with count, then call again with dry_run:false and message_ids set to the would_delete IDs.",
           );
         const recent = await channel.messages.fetch({ limit: count, cache: false });
-        const would_delete = [...recent.values()]
-          .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-          .map(toDelete);
-        return structured({ dry_run, would_delete });
+        const { deletable, refused } = splitDeletable(
+          [...recent.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp),
+        );
+        return structured({
+          dry_run,
+          would_delete: deletable.map(toDelete),
+          not_deletable: refused,
+        });
       }
       const lookup = await locateMessages(channel, message_ids, { deadline, signal });
+      const { deletable, refused } = splitDeletable(lookup.found);
       if (dry_run)
         return structured({
           dry_run,
-          would_delete: lookup.found.map(toDelete),
+          would_delete: deletable.map(toDelete),
+          not_deletable: refused,
           not_found: lookup.notFound,
           remaining: lookup.unreached,
           ...(lookup.stopped ? { stopped: lookup.stopped } : {}),
         });
       const cutoff = Date.now() - FOURTEEN_DAYS_MS + BULK_AGE_MARGIN_MS;
-      const recent = lookup.found.filter((m) => m.createdTimestamp > cutoff).map((m) => m.id);
-      const older = lookup.found.filter((m) => m.createdTimestamp <= cutoff).map((m) => [m.id]);
-      const result = await runBatch(
-        recent.length > 0 ? [recent, ...older] : older,
-        (ids, itemSignal) =>
-          ids.length === 1
-            ? discord.rest.delete(Routes.channelMessage(channel.id, ids[0]), { signal: itemSignal })
-            : discord.rest.post(Routes.channelBulkDelete(channel.id), {
-                body: { messages: ids },
-                signal: itemSignal,
-              }),
-        { deadline, signal },
-      );
-      const stopped = result.stopped ?? lookup.stopped;
+      const recent = deletable.filter((m) => m.createdTimestamp > cutoff).map((m) => m.id);
+      const older = deletable.filter((m) => m.createdTimestamp <= cutoff).map((m) => m.id);
+      const options = { deadline, signal };
+      const bulk =
+        recent.length > 1
+          ? await runBatch(
+              [recent],
+              (ids, itemSignal) =>
+                discord.rest.post(Routes.channelBulkDelete(channel.id), {
+                  body: { messages: ids },
+                  signal: itemSignal,
+                }),
+              options,
+            )
+          : undefined;
+      const inBulk = bulk?.done.length ? recent : [];
+      // A bulk request refused for one of its IDs fails them all, so they go one by one.
+      const singles: BatchResult<string> = bulk?.stopped
+        ? { done: [], failed: [], remaining: [...recent, ...older], stopped: bulk.stopped }
+        : await runBatch(
+            inBulk.length ? older : [...recent, ...older],
+            (id, itemSignal) =>
+              discord.rest.delete(Routes.channelMessage(channel.id, id), { signal: itemSignal }),
+            options,
+          );
+      const stopped = singles.stopped ?? lookup.stopped;
       return structured({
         dry_run,
-        deleted: result.done.flat(),
+        deleted: [...inBulk, ...singles.done],
+        not_deletable: refused,
         not_found: lookup.notFound,
-        failed: result.failed.flatMap(({ item, code, message }) =>
-          item.map((id) => ({ id, code, message })),
-        ),
-        remaining: [...result.remaining.flat(), ...lookup.unreached],
+        failed: singles.failed.map(({ item, code, message }) => ({ id: item, code, message })),
+        remaining: [...singles.remaining, ...lookup.unreached],
         ...(stopped ? { stopped } : {}),
       });
     },

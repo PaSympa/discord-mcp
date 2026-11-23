@@ -1,6 +1,14 @@
 import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { Collection, DiscordAPIError, Routes, SnowflakeUtil } from "discord.js";
+import {
+  Collection,
+  DiscordAPIError,
+  MessageType,
+  PermissionFlagsBits,
+  Routes,
+  SnowflakeUtil,
+  type GuildTextBasedChannel,
+} from "discord.js";
 import { discord } from "../src/client.js";
 import messages from "../src/tools/messages.js";
 
@@ -22,6 +30,8 @@ type FakeMessage = {
   webhookId: null;
   createdAt: Date;
   createdTimestamp: number;
+  type: number;
+  deletable: boolean;
 };
 
 /** Message IDs carry their timestamp; the offset keeps IDs of the same instant distinct. */
@@ -34,6 +44,8 @@ function message(ageMs: number, offset = 0): FakeMessage {
     webhookId: null,
     createdAt: new Date(createdTimestamp),
     createdTimestamp,
+    type: 0,
+    deletable: true,
   };
 }
 
@@ -145,6 +157,10 @@ test("the schema takes exactly one of count and message_ids, and distinct IDs", 
   await assert.rejects(run({ count: 2, message_ids: [one.id] }), /exactly one/);
   await assert.rejects(run({ message_ids: [one.id, one.id] }), /must not repeat/);
   await assert.rejects(run({ message_ids: [] }), /message_ids/);
+  const canonical = /no leading zero, at most 18446744073709551615/;
+  await assert.rejects(run({ message_ids: [one.id, `0${one.id.slice(1)}`] }), canonical);
+  await assert.rejects(run({ message_ids: ["18446744073709551616"] }), canonical);
+  await assert.rejects(run({ message_ids: ["not-a-snowflake"] }), /Must be a Discord snowflake ID/);
   const def = messages.definitions.find((d) => d.name === "discord_bulk_delete_messages")!;
   const prop = (def.inputSchema as { properties: Record<string, Record<string, unknown>> })
     .properties.message_ids;
@@ -169,10 +185,45 @@ test("a real call deletes only the IDs it finds again, in one bulk request", asy
   assert.deepEqual(result.structuredContent, {
     dry_run: false,
     deleted: [history[0].id, history[2].id],
+    not_deletable: [],
     not_found: [missing],
     failed: [],
     remaining: [],
   });
+});
+
+test("a message the bot may not delete is reported and never sent, in both modes", async () => {
+  const other = { ...message(3 * HOUR), deletable: false };
+  const starter = {
+    ...message(2 * HOUR),
+    deletable: false,
+    type: MessageType.ThreadStarterMessage,
+  };
+  const mine = [message(HOUR, 1), message(HOUR, 2)];
+  channelWith([other, starter, ...mine]);
+  const { post, del } = stubRest();
+  const refused = [
+    { id: other.id, reason: "no_permission" },
+    { id: starter.id, reason: "system_message" },
+  ];
+  const all = ids([other, starter, ...mine]);
+  const preview = (await run({ message_ids: all })).structuredContent!;
+  assert.deepEqual(
+    (preview.would_delete as { id: string }[]).map((m) => m.id),
+    ids(mine),
+  );
+  assert.deepEqual(preview.not_deletable, refused);
+  const counted = (await run({ count: 4 })).structuredContent!;
+  assert.deepEqual(counted.not_deletable, refused, "the count preview splits the same way");
+  assert.equal(post.mock.callCount() + del.mock.callCount(), 0);
+
+  const result = (await run({ message_ids: all, dry_run: false })).structuredContent!;
+  assert.deepEqual((post.mock.calls[0].arguments[1] as { body: unknown }).body, {
+    messages: ids(mine),
+  });
+  assert.equal(del.mock.callCount(), 0);
+  assert.deepEqual(result.deleted, ids(mine));
+  assert.deepEqual(result.not_deletable, refused);
 });
 
 test("messages near or past 14 days go one by one; the rest go in one bulk request", async () => {
@@ -210,20 +261,61 @@ test("exactly one recent message goes as a single delete, never a bulk request o
   );
 });
 
-test("a refused bulk request fails each of its IDs with Discord's code and deletes nothing", async () => {
-  const history = [message(2 * HOUR), message(HOUR)];
-  channelWith(history);
-  const code = 50034;
-  const text = "You can only bulk delete messages that are under 14 days old.";
-  mock.method(discord.rest, "post", async () => {
-    throw new DiscordAPIError({ code, message: text }, code, 400, "POST", "/bulk-delete", {});
-  });
-  const result = await run({ message_ids: ids(history), dry_run: false });
-  assert.deepEqual(result.structuredContent!.deleted, []);
-  assert.deepEqual(
-    result.structuredContent!.failed,
-    ids(history).map((id) => ({ id, code, message: text })),
+const tooOld = () =>
+  new DiscordAPIError(
+    { code: 50034, message: "You can only bulk delete messages that are under 14 days old." },
+    50034,
+    400,
+    "POST",
+    "/bulk-delete",
+    {},
   );
+
+test("a refused bulk request falls back to single deletes, so a retry is not needed", async () => {
+  const history = [message(3 * HOUR), message(2 * HOUR), message(HOUR)];
+  channelWith(history);
+  const post = mock.method(discord.rest, "post", async () => {
+    throw tooOld();
+  });
+  const del = mock.method(discord.rest, "delete", async () => undefined);
+  const result = (await run({ message_ids: ids(history), dry_run: false })).structuredContent!;
+  assert.equal(post.mock.callCount(), 1);
+  assert.deepEqual(
+    del.mock.calls.map((c) => c.arguments[0]),
+    ids(history).map((id) => Routes.channelMessage(CHANNEL, id)),
+  );
+  assert.deepEqual(result.deleted, ids(history));
+  assert.deepEqual(result.failed, []);
+});
+
+test("in the fallback, a message Discord refuses fails alone", async () => {
+  const history = [message(3 * HOUR), message(2 * HOUR), message(HOUR)];
+  channelWith(history);
+  mock.method(discord.rest, "post", async () => {
+    throw tooOld();
+  });
+  const text = "Cannot execute action on a system message";
+  mock.method(discord.rest, "delete", async (route: string) => {
+    if (route.endsWith(history[1].id))
+      throw new DiscordAPIError({ code: 50021, message: text }, 50021, 400, "DELETE", route, {});
+  });
+  const result = (await run({ message_ids: ids(history), dry_run: false })).structuredContent!;
+  assert.deepEqual(result.deleted, ids([history[0], history[2]]));
+  assert.deepEqual(result.failed, [{ id: history[1].id, code: 50021, message: text }]);
+});
+
+test("the fallback stays within the time budget and returns the rest in remaining", async () => {
+  const history = [message(4 * HOUR), message(3 * HOUR), message(2 * HOUR), message(HOUR)];
+  channelWith(history);
+  mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  mock.method(discord.rest, "post", async () => {
+    throw tooOld();
+  });
+  mock.method(discord.rest, "delete", async () => void mock.timers.tick(15_000));
+  const result = (await run({ message_ids: ids(history), dry_run: false })).structuredContent!;
+  assert.deepEqual(result.deleted, ids(history.slice(0, 3)));
+  assert.deepEqual(result.remaining, [history[3].id]);
+  assert.equal((result.stopped as { reason: string }).reason, "time_budget");
 });
 
 test("a 401 with an empty body stops the call and still reports what was deleted", async () => {
@@ -341,6 +433,155 @@ test(
     assert.equal(post.mock.callCount() + del.mock.callCount(), 0);
   },
 );
+
+type Adder = { _add: (...args: unknown[]) => unknown };
+const asAdder = (manager: unknown) => manager as unknown as Adder;
+
+const BOT = "400000000000000001";
+const REAL_GUILD = "400000000000000010";
+const MANAGED_CHANNEL = "400000000000000011";
+const PLAIN_CHANNEL = "400000000000000012";
+const botUser = {
+  id: BOT,
+  username: "bot",
+  discriminator: "0",
+  global_name: null,
+  avatar: null,
+  bot: true,
+};
+const otherUser = { ...botUser, id: AUTHOR, username: "member", bot: false };
+
+(discord as unknown as { user: unknown }).user = asAdder(discord.users)._add(botUser);
+asAdder(discord.guilds)._add({
+  id: REAL_GUILD,
+  name: "real",
+  owner_id: "1",
+  afk_timeout: 300,
+  verification_level: 0,
+  default_message_notifications: 0,
+  explicit_content_filter: 0,
+  roles: [
+    {
+      id: REAL_GUILD,
+      name: "@everyone",
+      color: 0,
+      hoist: false,
+      position: 0,
+      permissions: String(
+        PermissionFlagsBits.ViewChannel |
+          PermissionFlagsBits.ReadMessageHistory |
+          PermissionFlagsBits.ManageMessages,
+      ),
+      managed: false,
+      mentionable: false,
+      flags: 0,
+    },
+  ],
+  emojis: [],
+  features: [],
+  mfa_level: 0,
+  system_channel_flags: 0,
+  joined_at: new Date(0).toISOString(),
+  large: false,
+  unavailable: false,
+  member_count: 1,
+  voice_states: [],
+  members: [
+    {
+      user: botUser,
+      roles: [],
+      joined_at: new Date(0).toISOString(),
+      deaf: false,
+      mute: false,
+      flags: 0,
+    },
+  ],
+  channels: [
+    { id: MANAGED_CHANNEL, type: 0, name: "managed", position: 0, permission_overwrites: [] },
+    {
+      id: PLAIN_CHANNEL,
+      type: 0,
+      name: "plain",
+      position: 1,
+      permission_overwrites: [
+        { id: BOT, type: 1, allow: "0", deny: String(PermissionFlagsBits.ManageMessages) },
+      ],
+    },
+  ],
+  threads: [],
+  presences: [],
+  stage_instances: [],
+  guild_scheduled_events: [],
+  stickers: [],
+  premium_tier: 0,
+  preferred_locale: "en-US",
+  nsfw_level: 0,
+});
+
+/** Real discord.js messages in a real channel, so `deletable` runs its own checks. */
+function realChannel(channelId: string, raws: { type: number; author: typeof botUser }[]) {
+  const channel = discord.channels.cache.get(channelId) as GuildTextBasedChannel;
+  const built = raws.map(({ type, author }, i) => {
+    const timestamp = Date.now() - HOUR + i;
+    return asAdder(channel.messages)._add(
+      {
+        id: SnowflakeUtil.generate({ timestamp }).toString(),
+        channel_id: channelId,
+        guild_id: REAL_GUILD,
+        type,
+        content: "",
+        author,
+        timestamp: new Date(timestamp).toISOString(),
+        edited_timestamp: null,
+        tts: false,
+        mention_everyone: false,
+        mentions: [],
+        mention_roles: [],
+        attachments: [],
+        embeds: [],
+        pinned: false,
+      },
+      false,
+    ) as { id: string };
+  });
+  mock.method(discord.channels, "fetch", async () => channel as never);
+  mock.method(
+    channel.messages,
+    "fetch",
+    async () => new Collection(built.map((m) => [m.id, m])) as never,
+  );
+  return built.map((m) => m.id);
+}
+
+test("discord.js decides what is deletable: author and Manage Messages, then the type", async () => {
+  const raws = [
+    { type: MessageType.Default, author: botUser },
+    { type: MessageType.Default, author: otherUser },
+    { type: MessageType.ThreadStarterMessage, author: otherUser },
+  ];
+  const [mine, others, starter] = realChannel(PLAIN_CHANNEL, raws);
+  const plain = (await run({ channel_id: PLAIN_CHANNEL, message_ids: [mine, others, starter] }))
+    .structuredContent!;
+  assert.deepEqual(
+    (plain.would_delete as { id: string }[]).map((m) => m.id),
+    [mine],
+  );
+  assert.deepEqual(plain.not_deletable, [
+    { id: others, reason: "no_permission" },
+    { id: starter, reason: "system_message" },
+  ]);
+  mock.restoreAll();
+
+  const managed = realChannel(MANAGED_CHANNEL, raws);
+  const content = (await run({ channel_id: MANAGED_CHANNEL, message_ids: managed }))
+    .structuredContent!;
+  assert.deepEqual(
+    (content.would_delete as { id: string }[]).map((m) => m.id),
+    managed.slice(0, 2),
+    "with Manage Messages, another member's message is deletable",
+  );
+  assert.deepEqual(content.not_deletable, [{ id: managed[2], reason: "system_message" }]);
+});
 
 test("the call's signal reaches each delete request", async () => {
   const history = [message(2 * HOUR), message(HOUR)];

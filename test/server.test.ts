@@ -88,6 +88,7 @@ test("a client cancellation aborts the signal the tool's requests carry", async 
       id,
       author: { id: "1" },
       webhookId: null,
+      deletable: true,
       createdAt: new Date(createdTimestamp),
       createdTimestamp,
     };

@@ -13,16 +13,29 @@ export const snowflake = z
   .string()
   .regex(/^\d{17,20}$/, "Must be a Discord snowflake ID (17-20 digits).");
 
+const MAX_SNOWFLAKE = 2n ** 64n - 1n;
+const digitsOnly = (id: string) => /^\d+$/.test(id);
+
 /**
- * 1 to `max` distinct snowflakes. The refine has no JSON Schema form, so `meta`
- * advertises it as `uniqueItems`.
+ * 1 to `max` distinct snowflakes, each in canonical form: with a leading zero, two strings
+ * name the same ID, and one above 64 bits makes Discord refuse the whole request. zod runs
+ * every check even after a failed one, so BigInt only sees digit strings. The uniqueness
+ * refine has no JSON Schema form, so `meta` advertises it as `uniqueItems`.
  */
 export const snowflakeSet = (max: number) =>
   z
-    .array(snowflake)
+    .array(
+      snowflake.refine(
+        (id) => !digitsOnly(id) || (!id.startsWith("0") && BigInt(id) <= MAX_SNOWFLAKE),
+        `Must be a Discord snowflake ID: no leading zero, at most ${MAX_SNOWFLAKE}.`,
+      ),
+    )
     .min(1)
     .max(max)
-    .refine((ids) => new Set(ids).size === ids.length, "IDs must not repeat.")
+    .refine(
+      (ids) => new Set(ids.map((id) => (digitsOnly(id) ? BigInt(id) : id))).size === ids.length,
+      "IDs must not repeat.",
+    )
     .meta({ uniqueItems: true });
 
 /**

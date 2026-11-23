@@ -73,12 +73,12 @@
 
 ## Expose only what you need
 
-The full set of 100 tools costs about 35k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
+The full set of 100 tools costs about 36k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
 
 | Profile              | `DISCORD_MCP_TOOLSETS`                           | Tools | Context     |
 | -------------------- | ------------------------------------------------ | ----- | ----------- |
-| Everything (default) | unset                                            | 100   | ~35k tokens |
-| Chat assistant       | `discovery,messages`                             | 25    | ~10k tokens |
+| Everything (default) | unset                                            | 100   | ~36k tokens |
+| Chat assistant       | `discovery,messages`                             | 25    | ~11k tokens |
 | Community manager    | `discovery,messages,forums,scheduled_events`     | 42    | ~17k tokens |
 | Moderator            | `discovery,members,moderation,roles,permissions` | 31    | ~10k tokens |
 | Audit and stats      | `discovery,stats,moderation`                     | 6     | ~2k tokens  |
@@ -97,7 +97,7 @@ Set `DISCORD_MCP_READ_ONLY=true` to keep only the 35 tools annotated `readOnlyHi
 ## Safety
 
 - **Your bot, your permissions.** The server can only do what the bot's Discord permissions allow.
-- **Preview before mass actions.** `discord_bulk_delete_messages`, `discord_bulk_ban`, `discord_prune_members` and `discord_delete_channel` run as a dry run by default and report what would happen. Pass `dry_run: false` to apply.
+- **Preview before mass actions.** `discord_bulk_delete_messages`, `discord_bulk_ban`, `discord_prune_members` and `discord_delete_channel` run as a dry run by default and report what would happen. Pass `dry_run: false` to apply. A bulk delete then takes the message IDs from its preview and deletes only those, so a message posted after the preview stays.
 - **Stay in your servers.** `DISCORD_ALLOWED_GUILDS` restricts every call to the guilds you list, whether the target is addressed by guild, channel, thread, webhook or invite.
 - **Clear annotations.** Every tool declares `readOnlyHint`, and every write tool declares `destructiveHint`, so clients can approve reads automatically and ask before destructive calls.
 - **Read-only mode.** With `DISCORD_MCP_READ_ONLY=true`, the server lists only the tools that declare `readOnlyHint: true`. A call to any other tool fails as an unknown tool. Two reads stay sensitive. `discord_list_webhooks` returns webhook tokens, and a token lets anyone post through its webhook without this server. `discord_read_dms` reads the bot's direct messages with a user. To hide both, leave `webhooks` and `dm` out of `DISCORD_MCP_TOOLSETS`.
@@ -376,7 +376,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 | `discord_get_reactions`           | List users who reacted with a specific emoji             |
 | `discord_create_thread`           | Create a thread from a message or standalone             |
 | `discord_list_channel_threads`    | List a text channel's threads, paged                     |
-| `discord_bulk_delete_messages`    | Delete multiple messages at once (2-100)                 |
+| `discord_bulk_delete_messages`    | Delete up to 100 messages by ID, after a preview         |
 | `discord_send_embed`              | Send a rich embed with all options                       |
 | `discord_edit_embed`              | Edit an embed previously sent by the bot                 |
 | `discord_send_multiple_embeds`    | Send up to 10 embeds in a single message                 |

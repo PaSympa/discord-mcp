@@ -122,12 +122,12 @@
       {
         "tool": "discord_bulk_delete_messages",
         "args": ["count: 4"],
-        "result": "Dry run: 4 of the 4 most recent messages in #general would be deleted"
+        "result": "would_delete: the 4 most recent messages in #general, with their IDs"
       },
       {
         "tool": "discord_bulk_delete_messages",
-        "args": ["count: 4", "dry_run: false"],
-        "result": "Deleted 4 messages in #general"
+        "args": ["message_ids: the 4 IDs", "dry_run: false"],
+        "result": "deleted: the 4 IDs, nothing else"
       }
     ]
   },
@@ -173,8 +173,8 @@
           "tools": ["discord_timeout_member"]
         },
         {
-          "prompt": "Delete the last 30 messages in #general. Show me the preview first.",
-          "does": "Runs a dry run that reports how many messages it would delete, then waits. It deletes only when called again with `dry_run: false`. It removes the most recent messages from every author, not only the spam.",
+          "prompt": "Delete those spam messages. Show me the preview first.",
+          "does": "Runs a dry run on the IDs of the spam it read and lists each message with its author and age, then waits. It deletes only when called again with `dry_run: false` and those IDs, so a message posted meanwhile stays. Messages older than 14 days are deleted one by one, more slowly.",
           "tools": ["discord_bulk_delete_messages"]
         },
         {

@@ -85,7 +85,7 @@ function seeItWork(site) {
   return section(
     "see-it-work",
     "See it work",
-    tpl`<p>One request from the recorded demo session. The assistant reads the channel, previews the cleanup with a dry run, then deletes.</p>`,
+    tpl`<p>The request from the recorded demo. The assistant reads the channel, previews the cleanup with a dry run that lists the message IDs, then deletes those IDs and nothing else.</p>`,
     body,
   );
 }

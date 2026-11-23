@@ -15,6 +15,8 @@
 - The README says when the plugin's bot token takes effect. If you skip the prompt at install, the server stays off until you set the token with `/plugin configure discord-mcp@pasympa`, and Claude Code needs a restart after the token is set or changed
 - The README banners and the social preview name Codex next to Claude, Cursor and VS Code
 - `SECURITY.md` describes the HTTP mode: off by default, a required bearer token, loopback by default, and no TLS or OAuth of its own
+- `discord_bulk_delete_messages` deletes exact message IDs. A real call takes `message_ids` and refuses `count`, which now only previews the most recent messages. Both dry runs return `would_delete` with each message's ID, author and age, and `not_deletable` for the messages the bot may not delete: a system message, or another member's without Manage Messages. A dry run with `message_ids` also lists the IDs `not_found` in the channel. The real call looks the IDs up again, never sends one it cannot delete, and returns `deleted`, `not_deletable`, `not_found`, `failed` and `remaining` in structured output. It used to delete the N most recent messages, so a message posted after the preview could be deleted in place of one the preview showed
+- `discord_bulk_delete_messages` deletes messages older than 14 days one by one instead of skipping them, and deletes recent ones one by one when Discord refuses the bulk request. A call stops after about 40 seconds, or when the client cancels it, and returns the IDs it did not reach in `remaining` with the reason in `stopped`
 
 ### Fixed
 

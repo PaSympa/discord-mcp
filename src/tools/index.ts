@@ -8,7 +8,7 @@
  * 3. Import and add it to `allToolsets` below (the key is its `DISCORD_MCP_TOOLSETS` name)
  */
 
-import type { ToolModule, ToolDefinition, ToolHandler, ToolResult } from "./types.js";
+import type { ToolModule, ToolDefinition, ToolHandler, ToolResult, ToolContext } from "./types.js";
 
 import discovery from "./discovery.js";
 import messages from "./messages.js";
@@ -143,8 +143,12 @@ export function hasTool(name: string): boolean {
  * Routes a tool call to its handler via the merged registry.
  * @throws {Error} If no tool owns the given name.
  */
-export async function handleTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+export async function handleTool(
+  name: string,
+  args: Record<string, unknown>,
+  ctx?: ToolContext,
+): Promise<ToolResult> {
   const handler = registry.get(name);
   if (!handler) throw new Error(`Unknown tool: ${name}`);
-  return handler(args);
+  return handler(args, ctx);
 }

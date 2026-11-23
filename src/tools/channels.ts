@@ -251,7 +251,7 @@ const tools = [
     annotations: {
       title: "Sync channel permissions",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

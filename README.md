@@ -51,7 +51,7 @@
    https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=2270827458424055
    ```
 
-   It requests the permissions the tools use. Remove the ones you do not need in the authorization screen.
+   It requests the permissions most tools use. Remove the ones you do not need in the authorization screen.
 
 3. **Add it to your client.** Use a button above, or paste this into your client's MCP config:
 
@@ -137,7 +137,7 @@ claude mcp add discord -e DISCORD_TOKEN=YOUR_BOT_TOKEN -- npx -y @pasympa/discor
 <details>
 <summary><strong>Cursor</strong></summary>
 
-Use the **Install in Cursor** button, then replace `YOUR_BOT_TOKEN`. Or add the config from [Quick start](#quick-start) to `~/.cursor/mcp.json`. See the [Cursor MCP docs](https://docs.cursor.com/context/model-context-protocol).
+Use the **Install in Cursor** button, then replace `YOUR_BOT_TOKEN`. Or add the config from [Quick start](#quick-start) to `~/.cursor/mcp.json`. See the [Cursor MCP docs](https://cursor.com/docs/mcp).
 
 </details>
 

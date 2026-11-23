@@ -981,7 +981,7 @@ async function main() {
         const filtered = await evaluate(`document.getElementById("count").textContent`);
         check(
           `the builder's selection filters the catalog ${at}`,
-          filtered === "Showing 25 of 100 tools",
+          filtered === "Showing 25 of 102 tools",
           filtered,
         );
         await go("tools/");

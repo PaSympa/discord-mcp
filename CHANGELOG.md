@@ -7,6 +7,7 @@
 - A documentation site at https://pasympa.github.io/discord-mcp/: a guide from creating the bot to the first prompts, seven recipes, every configuration variable with its plugin and bundle setting, troubleshooting, a privacy page, the tool catalog and the toolset builder. It is generated from the README and the tool definitions, and `.github/workflows/pages.yml` deploys it on each push to `main`
 - An Install in Claude Desktop button in the README and on the site. It downloads `discord-mcp.mcpb` from the latest GitHub Release
 - The Claude Code plugin has an icon, a README, and the `displayName`, `documentationUrl`, `supportUrl` and `privacyPolicyUrl` fields a plugin directory reads
+- `discord_bulk_add_role` and `discord_bulk_remove_role` add or remove one role for up to 50 members in one call, as a dry run by default. Both refuse @everyone, a managed role, a role not below the bot's highest role and a bot without Manage Roles before any change. The dry run sorts the users into `would_change`, `skipped` and `not_member`. A real call sorts them again, changes only the members who need it, and returns `done`, `failed` and `remaining`. Discord allows about 10 role changes per 10 seconds, so a call stops after about 40 seconds and returns the members it did not reach in `remaining`
 
 ### Changed
 

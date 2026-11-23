@@ -1,4 +1,4 @@
-import { ColorResolvable } from "discord.js";
+import { ColorResolvable, PermissionFlagsBits, Routes, type Guild, type Role } from "discord.js";
 import { z } from "zod";
 import {
   discord,
@@ -7,7 +7,16 @@ import {
   parsePermissionNames,
   fetchRole,
 } from "../client.js";
-import { defineTool, defineModule, snowflake, guildId, structured, httpUrl } from "./define.js";
+import { BATCH_BUDGET_MS, batchStopSchema, failureShape, runBatch } from "../batch.js";
+import {
+  defineTool,
+  defineModule,
+  snowflake,
+  snowflakeSet,
+  guildId,
+  structured,
+  httpUrl,
+} from "./define.js";
 
 const roleId = snowflake.describe("ID (snowflake) of the role to edit.");
 
@@ -27,6 +36,122 @@ const roleMember = z.object({
   username: z.string(),
   nickname: z.string().nullable(),
 });
+
+const MAX_BULK_MEMBERS = 50;
+/** A gateway member request answers in well under a second; discord.js waits 120 s by default. */
+const MEMBER_FETCH_TIMEOUT_MS = 15_000;
+
+const bulkRoleShape = {
+  guild_id: guildId,
+  role_id: snowflake.describe("ID (snowflake) of the role."),
+  user_ids: snowflakeSet(MAX_BULK_MEMBERS).describe(
+    "User IDs (snowflakes) of the members, 1-50 distinct.",
+  ),
+  dry_run: z
+    .boolean()
+    .default(true)
+    .describe(
+      "If true (default), changes nothing and returns would_change. Set false to change the roles.",
+    ),
+  reason: z.string().optional().describe("Optional reason recorded in the server audit log."),
+};
+
+const bulkRoleOutput = z.object({
+  dry_run: z.boolean().describe("true for a preview: no role was changed."),
+  would_change: z.array(z.string()).optional().describe("Dry run only."),
+  done: z.array(z.string()).optional().describe("User IDs whose role this call changed."),
+  skipped: z.array(z.string()).describe("User IDs already as asked, left untouched."),
+  not_member: z.array(z.string()).describe("User IDs that are not members of the server."),
+  failed: z
+    .array(z.object({ user_id: z.string(), ...failureShape }))
+    .optional()
+    .describe("User IDs Discord refused to change, with its error code."),
+  remaining: z
+    .array(z.string())
+    .optional()
+    .describe("User IDs this call did not reach. Call again with them: re-applying is harmless."),
+  stopped: batchStopSchema().optional(),
+});
+
+/**
+ * Refuses, before any member is touched, a role that would fail for every member.
+ * Discord refuses a role at or above the bot's highest role even to an Administrator bot.
+ */
+async function assignableRole(guild: Guild, roleId: string): Promise<Role> {
+  const role = await fetchRole(guild, roleId);
+  if (role.id === guild.id)
+    throw new Error("@everyone belongs to every member: it cannot be added or removed.");
+  if (role.managed)
+    throw new Error(
+      `Role "${role.name}" is managed by an integration, such as a bot, a subscription or the booster role. Discord assigns it and refuses to change it by hand.`,
+    );
+  const me = await guild.members.fetchMe();
+  if (!me.permissions.has(PermissionFlagsBits.ManageRoles))
+    throw new Error(
+      "The bot lacks the Manage Roles permission in this server. Grant it to one of the bot's roles, then retry.",
+    );
+  if (guild.ownerId !== me.id && role.comparePositionTo(me.roles.highest) >= 0)
+    throw new Error(
+      `Role "${role.name}" is not below the bot's highest role "${me.roles.highest.name}", so Discord refuses to change it. Move the bot's role above it, then retry.`,
+    );
+  return role;
+}
+
+async function sortMembers(guild: Guild, role: Role, userIds: string[], add: boolean) {
+  const members = await guild.members.fetch({ user: userIds, time: MEMBER_FETCH_TIMEOUT_MS });
+  const change: string[] = [];
+  const skipped: string[] = [];
+  const notMember: string[] = [];
+  for (const id of userIds) {
+    const member = members.get(id);
+    if (!member) notMember.push(id);
+    else if (member.roles.cache.has(role.id) === add) skipped.push(id);
+    else change.push(id);
+  }
+  return { change, skipped, notMember };
+}
+
+function bulkRoleTool(tool: { name: string; title: string; description: string; add: boolean }) {
+  return defineTool({
+    name: tool.name,
+    description: tool.description,
+    annotations: {
+      title: tool.title,
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    schema: z.object(bulkRoleShape),
+    outputSchema: bulkRoleOutput,
+    handle: async ({ guild_id, role_id, user_ids, dry_run, reason }, { signal }) => {
+      const deadline = Date.now() + BATCH_BUDGET_MS;
+      const guild = await discord.guilds.fetch(guild_id);
+      const role = await assignableRole(guild, role_id);
+      const { change, skipped, notMember } = await sortMembers(guild, role, user_ids, tool.add);
+      if (dry_run)
+        return structured({ dry_run, would_change: change, skipped, not_member: notMember });
+      const result = await runBatch(
+        change,
+        (user, itemSignal) => {
+          const route = Routes.guildMemberRole(guild.id, user, role.id);
+          const options = { reason, signal: itemSignal };
+          return tool.add ? discord.rest.put(route, options) : discord.rest.delete(route, options);
+        },
+        { deadline, signal },
+      );
+      return structured({
+        dry_run,
+        done: result.done,
+        skipped,
+        not_member: notMember,
+        failed: result.failed.map(({ item, code, message }) => ({ user_id: item, code, message })),
+        remaining: result.remaining,
+        ...(result.stopped ? { stopped: result.stopped } : {}),
+      });
+    },
+  });
+}
 
 /** Tool definitions for creating, editing, deleting, and assigning roles. */
 const tools = [
@@ -223,6 +348,20 @@ const tools = [
       await member.roles.remove(role_id, reason);
       return { content: [{ type: "text", text: `✅ Role removed from ${member.user.tag}.` }] };
     },
+  }),
+  bulkRoleTool({
+    name: "discord_bulk_add_role",
+    title: "Add role to many members",
+    add: true,
+    description:
+      "Add one role to up to 50 members in one call. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Before any change, both modes refuse @everyone, a managed role (bot, integration, booster), a role not below the bot's highest role, and a bot without Manage Roles. The dry run sorts user_ids into would_change, skipped (already have the role) and not_member; a real call sorts them again and changes only would_change, one request each. Discord allows about 10 role changes per 10 seconds, so a call stops after about 40 seconds and returns the rest in remaining, with the reason in stopped: call again with those IDs, re-applying is harmless. Requires the Manage Roles permission. Returns { dry_run, would_change, skipped, not_member } for a preview and { dry_run, done, skipped, not_member, failed, remaining } after a real call. Use discord_add_role for one member, or discord_bulk_remove_role to undo.",
+  }),
+  bulkRoleTool({
+    name: "discord_bulk_remove_role",
+    title: "Remove role from many members",
+    add: false,
+    description:
+      "Remove one role from up to 50 members in one call. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Before any change, both modes refuse @everyone, a managed role (bot, integration, booster), a role not below the bot's highest role, and a bot without Manage Roles. The dry run sorts user_ids into would_change, skipped (do not have the role) and not_member; a real call sorts them again and changes only would_change, one request each. Discord allows about 10 role changes per 10 seconds, so a call stops after about 40 seconds and returns the rest in remaining, with the reason in stopped: call again with those IDs, re-applying is harmless. Requires the Manage Roles permission. Returns { dry_run, would_change, skipped, not_member } for a preview and { dry_run, done, skipped, not_member, failed, remaining } after a real call. Use discord_remove_role for one member, or discord_bulk_add_role to undo.",
   }),
   defineTool({
     name: "discord_get_role_members",

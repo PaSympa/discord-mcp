@@ -1,9 +1,10 @@
 import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { ZodError } from "zod";
-import { ChannelType, DiscordAPIError, TextChannel } from "discord.js";
+import { ChannelType, DiscordAPIError, Routes, TextChannel } from "discord.js";
 import { discord } from "../src/client.js";
 import messages from "../src/tools/messages.js";
+import { rateLimited } from "./rate-limit.js";
 
 const GUILD = "111111111111111111";
 const CHANNEL = "333333333333333333";
@@ -11,23 +12,39 @@ const THREAD = "444444444444444444";
 const USER = "555555555555555555";
 const MESSAGE = "666666666666666666";
 
-afterEach(() => mock.restoreAll());
+afterEach(() => {
+  mock.restoreAll();
+  mock.timers.reset();
+});
 
 const handler = (name: string) => messages.handlers.get(name)!;
 const textOf = (result: { content: { type: string; text?: string }[] }) =>
   result.content.map((c) => c.text ?? "").join("\n");
 
-/** A parent text channel that passes `instanceof TextChannel`, recording thread creations. */
-function stubTextChannel(refuse: string[] = []) {
+/** Discord's refusal of a request, as discord.js throws it. */
+const discordError = (code: number, message: string, status = 400) =>
+  new DiscordAPIError(
+    { code, message },
+    code,
+    status,
+    "PUT",
+    "https://discord.com/api/v10/channels/x/thread-members/y",
+    {},
+  );
+
+/**
+ * A parent text channel that passes `instanceof TextChannel`, recording thread creations
+ * and the member adds sent to Discord. `refuse` returns the error Discord answers for a user.
+ */
+function stubTextChannel(refuse: (user: string) => Error | undefined = () => undefined) {
   const created: Record<string, unknown>[] = [];
   const added: string[] = [];
-  const members = {
-    add: async (user: string) => {
-      if (refuse.includes(user)) throw new Error("Missing Access");
-      added.push(user);
-      return user;
-    },
-  };
+  const put = mock.method(discord.rest, "put", async (route: string) => {
+    const user = route.split("/").pop()!;
+    const err = refuse(user);
+    if (err) throw err;
+    added.push(user);
+  });
   const channel = Object.assign(Object.create(TextChannel.prototype) as object, {
     id: CHANNEL,
     name: "general",
@@ -38,36 +55,28 @@ function stubTextChannel(refuse: string[] = []) {
     threads: {
       create: async (options: Record<string, unknown>) => {
         created.push(options);
-        return { id: THREAD, name: options.name, members };
+        return { id: THREAD, name: options.name };
       },
     },
     messages: {
       fetch: async () => ({
         startThread: async (options: Record<string, unknown>) => {
           created.push({ ...options, fromMessage: true });
-          return { id: THREAD, name: options.name, members };
+          return { id: THREAD, name: options.name };
         },
       }),
     },
   });
   mock.method(discord.channels, "fetch", async () => channel as never);
-  return Object.assign(created, { added });
+  return Object.assign(created, { added, put });
 }
 
-/** Discord's refusal of a member change on an archived thread. */
-const archivedError = () =>
-  new DiscordAPIError(
-    { code: 50083, message: "Thread is archived" },
-    50083,
-    400,
-    "PUT",
-    "https://discord.com/api/v10/channels/x/thread-members/y",
-    {},
-  );
+const archivedError = () => discordError(50083, "Thread is archived");
+const missingPermissions = () => discordError(50013, "Missing Permissions", 403);
 
 /** A thread channel recording member additions and removals. */
 function stubThread(overrides: Record<string, unknown> = {}) {
-  const calls = { added: [] as string[], removed: [] as string[], unarchived: 0 };
+  const calls = { added: [] as string[], removed: [] as string[], unarchived: 0, rearchived: 0 };
   const thread = {
     id: THREAD,
     name: "pair",
@@ -78,7 +87,8 @@ function stubThread(overrides: Record<string, unknown> = {}) {
     isTextBased: () => true,
     archived: false,
     setArchived: async (archived: boolean) => {
-      if (!archived) calls.unarchived++;
+      if (archived) calls.rearchived++;
+      else calls.unarchived++;
     },
     members: {
       add: async (user: string) => {
@@ -209,9 +219,58 @@ test("when Discord refuses because the thread is archived, it is unarchived and 
     const calls = stubThread({ archived: true, members: { add: change, remove: change } });
     const result = await handler(name)({ thread_id: THREAD, user_id: USER });
     assert.equal(calls.unarchived, 1, name);
+    assert.equal(calls.rearchived, 0, `${name}: the thread stays open`);
     assert.equal(attempts, 2, `${op}: one retry`);
     assert.deepEqual(done, [USER], name);
     assert.match(textOf(result), /was archived and is now open again/, name);
+    mock.restoreAll();
+  }
+});
+
+/** A member change Discord refuses as archived first, then with Missing Permissions on the retry. */
+function archivedThenRefused() {
+  let attempts = 0;
+  const change = async () => {
+    throw ++attempts === 1 ? archivedError() : missingPermissions();
+  };
+  return { change, attempts: () => attempts };
+}
+
+test("when the retry fails, the thread is archived again and the error says so", async () => {
+  for (const name of ["discord_add_thread_member", "discord_remove_thread_member"]) {
+    const { change, attempts } = archivedThenRefused();
+    const calls = stubThread({ archived: true, members: { add: change, remove: change } });
+    await assert.rejects(handler(name)({ thread_id: THREAD, user_id: USER }), (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.match(err.message, /^Discord API error 50013 \(HTTP 403\): Missing Permissions\./);
+      assert.match(err.message, /The thread was unarchived for the retry and is archived again\.$/);
+      return true;
+    });
+    assert.equal(attempts(), 2, name);
+    assert.equal(calls.unarchived, 1, name);
+    assert.equal(calls.rearchived, 1, name);
+    mock.restoreAll();
+  }
+});
+
+test("when the retry fails and the thread cannot be archived again, the error says it is still open", async () => {
+  for (const name of ["discord_add_thread_member", "discord_remove_thread_member"]) {
+    const { change, attempts } = archivedThenRefused();
+    const archiving: boolean[] = [];
+    stubThread({
+      archived: true,
+      members: { add: change, remove: change },
+      setArchived: async (archived: boolean) => {
+        archiving.push(archived);
+        if (archived) throw missingPermissions();
+      },
+    });
+    await assert.rejects(
+      handler(name)({ thread_id: THREAD, user_id: USER }),
+      /Discord API error 50013 .*could not be archived again, so it is still open\.$/,
+    );
+    assert.equal(attempts(), 2, name);
+    assert.deepEqual(archiving, [false, true], name);
     mock.restoreAll();
   }
 });
@@ -225,33 +284,113 @@ test("remove_thread_member words its result so it is true whether or not the use
   assert.match(textOf(result), new RegExp(`^✅ User ${USER} is not in thread "pair"`));
 });
 
-test("remove_thread_member still surfaces other Discord errors", async () => {
-  stubThread({
-    members: {
-      remove: async () => {
-        throw new Error("Missing Permissions");
-      },
-    },
-  });
-  await assert.rejects(
-    handler("discord_remove_thread_member")({ thread_id: THREAD, user_id: USER }),
-    /Missing Permissions/,
-  );
+test("thread member tools surface other Discord errors without unarchiving or retrying", async () => {
+  for (const name of ["discord_add_thread_member", "discord_remove_thread_member"]) {
+    let attempts = 0;
+    const change = async () => {
+      attempts++;
+      throw missingPermissions();
+    };
+    const calls = stubThread({ archived: true, members: { add: change, remove: change } });
+    await assert.rejects(
+      handler(name)({ thread_id: THREAD, user_id: USER }),
+      (err: unknown) => err instanceof DiscordAPIError && err.code === 50013,
+      name,
+    );
+    assert.equal(calls.unarchived, 0, name);
+    assert.equal(attempts, 1, name);
+    mock.restoreAll();
+  }
 });
 
-test("create_thread adds member_ids once each and reports the ones Discord refused", async () => {
-  const OTHER = "777777777777777777";
-  const created = stubTextChannel([OTHER]);
+const OTHER = "777777777777777777";
+const THIRD = "888888888888888888";
+
+test("create_thread adds member_ids once each, with a signal, and reports the ones Discord refused", async () => {
+  const created = stubTextChannel((user) =>
+    user === OTHER ? discordError(10013, "Unknown User", 404) : undefined,
+  );
+  const result = await handler("discord_create_thread")(
+    { channel_id: CHANNEL, name: "pair", private: true, member_ids: [USER, USER, OTHER, THIRD] },
+    { signal: new AbortController().signal },
+  );
+  assert.equal(created.length, 1, "the thread stays created");
+  assert.deepEqual(created.added, [USER, THIRD], "a refused add does not stop the others");
+  const [route, options] = created.put.mock.calls[0].arguments as unknown as [
+    string,
+    { signal: AbortSignal },
+  ];
+  assert.equal(route, Routes.threadMembers(THREAD, USER));
+  assert.ok(options.signal instanceof AbortSignal);
+  assert.match(
+    textOf(result),
+    /^✅ Private thread "pair" created \(id: 444444444444444444\)\. Added 2 of 3 members\. Discord refused 777777777777777777 \(code 10013: Unknown User\)\.$/,
+  );
+  assert.doesNotMatch(textOf(result), /Add people with|Not reached/);
+});
+
+test("create_thread stops adding member_ids at the time budget and still returns the thread ID", async () => {
+  const created = stubTextChannel();
+  mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  created.put.mock.mockImplementation(async () => void mock.timers.tick(15_000));
   const result = await handler("discord_create_thread")({
     channel_id: CHANNEL,
     name: "pair",
-    private: true,
-    member_ids: [USER, USER, OTHER],
+    member_ids: [USER, OTHER, THIRD, MESSAGE],
   });
+  assert.equal(created.put.mock.callCount(), 3);
+  const text = textOf(result);
+  assert.match(
+    text,
+    /^✅ Thread "pair" created \(id: 444444444444444444\)\. Added 3 of 4 members\./,
+  );
+  assert.match(
+    text,
+    / Not reached: 666666666666666666\. The call used its 40 s time budget\. Add them with discord_add_thread_member\.$/,
+  );
+  assert.doesNotMatch(
+    text,
+    /call again/i,
+    "calling create_thread again would create a second thread",
+  );
+});
+
+test("create_thread stops adding member_ids after one systemic refusal", async () => {
+  const created = stubTextChannel(() => missingPermissions());
+  const result = await handler("discord_create_thread")({
+    channel_id: CHANNEL,
+    name: "pair",
+    member_ids: [USER, OTHER, THIRD],
+  });
+  assert.equal(created.put.mock.callCount(), 1);
   assert.equal(created.length, 1, "the thread stays created");
-  assert.deepEqual(created.added, [USER]);
-  assert.match(textOf(result), /Added 1 of 2 members; could not add 777777777777777777/);
-  assert.doesNotMatch(textOf(result), /Add people with/);
+  assert.equal(
+    textOf(result),
+    `✅ Thread "pair" created (id: ${THREAD}). Added 0 of 3 members. Not reached: ${USER}, ${OTHER}, ${THIRD}. Stopped on this error: Discord API error 50013 (HTTP 403): Missing Permissions. Missing permissions; the bot lacks the permission this action requires. Add them with discord_add_thread_member.`,
+  );
+});
+
+test("create_thread passes on a rate limit's wait and a cancellation without saying to call again", async () => {
+  for (const [stop, ctx, expected] of [
+    [
+      rateLimited(5_200),
+      {},
+      "Discord asked to wait 6 s, past the call's time budget, so wait that long first.",
+    ],
+    [undefined, { signal: AbortSignal.abort() }, "The client cancelled the call."],
+  ] as const) {
+    const created = stubTextChannel((user) => (user === OTHER ? stop : undefined));
+    const result = await handler("discord_create_thread")(
+      { channel_id: CHANNEL, name: "pair", member_ids: [USER, OTHER] },
+      ctx,
+    );
+    const text = textOf(result);
+    assert.match(text, /^✅ Thread "pair" created \(id: 444444444444444444\)\./);
+    assert.ok(text.includes(` ${expected} Add them with discord_add_thread_member.`), text);
+    assert.doesNotMatch(text, /call again/i);
+    assert.equal(created.length, 1);
+    mock.restoreAll();
+  }
 });
 
 test("create_thread adds member_ids to a public thread", async () => {

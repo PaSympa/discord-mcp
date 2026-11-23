@@ -2,10 +2,11 @@ import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { GuildScheduledEventEntityType, Routes } from "discord.js";
+import { ChannelType, GuildScheduledEventEntityType, Routes, TextChannel } from "discord.js";
 import { discord, fetchChannelChecked } from "../src/client.js";
 import webhooks from "../src/tools/webhooks.js";
 import scheduledEvents from "../src/tools/scheduledEvents.js";
+import messages from "../src/tools/messages.js";
 
 const ALLOWED = "111111111111111111";
 const FOREIGN = "222222222222222222";
@@ -66,6 +67,75 @@ for (const [tool, extra] of TOKEN_WEBHOOK_CALLS) {
     );
   });
 }
+
+const THREAD = "333333333333333333";
+const FOREIGN_PARENT = "222222222222222229";
+const MEMBER = "444444444444444444";
+
+/** Every write the thread tools could send, through discord.js managers or the REST client. */
+function recordThreadWrites() {
+  const writes: string[] = [];
+  const record =
+    (name: string) =>
+    async (...args: unknown[]) => {
+      writes.push(name);
+      return args[0];
+    };
+  for (const method of ["put", "post", "patch", "delete"] as const)
+    mock.method(discord.rest, method, record(`rest.${method}`) as never);
+  return { writes, record };
+}
+
+test("thread member tools refuse a thread outside the allow-list before changing members", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = ALLOWED;
+  const { writes, record } = recordThreadWrites();
+  const thread = {
+    id: THREAD,
+    name: "pair",
+    guildId: FOREIGN,
+    type: ChannelType.PrivateThread,
+    isThread: () => true,
+    archived: true,
+    setArchived: record("setArchived"),
+    members: { add: record("members.add"), remove: record("members.remove") },
+  };
+  mock.method(discord.channels, "fetch", async () => thread as never);
+  for (const tool of ["discord_add_thread_member", "discord_remove_thread_member"])
+    await assert.rejects(
+      messages.handlers.get(tool)!({ thread_id: THREAD, user_id: MEMBER }),
+      new RegExp(`Guild ${FOREIGN} is not in the DISCORD_ALLOWED_GUILDS allow-list`),
+      tool,
+    );
+  assert.deepEqual(writes, []);
+});
+
+test("create_thread with member_ids refuses a parent outside the allow-list before reaching Discord", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = ALLOWED;
+  const { writes, record } = recordThreadWrites();
+  const channel = Object.assign(Object.create(TextChannel.prototype) as object, {
+    id: FOREIGN_PARENT,
+    name: "foreign",
+    guildId: FOREIGN,
+    type: ChannelType.GuildText,
+    isDMBased: () => false,
+    isTextBased: () => true,
+    threads: { create: record("threads.create") },
+    messages: { fetch: record("messages.fetch") },
+  });
+  mock.method(discord.channels, "fetch", async () => channel as never);
+  for (const extra of [{ private: true }, { message_id: "555555555555555555" }])
+    await assert.rejects(
+      messages.handlers.get("discord_create_thread")!({
+        channel_id: FOREIGN_PARENT,
+        name: "pair",
+        member_ids: [MEMBER],
+        ...extra,
+      }),
+      new RegExp(`Guild ${FOREIGN} is not in the DISCORD_ALLOWED_GUILDS allow-list`),
+      JSON.stringify(extra),
+    );
+  assert.deepEqual(writes, []);
+});
 
 test("no tool module bypasses the checked channel fetch", () => {
   const dir = join(__dirname, "..", "src", "tools");

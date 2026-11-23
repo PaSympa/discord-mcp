@@ -275,6 +275,34 @@ test("when the retry fails and the thread cannot be archived again, the error sa
   }
 });
 
+test("when the thread cannot be unarchived, the error names the unarchive, not the member change", async () => {
+  for (const name of ["discord_add_thread_member", "discord_remove_thread_member"]) {
+    const { change, attempts } = archivedThenRefused();
+    const archiving: boolean[] = [];
+    stubThread({
+      archived: true,
+      locked: true,
+      members: { add: change, remove: change },
+      setArchived: async (archived: boolean) => {
+        archiving.push(archived);
+        throw missingPermissions();
+      },
+    });
+    await assert.rejects(handler(name)({ thread_id: THREAD, user_id: USER }), (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.match(
+        err.message,
+        /^The thread is archived and could not be unarchived: Discord API error 50013 \(HTTP 403\): Missing Permissions\./,
+      );
+      assert.ok(err.cause instanceof DiscordAPIError);
+      return true;
+    });
+    assert.equal(attempts(), 1, `${name}: no retry`);
+    assert.deepEqual(archiving, [false], `${name}: no re-archive`);
+    mock.restoreAll();
+  }
+});
+
 test("remove_thread_member words its result so it is true whether or not the user was in the thread", async () => {
   stubThread();
   const result = await handler("discord_remove_thread_member")({

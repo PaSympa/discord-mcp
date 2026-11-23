@@ -219,7 +219,13 @@ async function changeThreadMembers(
       err.code === RESTJSONErrorCodes.InvalidActionOnArchivedThread;
     if (!archived) throw err;
   }
-  await thread.setArchived(false);
+  try {
+    await thread.setArchived(false);
+  } catch (err) {
+    throw new Error(`The thread is archived and could not be unarchived: ${formatToolError(err)}`, {
+      cause: err,
+    });
+  }
   try {
     await change();
     return true;

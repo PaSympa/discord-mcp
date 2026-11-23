@@ -18,7 +18,7 @@
 
 </div>
 
-**discord-mcp** connects Claude, Codex, Cursor, VS Code and any other MCP client to your Discord server through your own bot. Ask in plain language: your assistant reads channels, answers, moderates, and manages roles, channels, forums and events, with 100 tools behind it.
+**discord-mcp** connects Claude, Codex, Cursor, VS Code and any other MCP client to your Discord server through your own bot. Ask in plain language: your assistant reads channels, answers, moderates, and manages roles, channels, forums and events, with 102 tools behind it.
 
 ## See it in action
 
@@ -73,14 +73,14 @@
 
 ## Expose only what you need
 
-The full set of 100 tools costs about 36k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
+The full set of 102 tools costs about 37k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
 
 | Profile              | `DISCORD_MCP_TOOLSETS`                           | Tools | Context     |
 | -------------------- | ------------------------------------------------ | ----- | ----------- |
-| Everything (default) | unset                                            | 100   | ~36k tokens |
+| Everything (default) | unset                                            | 102   | ~37k tokens |
 | Chat assistant       | `discovery,messages`                             | 25    | ~11k tokens |
 | Community manager    | `discovery,messages,forums,scheduled_events`     | 42    | ~17k tokens |
-| Moderator            | `discovery,members,moderation,roles,permissions` | 31    | ~10k tokens |
+| Moderator            | `discovery,members,moderation,roles,permissions` | 33    | ~11k tokens |
 | Audit and stats      | `discovery,stats,moderation`                     | 6     | ~2k tokens  |
 
 ```json
@@ -97,7 +97,7 @@ Set `DISCORD_MCP_READ_ONLY=true` to keep only the 35 tools annotated `readOnlyHi
 ## Safety
 
 - **Your bot, your permissions.** The server can only do what the bot's Discord permissions allow.
-- **Preview before mass actions.** `discord_bulk_delete_messages`, `discord_bulk_ban`, `discord_prune_members` and `discord_delete_channel` run as a dry run by default and report what would happen. Pass `dry_run: false` to apply. A bulk delete then takes the message IDs from its preview and deletes only those, so a message posted after the preview stays.
+- **Preview before mass actions.** `discord_bulk_delete_messages`, `discord_bulk_ban`, `discord_bulk_add_role`, `discord_bulk_remove_role`, `discord_prune_members` and `discord_delete_channel` run as a dry run by default and report what would happen. Pass `dry_run: false` to apply. A bulk delete then takes the message IDs from its preview and deletes only those, so a message posted after the preview stays.
 - **Stay in your servers.** `DISCORD_ALLOWED_GUILDS` restricts every call to the guilds you list, whether the target is addressed by guild, channel, thread, webhook or invite.
 - **Clear annotations.** Every tool declares `readOnlyHint`, and every write tool declares `destructiveHint`, so clients can approve reads automatically and ask before destructive calls.
 - **Read-only mode.** With `DISCORD_MCP_READ_ONLY=true`, the server lists only the tools that declare `readOnlyHint: true`. A call to any other tool fails as an unknown tool. Two reads stay sensitive. `discord_list_webhooks` returns webhook tokens, and a token lets anyone post through its webhook without this server. `discord_read_dms` reads the bot's direct messages with a user. To hide both, leave `webhooks` and `dm` out of `DISCORD_MCP_TOOLSETS`.
@@ -347,7 +347,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 
 ## Tools
 
-100 tools in 14 toolsets. Each one documents its permissions, side effects and return shape in its description.
+102 tools in 14 toolsets. Each one documents its permissions, side effects and return shape in its description.
 
 <details>
 <summary><strong>Discovery</strong> (4 tools)</summary>
@@ -440,7 +440,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 </details>
 
 <details>
-<summary><strong>Roles</strong> (9 tools)</summary>
+<summary><strong>Roles</strong> (11 tools)</summary>
 
 | Tool                        | Description                                                |
 | --------------------------- | ---------------------------------------------------------- |
@@ -450,6 +450,8 @@ The intent flags only change what the bot requests when it connects. Requesting 
 | `discord_delete_role`       | Delete a role                                              |
 | `discord_add_role`          | Assign a role to a member                                  |
 | `discord_remove_role`       | Remove a role from a member                                |
+| `discord_bulk_add_role`     | Assign a role to up to 50 members, after a preview         |
+| `discord_bulk_remove_role`  | Remove a role from up to 50 members, after a preview       |
 | `discord_get_role_members`  | List all members with a specific role                      |
 | `discord_set_role_position` | Change a role's position in the hierarchy                  |
 | `discord_set_role_icon`     | Set a custom icon or unicode emoji on a role               |

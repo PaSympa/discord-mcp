@@ -10,6 +10,7 @@ import {
   Routes,
   SnowflakeUtil,
   DiscordAPIError,
+  type GuildTextBasedChannel,
 } from "discord.js";
 import { z } from "zod";
 import {
@@ -20,6 +21,14 @@ import {
   assertCanEmbed,
   assertCanReadHistory,
 } from "../client.js";
+import {
+  BATCH_BUDGET_MS,
+  batchStopSchema,
+  earlyStop,
+  failureShape,
+  runBatch,
+  type BatchStop,
+} from "../batch.js";
 import {
   MAX_FETCH_LIMIT,
   MAX_PINS_LIMIT,
@@ -38,6 +47,7 @@ import {
   defineModule,
   defineTool,
   snowflake,
+  snowflakeSet,
   guildId,
   intIn,
   structured,
@@ -169,6 +179,69 @@ async function getThreadParent(channelId: string): Promise<TextChannel | NewsCha
       `Channel ${channelId} holds no threads of its own or doesn't exist. Pass a text or announcement channel.`,
     );
   return channel;
+}
+
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+/** Discord checks ages when it runs a bulk delete, and one ID past 14 days fails the whole request. */
+const BULK_AGE_MARGIN_MS = 5 * 60 * 1000;
+const LOOKUP_PAGES = 10;
+
+const LOOKUP_LIMIT: BatchStop = {
+  reason: "lookup_limit",
+  message: `The lookup reads at most ${LOOKUP_PAGES} pages of ${MAX_FETCH_LIMIT} messages per call. Call again with remaining.`,
+};
+
+const messageToDelete = z.object({
+  id: z.string(),
+  ...messageAuthorShape,
+  created_at: z.string(),
+  older_than_14_days: z.boolean(),
+});
+
+function toDelete(m: Message) {
+  return {
+    id: m.id,
+    ...messageAuthor(m.author.id, m.webhookId),
+    created_at: m.createdAt.toISOString(),
+    older_than_14_days: m.createdTimestamp <= Date.now() - FOURTEEN_DAYS_MS,
+  };
+}
+
+/**
+ * Finds which IDs exist in the channel. Each page is read forward from just below the
+ * smallest pending ID and settles every pending ID in its span: a full page covers up
+ * to its newest message, a short one reaches the end of the channel. IDs still pending
+ * when the pages, the time or the call run out are `unreached`.
+ */
+async function locateMessages(
+  channel: GuildTextBasedChannel,
+  ids: string[],
+  { deadline, signal }: { deadline: number; signal?: AbortSignal },
+) {
+  const pending = ids.map((id) => BigInt(id)).sort((a, b) => (a < b ? -1 : 1));
+  const found: Message[] = [];
+  const notFound: string[] = [];
+  let stopped: BatchStop | undefined;
+  for (let page = 0; pending.length > 0; page++) {
+    stopped = page === LOOKUP_PAGES ? LOOKUP_LIMIT : earlyStop(deadline, signal);
+    if (stopped) break;
+    const messages = await channel.messages.fetch({
+      after: (pending[0] - 1n).toString(),
+      limit: MAX_FETCH_LIMIT,
+      cache: false,
+    });
+    const newest =
+      messages.size < MAX_FETCH_LIMIT
+        ? undefined
+        : [...messages.keys()].reduce((max, id) => (BigInt(id) > max ? BigInt(id) : max), 0n);
+    while (pending.length > 0 && (newest === undefined || pending[0] <= newest)) {
+      const id = pending.shift()!.toString();
+      const message = messages.get(id);
+      if (message) found.push(message);
+      else notFound.push(id);
+    }
+  }
+  return { found, notFound, unreached: pending.map(String), stopped };
 }
 
 /** Tool definitions for channel and thread messages. */
@@ -469,7 +542,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_delete_messages",
     description:
-      "Permanently delete multiple recent messages in one call. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Discord only allows bulk-deleting messages younger than 14 days; older ones are skipped. Requires the Manage Messages permission, and refuses to run without Read Message History. Returns the number deleted.",
+      "Permanently delete up to 100 messages in a channel or thread, chosen by ID. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Preview first: count lists the most recent messages, message_ids checks which of those IDs are in this channel, and both return would_delete with each message's id, author_id, created_at and older_than_14_days. Then re-call with dry_run:false and the reviewed IDs as message_ids; a real call refuses count. It looks the IDs up again and deletes only those it finds: messages younger than 14 days in one request, older ones one by one, more slowly. A call reads at most 10 pages of history and stops after about 40 seconds; what it did not reach comes back in remaining, with the reason in stopped, so call again with those IDs. Requires the Manage Messages and Read Message History permissions. Returns { dry_run, would_delete } for a preview, with not_found and remaining when it took message_ids, and { dry_run, deleted, not_found, failed, remaining } after a real call. Use discord_delete_message for a single message.",
     annotations: {
       title: "Bulk delete messages",
       readOnlyHint: false,
@@ -477,40 +550,105 @@ const tools = [
       idempotentHint: false,
       openWorldHint: true,
     },
-    schema: z.object({
-      channel_id: snowflake.describe(
-        "ID (snowflake) of the channel or thread to delete messages from.",
-      ),
-      count: intIn(2, MAX_FETCH_LIMIT).describe("Number of recent messages to delete (2–100)."),
-      dry_run: z
-        .boolean()
-        .default(true)
-        .describe(
-          "If true (default), only reports how many would be deleted without deleting. Set false to actually delete.",
+    schema: z
+      .object({
+        channel_id: snowflake.describe(
+          "ID (snowflake) of the channel or thread to delete messages from.",
         ),
+        count: intIn(2, MAX_FETCH_LIMIT)
+          .optional()
+          .describe(
+            "Preview only: list the N most recent messages (2-100) as would_delete. A real call refuses it.",
+          ),
+        message_ids: snowflakeSet(MAX_FETCH_LIMIT)
+          .optional()
+          .describe(
+            "IDs (snowflakes) of the messages to delete, 1-100 distinct. A dry run reports which are in this channel; a real call deletes only those.",
+          ),
+        dry_run: z
+          .boolean()
+          .default(true)
+          .describe(
+            "If true (default), deletes nothing and returns would_delete. Set false, with message_ids, to delete.",
+          ),
+      })
+      .refine(
+        (a) => (a.count === undefined) !== (a.message_ids === undefined),
+        "Pass exactly one of count or message_ids.",
+      ),
+    outputSchema: z.object({
+      dry_run: z.boolean().describe("true for a preview: nothing was deleted."),
+      would_delete: z
+        .array(messageToDelete)
+        .optional()
+        .describe("Dry run only: the messages a real call with these IDs would delete."),
+      deleted: z
+        .array(z.string())
+        .optional()
+        .describe("IDs found in the channel and deleted by this call."),
+      not_found: z
+        .array(z.string())
+        .optional()
+        .describe("IDs not in this channel: another channel's, or already deleted."),
+      failed: z
+        .array(z.object({ id: z.string(), ...failureShape }))
+        .optional()
+        .describe("IDs Discord refused to delete, with its error code."),
+      remaining: z
+        .array(z.string())
+        .optional()
+        .describe("IDs this call did not reach. Call again with them as message_ids."),
+      stopped: batchStopSchema("lookup_limit").optional(),
     }),
-    handle: async ({ channel_id, count, dry_run }) => {
+    handle: async ({ channel_id, count, message_ids, dry_run }, { signal }) => {
+      const deadline = Date.now() + BATCH_BUDGET_MS;
       const channel = await getTextChannel(channel_id);
       assertCanReadHistory(channel);
-      if (dry_run) {
+      if (message_ids === undefined) {
+        if (!dry_run)
+          throw new Error(
+            "A real bulk delete takes message_ids, not count, so it deletes only messages you have seen. Preview with count, then call again with dry_run:false and message_ids set to the would_delete IDs.",
+          );
         const recent = await channel.messages.fetch({ limit: count, cache: false });
-        const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
-        const deletable = recent.filter((m) => m.createdTimestamp > cutoff).size;
-        return {
-          content: [
-            {
-              type: "text",
-              text: `🔍 Dry run: ${deletable} of the ${recent.size} most recent messages in #${channel.name} would be deleted (${recent.size - deletable} older than 14 days are skipped). Re-call with dry_run:false to delete.`,
-            },
-          ],
-        };
+        const would_delete = [...recent.values()]
+          .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
+          .map(toDelete);
+        return structured({ dry_run, would_delete });
       }
-      const deleted = await channel.bulkDelete(count, true);
-      return {
-        content: [
-          { type: "text", text: `✅ Deleted ${deleted.size} messages in #${channel.name}.` },
-        ],
-      };
+      const lookup = await locateMessages(channel, message_ids, { deadline, signal });
+      if (dry_run)
+        return structured({
+          dry_run,
+          would_delete: lookup.found.map(toDelete),
+          not_found: lookup.notFound,
+          remaining: lookup.unreached,
+          ...(lookup.stopped ? { stopped: lookup.stopped } : {}),
+        });
+      const cutoff = Date.now() - FOURTEEN_DAYS_MS + BULK_AGE_MARGIN_MS;
+      const recent = lookup.found.filter((m) => m.createdTimestamp > cutoff).map((m) => m.id);
+      const older = lookup.found.filter((m) => m.createdTimestamp <= cutoff).map((m) => [m.id]);
+      const result = await runBatch(
+        recent.length > 0 ? [recent, ...older] : older,
+        (ids, itemSignal) =>
+          ids.length === 1
+            ? discord.rest.delete(Routes.channelMessage(channel.id, ids[0]), { signal: itemSignal })
+            : discord.rest.post(Routes.channelBulkDelete(channel.id), {
+                body: { messages: ids },
+                signal: itemSignal,
+              }),
+        { deadline, signal },
+      );
+      const stopped = result.stopped ?? lookup.stopped;
+      return structured({
+        dry_run,
+        deleted: result.done.flat(),
+        not_found: lookup.notFound,
+        failed: result.failed.flatMap(({ item, code, message }) =>
+          item.map((id) => ({ id, code, message })),
+        ),
+        remaining: [...result.remaining.flat(), ...lookup.unreached],
+        ...(stopped ? { stopped } : {}),
+      });
     },
   }),
   defineTool({

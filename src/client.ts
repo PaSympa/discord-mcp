@@ -14,6 +14,7 @@ import {
   type Role,
   type ThreadChannel,
 } from "discord.js";
+import { rejectOnBatchRateLimit } from "./batch.js";
 import { SWEEP } from "./constants.js";
 
 /**
@@ -50,7 +51,7 @@ export const discord = new Client({
     ...(messageContentEnabled ? [GatewayIntentBits.MessageContent] : []),
     ...(guildMembersEnabled ? [GatewayIntentBits.GuildMembers] : []),
   ],
-  rest: { retries: 3, timeout: 15_000 },
+  rest: { retries: 3, timeout: 15_000, rejectOnRateLimit: rejectOnBatchRateLimit },
   sweepers: {
     ...Options.DefaultSweeperSettings,
     messages: SWEEP.messages,

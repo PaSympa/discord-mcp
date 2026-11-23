@@ -38,13 +38,13 @@ export function createServer(version: string): Server {
     return { tools: getAllDefinitions() };
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (req) => {
+  server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
     const { name, arguments: args = {} } = req.params;
     if (!hasTool(name)) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${name}`);
 
     try {
       await ensureConnected();
-      return await handleTool(name, args);
+      return await handleTool(name, args, { signal: extra.signal });
     } catch (err: unknown) {
       return {
         content: [{ type: "text", text: `❌ Error: ${formatToolError(err)}` }],

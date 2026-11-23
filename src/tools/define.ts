@@ -1,11 +1,29 @@
 import { z } from "zod";
 import { isGuildAllowed } from "../client.js";
-import type { ToolModule, ToolDefinition, ToolResult, ToolAnnotations } from "./types.js";
+import type {
+  ToolModule,
+  ToolDefinition,
+  ToolResult,
+  ToolAnnotations,
+  ToolContext,
+} from "./types.js";
 
 /** A Discord snowflake ID: a 17–20 digit string. Reused by every tool that takes an ID. */
 export const snowflake = z
   .string()
   .regex(/^\d{17,20}$/, "Must be a Discord snowflake ID (17-20 digits).");
+
+/**
+ * 1 to `max` distinct snowflakes. The refine has no JSON Schema form, so `meta`
+ * advertises it as `uniqueItems`.
+ */
+export const snowflakeSet = (max: number) =>
+  z
+    .array(snowflake)
+    .min(1)
+    .max(max)
+    .refine((ids) => new Set(ids).size === ids.length, "IDs must not repeat.")
+    .meta({ uniqueItems: true });
 
 /**
  * The `guild_id` field, identical across nearly every guild-scoped tool. When
@@ -81,7 +99,7 @@ interface RegisteredTool {
   annotations?: ToolAnnotations;
   inputSchema: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
-  run(args: Record<string, unknown>): Promise<ToolResult>;
+  run(args: Record<string, unknown>, ctx?: ToolContext): Promise<ToolResult>;
 }
 
 /**
@@ -111,7 +129,7 @@ export function defineTool<S extends z.ZodType>(tool: {
   annotations?: ToolAnnotations;
   schema: S;
   outputSchema?: z.ZodType;
-  handle(args: z.infer<S>): Promise<ToolResult>;
+  handle(args: z.infer<S>, ctx: ToolContext): Promise<ToolResult>;
 }): RegisteredTool {
   const { outputSchema } = tool;
   const schema = strictInput(tool.schema);
@@ -121,8 +139,8 @@ export function defineTool<S extends z.ZodType>(tool: {
     annotations: tool.annotations,
     inputSchema: toInputSchema(schema),
     outputSchema: outputSchema ? toOutputSchema(outputSchema) : undefined,
-    run: async (args) => {
-      const result = await tool.handle(schema.parse(args));
+    run: async (args, ctx = {}) => {
+      const result = await tool.handle(schema.parse(args), ctx);
       if (outputSchema && result.structuredContent !== undefined) {
         const parsed = outputSchema.safeParse(result.structuredContent);
         if (parsed.success) {

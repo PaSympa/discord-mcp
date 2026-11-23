@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Collection, DiscordAPIError, PermissionFlagsBits, Routes } from "discord.js";
 import { discord } from "../src/client.js";
 import roles from "../src/tools/roles.js";
+import { rateLimited, retryAfterSchema } from "./rate-limit.js";
 
 /**
  * Real structures from raw gateway payloads, so the permission math, the Administrator
@@ -301,6 +302,42 @@ test("a real call past the time budget returns the members it did not reach", as
   assert.deepEqual(content.remaining, [OTHERS[2]]);
   assert.equal((content.stopped as { reason: string }).reason, "time_budget");
 });
+
+for (const [tool, method, users, member] of [
+  ["discord_bulk_add_role", "put", [NO_ROLE, ...OTHERS], NO_ROLE],
+  ["discord_bulk_remove_role", "del", [HAS_ROLE], undefined],
+] as const) {
+  test(`${tool} returns how long Discord asked to wait when a rate limit stops it`, async () => {
+    const stub = stubDiscord(GUILD);
+    stub[method].mock.mockImplementation(async (route: string) => {
+      if (!member || !route.includes(member)) throw rateLimited(5_200);
+    });
+    const result = await call(tool, {
+      guild_id: GUILD,
+      role_id: roleId(GUILD, HELPERS),
+      user_ids: users,
+      dry_run: false,
+    });
+    assert.equal(result.isError, undefined, "the output matches its schema");
+    const content = result.structuredContent!;
+    assert.deepEqual(content.done, member ? [member] : []);
+    assert.deepEqual(
+      content.remaining,
+      users.filter((id) => id !== member),
+    );
+    assert.deepEqual(content.stopped, {
+      reason: "time_budget",
+      message:
+        "Discord asked to wait 6 s before the next request, past this call's time budget. Wait about 6 s, then call again with remaining.",
+      retry_after_seconds: 6,
+    });
+    const advertised = retryAfterSchema(
+      roles.definitions.find((d) => d.name === tool)!.outputSchema,
+    );
+    assert.equal(advertised.type, "integer");
+    assert.match(advertised.description, /Wait that long/);
+  });
+}
 
 test("a member who left before the change fails alone; the others go through", async () => {
   const stub = stubDiscord(GUILD);

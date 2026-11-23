@@ -4,6 +4,7 @@ import { getEventListeners } from "node:events";
 import { DiscordAPIError, REST, Routes } from "discord.js";
 import { discord } from "../src/client.js";
 import { BATCH_BUDGET_MS, rejectOnBatchRateLimit, runBatch } from "../src/batch.js";
+import { rateLimited } from "./rate-limit.js";
 
 afterEach(() => mock.timers.reset());
 
@@ -20,7 +21,10 @@ test("runBatch stops at the deadline and returns the items it did not start", as
   assert.deepEqual(started, ["a", "b", "c"], "d starts at 45 s, past the 40 s budget");
   assert.deepEqual(result.done, ["a", "b", "c"]);
   assert.deepEqual(result.remaining, ["d"]);
-  assert.equal(result.stopped?.reason, "time_budget");
+  assert.deepEqual(result.stopped, {
+    reason: "time_budget",
+    message: "The call used its 40 s time budget. Call again with remaining.",
+  });
 });
 
 test("the REST client uses the batch rate-limit hook", () => {
@@ -85,10 +89,26 @@ test("inside a batch, a rate-limit wait past the deadline stops the batch before
   assert.deepEqual(result.done, ["100000000000000003"]);
   assert.deepEqual(result.remaining, ["100000000000000004", "100000000000000005"]);
   assert.equal(result.stopped?.reason, "time_budget");
-  assert.match(
-    result.stopped?.message ?? "",
-    /Discord asked to wait \d\.\d s, past the time budget/,
+  const seconds = result.stopped?.retry_after_seconds;
+  assert.ok(Number.isInteger(seconds) && seconds! >= 1, `retry_after_seconds: ${seconds}`);
+  assert.equal(
+    result.stopped?.message,
+    `Discord asked to wait ${seconds} s before the next request, past this call's time budget. Wait about ${seconds} s, then call again with remaining.`,
   );
+});
+
+test("a rate-limit stop rounds Discord's wait up to the second and tells the caller to wait", async () => {
+  const result = await runBatch(["a", "b"], async (item) => {
+    if (item === "b") throw rateLimited(116_500);
+  });
+  assert.deepEqual(result.done, ["a"]);
+  assert.deepEqual(result.remaining, ["b"]);
+  assert.deepEqual(result.stopped, {
+    reason: "time_budget",
+    message:
+      "Discord asked to wait 117 s before the next request, past this call's time budget. Wait about 117 s, then call again with remaining.",
+    retry_after_seconds: 117,
+  });
 });
 
 test("outside a batch, the same REST client waits the rate limit out as before", async () => {

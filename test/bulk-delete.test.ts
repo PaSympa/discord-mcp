@@ -583,6 +583,30 @@ test("discord.js decides what is deletable: author and Manage Messages, then the
   assert.deepEqual(content.not_deletable, [{ id: managed[2], reason: "system_message" }]);
 });
 
+test("without Manage Messages, the bot's own recent messages go one by one, never in bulk", async () => {
+  const own = realChannel(PLAIN_CHANNEL, [
+    { type: MessageType.Default, author: botUser },
+    { type: MessageType.Default, author: botUser },
+  ]);
+  const post = mock.method(discord.rest, "post", async () => {
+    throw new DiscordAPIError(
+      { code: 50013, message: "Missing Permissions" },
+      50013,
+      403,
+      "POST",
+      "/bulk-delete",
+      {},
+    );
+  });
+  const del = mock.method(discord.rest, "delete", async () => undefined);
+  const result = (await run({ channel_id: PLAIN_CHANNEL, message_ids: own, dry_run: false }))
+    .structuredContent!;
+  assert.equal(post.mock.callCount(), 0, "the bulk endpoint needs Manage Messages");
+  assert.equal(del.mock.callCount(), 2);
+  assert.deepEqual(result.deleted, own);
+  assert.equal(result.stopped, undefined);
+});
+
 test("the call's signal reaches each delete request", async () => {
   const history = [message(2 * HOUR), message(HOUR)];
   channelWith(history);

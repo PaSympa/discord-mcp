@@ -11,6 +11,7 @@ import {
   SnowflakeUtil,
   DiscordAPIError,
   Constants,
+  PermissionFlagsBits,
   type GuildTextBasedChannel,
 } from "discord.js";
 import { z } from "zod";
@@ -281,6 +282,20 @@ async function locateMessages(
     }
   }
   return { found, notFound, unreached: pending.map(String), stopped };
+}
+
+/**
+ * The bulk endpoint needs Manage Messages even for the bot's own messages, which
+ * `deletable` lets it delete one by one without it. A timed-out bot loses it too.
+ * Unresolvable permissions let the bulk request through.
+ */
+function canBulkDelete(channel: GuildTextBasedChannel): boolean {
+  const me = channel.guild.members.me;
+  if (!me) return true;
+  return (
+    channel.permissionsFor(me).has(PermissionFlagsBits.ManageMessages) &&
+    !me.isCommunicationDisabled()
+  );
 }
 
 /** Tool definitions for channel and thread messages. */
@@ -682,7 +697,7 @@ const tools = [
       const older = deletable.filter((m) => m.createdTimestamp <= cutoff).map((m) => m.id);
       const options = { deadline, signal };
       const bulk =
-        recent.length > 1
+        recent.length > 1 && canBulkDelete(channel)
           ? await runBatch(
               [recent],
               (ids, itemSignal) =>

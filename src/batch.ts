@@ -1,5 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import { DiscordAPIError, RateLimitError, type RateLimitData } from "discord.js";
+import {
+  DiscordAPIError,
+  RateLimitError,
+  RESTJSONErrorCodes,
+  type RateLimitData,
+} from "discord.js";
 import { z } from "zod";
 import { formatToolError } from "./errors.js";
 
@@ -26,11 +31,19 @@ export function rejectOnBatchRateLimit({ retryAfter }: Pick<RateLimitData, "retr
   return deadline !== undefined && retryAfter > deadline - Date.now();
 }
 
-/** About the bot, guild, channel or role rather than one item: every later item would fail the same way. */
-const SYSTEMIC_CODES = new Set([10003, 10004, 10011, 50001, 50013]);
+/** About the bot, guild, channel, thread or role rather than one item: every later item would fail the same way. */
+const SYSTEMIC_CODES = new Set<number>([
+  RESTJSONErrorCodes.UnknownChannel,
+  RESTJSONErrorCodes.UnknownGuild,
+  RESTJSONErrorCodes.UnknownRole,
+  RESTJSONErrorCodes.MissingAccess,
+  RESTJSONErrorCodes.MissingPermissions,
+  RESTJSONErrorCodes.InvalidActionOnArchivedThread,
+  RESTJSONErrorCodes.ThreadLocked,
+]);
 
 /** Discord's refusal of one item, as a `failed` entry reports it. */
-export const failureShape = { code: z.union([z.number(), z.string()]), message: z.string() };
+export const failureShape = { code: z.number(), message: z.string() };
 
 /** The `stopped` output field. A tool that can stop for a reason of its own passes it in. */
 export const batchStopSchema = (...reasons: string[]) =>
@@ -42,11 +55,11 @@ export const batchStopSchema = (...reasons: string[]) =>
     })
     .describe("Why the call stopped early.");
 
-export type BatchStop = { reason: string; message: string; code?: number | string };
+export type BatchStop = { reason: string; message: string; code?: number };
 
 export interface BatchResult<T> {
   done: T[];
-  failed: { item: T; code: number | string; message: string }[];
+  failed: { item: T; code: number; message: string }[];
   remaining: T[];
   stopped?: BatchStop;
 }
@@ -114,15 +127,22 @@ export function runStep<R>(
   });
 }
 
-/** Undefined when only this item failed. */
+/**
+ * Undefined when only this item failed: a Discord error with a numeric code outside
+ * SYSTEMIC_CODES. Discord answers some errors, such as a 401, with no numeric code;
+ * those stop the batch with the HTTP status as their code.
+ */
 function stopFor(err: unknown): BatchStop | undefined {
   if (err instanceof BatchStopped) return err.stop;
-  if (err instanceof DiscordAPIError && !SYSTEMIC_CODES.has(Number(err.code))) return undefined;
-  return {
-    reason: "error",
-    message: formatToolError(err),
-    ...(err instanceof DiscordAPIError ? { code: err.code } : {}),
-  };
+  if (!(err instanceof DiscordAPIError)) return { reason: "error", message: formatToolError(err) };
+  if (typeof err.code !== "number")
+    return {
+      reason: "error",
+      code: err.status,
+      message: `Discord answered HTTP ${err.status} with no error code: ${err.message}.`,
+    };
+  if (!SYSTEMIC_CODES.has(err.code)) return undefined;
+  return { reason: "error", code: err.code, message: formatToolError(err) };
 }
 
 /**
@@ -150,7 +170,7 @@ export async function runBatch<T>(
     } catch (err) {
       const stopped = stopFor(err);
       if (stopped) return { done, failed, remaining: items.slice(i), stopped };
-      const { code, message } = err as DiscordAPIError;
+      const { code, message } = err as DiscordAPIError & { code: number };
       failed.push({ item, code, message });
     }
   }

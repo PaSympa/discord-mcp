@@ -170,6 +170,9 @@ for (const [code, message] of [
   [50001, "Missing Access"],
   [10011, "Unknown Role"],
   [10003, "Unknown Channel"],
+  [10004, "Unknown Guild"],
+  [50083, "Thread is archived"],
+  [160005, "Thread is locked"],
 ] as const) {
   test(`systemic error ${code} stops the batch instead of failing every item`, async () => {
     const tried: string[] = [];
@@ -199,6 +202,22 @@ for (const [code, message] of [
     assert.deepEqual(result.failed, [{ item: "b", code, message }]);
     assert.deepEqual(result.remaining, []);
     assert.equal(result.stopped, undefined);
+  });
+}
+
+for (const [label, body, code] of [
+  ["an empty body", {}, undefined],
+  ["an OAuth error", { error: "invalid_client" }, "invalid_client"],
+] as const) {
+  test(`a Discord error with no numeric code (${label}) stops the batch with the HTTP status`, async () => {
+    const result = await runBatch(["a", "b"], async (item) => {
+      if (item === "a") throw new DiscordAPIError(body, code as never, 401, "PUT", "/test", {});
+    });
+    assert.deepEqual(result.failed, []);
+    assert.deepEqual(result.remaining, ["a", "b"]);
+    assert.equal(result.stopped?.reason, "error");
+    assert.equal(result.stopped?.code, 401);
+    assert.match(result.stopped?.message ?? "", /HTTP 401 with no error code/);
   });
 }
 

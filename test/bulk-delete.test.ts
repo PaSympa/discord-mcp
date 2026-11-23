@@ -226,6 +226,26 @@ test("a refused bulk request fails each of its IDs with Discord's code and delet
   );
 });
 
+test("a 401 with an empty body stops the call and still reports what was deleted", async () => {
+  const recent = [message(2 * HOUR), message(HOUR)];
+  const old = message(20 * DAY);
+  channelWith([...recent, old]);
+  mock.method(discord.rest, "post", async () => undefined);
+  mock.method(discord.rest, "delete", async () => {
+    throw new DiscordAPIError({}, undefined as never, 401, "DELETE", "/m", {});
+  });
+  const result = await run({ message_ids: ids([...recent, old]), dry_run: false });
+  assert.equal(result.isError, undefined, "the output still matches its schema");
+  const content = result.structuredContent!;
+  assert.deepEqual(content.deleted, ids(recent));
+  assert.deepEqual(content.failed, []);
+  assert.deepEqual(content.remaining, [old.id]);
+  assert.deepEqual(
+    [(content.stopped as { code: number }).code, (content.stopped as { reason: string }).reason],
+    [401, "error"],
+  );
+});
+
 test("a missing permission stops the call and keeps every ID in remaining", async () => {
   const recent = message(HOUR);
   const old = [message(20 * DAY), message(21 * DAY)];

@@ -59,11 +59,17 @@ const bulkRoleShape = {
 const bulkRoleOutput = z.object({
   dry_run: z.boolean().describe("true for a preview: no role was changed."),
   would_change: z.array(z.string()).optional().describe("Dry run only."),
-  done: z.array(z.string()).optional(),
-  skipped: z.array(z.string()),
-  not_member: z.array(z.string()),
-  failed: z.array(z.object({ user_id: z.string(), ...failureShape })).optional(),
-  remaining: z.array(z.string()).optional(),
+  done: z.array(z.string()).optional().describe("User IDs whose role this call changed."),
+  skipped: z.array(z.string()).describe("User IDs already as asked, left untouched."),
+  not_member: z.array(z.string()).describe("User IDs that are not members of the server."),
+  failed: z
+    .array(z.object({ user_id: z.string(), ...failureShape }))
+    .optional()
+    .describe("User IDs Discord refused to change, with its error code."),
+  remaining: z
+    .array(z.string())
+    .optional()
+    .describe("User IDs this call did not reach. Call again with them: re-applying is harmless."),
   stopped: batchStopSchema().optional(),
 });
 
@@ -348,14 +354,14 @@ const tools = [
     title: "Add role to many members",
     add: true,
     description:
-      "Add one role to up to 50 members in one call. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Before any change, both modes refuse @everyone, a managed role (bot, integration, booster), a role not below the bot's highest role, and a bot without Manage Roles. The dry run sorts user_ids into would_change, skipped (already have the role) and not_member; a real call sorts them again and changes only would_change, one request each. Discord allows about 10 role changes per 10 seconds, so a call stops after about 40 seconds and returns the rest in remaining: call again with those IDs, re-applying is harmless. Requires the Manage Roles permission. Returns { dry_run, would_change, skipped, not_member } for a preview and { dry_run, done, skipped, not_member, failed, remaining } after a real call. Use discord_add_role for one member, or discord_bulk_remove_role to undo.",
+      "Add one role to up to 50 members in one call. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Before any change, both modes refuse @everyone, a managed role (bot, integration, booster), a role not below the bot's highest role, and a bot without Manage Roles. The dry run sorts user_ids into would_change, skipped (already have the role) and not_member; a real call sorts them again and changes only would_change, one request each. Discord allows about 10 role changes per 10 seconds, so a call stops after about 40 seconds and returns the rest in remaining, with the reason in stopped: call again with those IDs, re-applying is harmless. Requires the Manage Roles permission. Returns { dry_run, would_change, skipped, not_member } for a preview and { dry_run, done, skipped, not_member, failed, remaining } after a real call. Use discord_add_role for one member, or discord_bulk_remove_role to undo.",
   }),
   bulkRoleTool({
     name: "discord_bulk_remove_role",
     title: "Remove role from many members",
     add: false,
     description:
-      "Remove one role from up to 50 members in one call. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Before any change, both modes refuse @everyone, a managed role (bot, integration, booster), a role not below the bot's highest role, and a bot without Manage Roles. The dry run sorts user_ids into would_change, skipped (do not have the role) and not_member; a real call sorts them again and changes only would_change, one request each. Discord allows about 10 role changes per 10 seconds, so a call stops after about 40 seconds and returns the rest in remaining: call again with those IDs, re-applying is harmless. Requires the Manage Roles permission. Returns { dry_run, would_change, skipped, not_member } for a preview and { dry_run, done, skipped, not_member, failed, remaining } after a real call. Use discord_remove_role for one member, or discord_bulk_add_role to undo.",
+      "Remove one role from up to 50 members in one call. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Before any change, both modes refuse @everyone, a managed role (bot, integration, booster), a role not below the bot's highest role, and a bot without Manage Roles. The dry run sorts user_ids into would_change, skipped (do not have the role) and not_member; a real call sorts them again and changes only would_change, one request each. Discord allows about 10 role changes per 10 seconds, so a call stops after about 40 seconds and returns the rest in remaining, with the reason in stopped: call again with those IDs, re-applying is harmless. Requires the Manage Roles permission. Returns { dry_run, would_change, skipped, not_member } for a preview and { dry_run, done, skipped, not_member, failed, remaining } after a real call. Use discord_remove_role for one member, or discord_bulk_add_role to undo.",
   }),
   defineTool({
     name: "discord_get_role_members",

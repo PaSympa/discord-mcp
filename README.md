@@ -73,11 +73,11 @@
 
 ## Expose only what you need
 
-The full set of 102 tools costs about 37k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
+The full set of 102 tools costs about 38k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
 
 | Profile              | `DISCORD_MCP_TOOLSETS`                           | Tools | Context     |
 | -------------------- | ------------------------------------------------ | ----- | ----------- |
-| Everything (default) | unset                                            | 102   | ~37k tokens |
+| Everything (default) | unset                                            | 102   | ~38k tokens |
 | Chat assistant       | `discovery,messages`                             | 25    | ~11k tokens |
 | Community manager    | `discovery,messages,forums,scheduled_events`     | 42    | ~17k tokens |
 | Moderator            | `discovery,members,moderation,roles,permissions` | 33    | ~11k tokens |

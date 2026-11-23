@@ -134,7 +134,7 @@ export function renderTroubleshooting(site) {
       item(
         "which-permissions",
         "Which permissions should the bot get?",
-        tpl`<p>The ones your tasks need. The <a href="${UP}guide/#invite-the-bot">invite link</a> asks for every permission the tools use; untick the rest in the authorization screen. Each tool page names its own. Avoid Administrator unless a task needs it, such as pruning on a server that requires Administrator for it. Administrator ignores channel overwrites, so a mistake reaches every channel.</p>`,
+        tpl`<p>The ones your tasks need. The <a href="${UP}guide/#invite-the-bot">invite link</a> asks for the permissions most tools use; untick the rest in the authorization screen. Each tool page names its own. Avoid Administrator unless a task needs it, such as pruning on a server that requires Administrator for it. Administrator ignores channel overwrites, so a mistake reaches every channel.</p>`,
       ),
       item(
         "context-cost",

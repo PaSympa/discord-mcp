@@ -249,6 +249,17 @@ function memberStopReason(stop: BatchStop): string {
 }
 
 /**
+ * The refusals that stop member_ids adds: about the bot or the thread. Missing Access
+ * (50001) is left out: it can concern one user, such as one who cannot view the parent.
+ */
+const THREAD_MEMBER_STOP_CODES = new Set<number>([
+  RESTJSONErrorCodes.MissingPermissions,
+  RESTJSONErrorCodes.UnknownChannel,
+  RESTJSONErrorCodes.InvalidActionOnArchivedThread,
+  RESTJSONErrorCodes.ThreadLocked,
+]);
+
+/**
  * Adds each user to a new thread within the call's time budget. Never throws, so the
  * caller always gets the thread's ID: refused and unreached users are reported instead.
  */
@@ -262,7 +273,7 @@ async function addThreadMembers(
   const { done, failed, remaining, stopped } = await runBatch(
     unique,
     (id, signal) => discord.rest.put(Routes.threadMembers(thread.id, id), { signal }),
-    options,
+    { ...options, systemicCodes: THREAD_MEMBER_STOP_CODES },
   );
   const total = unique.length;
   if (done.length === total) return ` Added ${total} member${total === 1 ? "" : "s"}.`;

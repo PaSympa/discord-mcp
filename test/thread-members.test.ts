@@ -370,6 +370,23 @@ test("create_thread stops adding member_ids after one systemic refusal", async (
   );
 });
 
+test("create_thread reports a Missing Access on one member_ids user and still adds the next", async () => {
+  const created = stubTextChannel((user) =>
+    user === OTHER ? discordError(50001, "Missing Access", 403) : undefined,
+  );
+  const result = await handler("discord_create_thread")({
+    channel_id: CHANNEL,
+    name: "pair",
+    member_ids: [USER, OTHER, THIRD],
+  });
+  assert.equal(created.put.mock.callCount(), 3);
+  assert.deepEqual(created.added, [USER, THIRD]);
+  assert.equal(
+    textOf(result),
+    `✅ Thread "pair" created (id: ${THREAD}). Added 2 of 3 members. Discord refused ${OTHER} (code 50001: Missing Access).`,
+  );
+});
+
 test("create_thread passes on a rate limit's wait and a cancellation without saying to call again", async () => {
   for (const [stop, ctx, expected] of [
     [

@@ -12,6 +12,9 @@ import {
   SnowflakeUtil,
   DiscordAPIError,
   RESTJSONErrorCodes,
+  Constants,
+  PermissionFlagsBits,
+  type GuildTextBasedChannel,
 } from "discord.js";
 import { z } from "zod";
 import { formatToolError } from "../errors.js";
@@ -24,6 +27,16 @@ import {
   assertCanReadHistory,
   getThreadChannel,
 } from "../client.js";
+import {
+  BATCH_BUDGET_MS,
+  BatchStopped,
+  batchStopSchema,
+  failureShape,
+  runBatch,
+  runStep,
+  type BatchResult,
+  type BatchStop,
+} from "../batch.js";
 import {
   MAX_FETCH_LIMIT,
   MAX_PINS_LIMIT,
@@ -42,6 +55,7 @@ import {
   defineModule,
   defineTool,
   snowflake,
+  snowflakeSet,
   guildId,
   intIn,
   structured,
@@ -225,6 +239,119 @@ async function addThreadMembers(thread: AnyThreadChannel, userIds: string[]): Pr
   return failed.length
     ? ` Added ${total - failed.length} of ${total} members; could not add ${failed.join(", ")}. Retry those with discord_add_thread_member.`
     : ` Added ${total} member${total === 1 ? "" : "s"}.`;
+}
+
+const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
+/** Discord checks ages when it runs a bulk delete, and one ID past 14 days fails the whole request. */
+const BULK_AGE_MARGIN_MS = 5 * 60 * 1000;
+const LOOKUP_PAGES = 10;
+
+const LOOKUP_LIMIT: BatchStop = {
+  reason: "lookup_limit",
+  message: `The lookup reads at most ${LOOKUP_PAGES} pages of ${MAX_FETCH_LIMIT} messages per call. Call again with remaining.`,
+};
+
+const messageToDelete = z.object({
+  id: z.string(),
+  ...messageAuthorShape,
+  created_at: z.string(),
+  older_than_14_days: z.boolean(),
+});
+
+function toDelete(m: Message) {
+  return {
+    id: m.id,
+    ...messageAuthor(m.author.id, m.webhookId),
+    created_at: m.createdAt.toISOString(),
+    older_than_14_days: m.createdTimestamp <= Date.now() - FOURTEEN_DAYS_MS,
+  };
+}
+
+const notDeletable = z.object({
+  id: z.string(),
+  reason: z.enum(["system_message", "no_permission"]),
+});
+
+/**
+ * Splits messages on discord.js's `deletable`: the message type, then Manage Messages in
+ * the channel or the bot's own authorship. A message Discord would refuse never reaches
+ * a request, where one refused ID fails a whole bulk delete.
+ */
+function splitDeletable(messages: Message[]) {
+  const deletable: Message[] = [];
+  const refused: z.infer<typeof notDeletable>[] = [];
+  for (const m of messages) {
+    if (m.deletable) deletable.push(m);
+    else
+      refused.push({
+        id: m.id,
+        reason: Constants.UndeletableMessageTypes.some((type) => type === m.type)
+          ? "system_message"
+          : "no_permission",
+      });
+  }
+  return { deletable, refused };
+}
+
+/**
+ * Finds which IDs exist in the channel. Each page is read forward from just below the
+ * smallest pending ID and settles every pending ID in its span: a full page covers up
+ * to its newest message, a short one reaches the end of the channel. IDs still pending
+ * when the pages, the time or the call run out are `unreached`.
+ */
+async function locateMessages(
+  channel: GuildTextBasedChannel,
+  ids: string[],
+  { deadline, signal }: { deadline: number; signal?: AbortSignal },
+) {
+  const pending = ids.map((id) => BigInt(id)).sort((a, b) => (a < b ? -1 : 1));
+  const found: Message[] = [];
+  const notFound: string[] = [];
+  let stopped: BatchStop | undefined;
+  for (let page = 0; pending.length > 0; page++) {
+    if (page === LOOKUP_PAGES) {
+      stopped = LOOKUP_LIMIT;
+      break;
+    }
+    const after = (pending[0] - 1n).toString();
+    let messages;
+    try {
+      // fetch takes no signal: at the hard stop the step stops waiting and abandons the read.
+      messages = await runStep(
+        () => channel.messages.fetch({ after, limit: MAX_FETCH_LIMIT, cache: false }),
+        { deadline, signal },
+      );
+    } catch (err) {
+      if (!(err instanceof BatchStopped)) throw err;
+      stopped = err.stop;
+      break;
+    }
+    const newest =
+      messages.size < MAX_FETCH_LIMIT
+        ? undefined
+        : [...messages.keys()].reduce((max, id) => (BigInt(id) > max ? BigInt(id) : max), 0n);
+    while (pending.length > 0 && (newest === undefined || pending[0] <= newest)) {
+      const id = pending.shift()!.toString();
+      const message = messages.get(id);
+      if (message) found.push(message);
+      else notFound.push(id);
+    }
+  }
+  return { found, notFound, unreached: pending.map(String), stopped };
+}
+
+/**
+ * The bulk endpoint needs Manage Messages even for the bot's own messages, which
+ * `deletable` lets it delete one by one without it. A timed-out bot loses it too.
+ * Unresolvable permissions let the bulk request through.
+ */
+function canBulkDelete(channel: GuildTextBasedChannel): boolean {
+  const me = channel.guild.members.me;
+  if (!me) return true;
+  return (
+    channel.permissionsFor(me).has(PermissionFlagsBits.ManageMessages) &&
+    !me.isCommunicationDisabled()
+  );
 }
 
 /** Tool definitions for channel and thread messages. */
@@ -635,7 +762,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_delete_messages",
     description:
-      "Permanently delete multiple recent messages in one call. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Discord only allows bulk-deleting messages younger than 14 days; older ones are skipped. Requires the Manage Messages permission, and refuses to run without Read Message History. Returns the number deleted.",
+      "Permanently delete up to 100 messages in a channel or thread, chosen by ID. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false. Preview first: count lists the most recent messages, message_ids checks which of those IDs are in this channel. Both return would_delete, the messages a real call would delete, with each one's id, author_id, created_at and older_than_14_days, and not_deletable, the ones the bot may not delete: a system message, or another member's without Manage Messages. Then re-call with dry_run:false and the reviewed IDs as message_ids; a real call refuses count. It looks the IDs up again and deletes only the deletable ones it finds: those younger than 14 days in one request, or one by one if Discord refuses it, older ones one by one, more slowly. Discord allows about 40 of those, then asks for a pause of about 2 minutes. A call reads at most 10 pages of history and stops after about 40 seconds or at such a pause; what it did not reach comes back in remaining, with the reason in stopped and any wait in stopped.retry_after_seconds, so call again with those IDs after that wait. Requires the Manage Messages and Read Message History permissions. Returns { dry_run, would_delete, not_deletable } for a preview, with not_found and remaining when it took message_ids, and { dry_run, deleted, not_deletable, not_found, failed, remaining } after a real call. Use discord_delete_message for a single message.",
     annotations: {
       title: "Bulk delete messages",
       readOnlyHint: false,
@@ -643,40 +770,130 @@ const tools = [
       idempotentHint: false,
       openWorldHint: true,
     },
-    schema: z.object({
-      channel_id: snowflake.describe(
-        "ID (snowflake) of the channel or thread to delete messages from.",
-      ),
-      count: intIn(2, MAX_FETCH_LIMIT).describe("Number of recent messages to delete (2–100)."),
-      dry_run: z
-        .boolean()
-        .default(true)
-        .describe(
-          "If true (default), only reports how many would be deleted without deleting. Set false to actually delete.",
+    schema: z
+      .object({
+        channel_id: snowflake.describe(
+          "ID (snowflake) of the channel or thread to delete messages from.",
         ),
+        count: intIn(2, MAX_FETCH_LIMIT)
+          .optional()
+          .describe(
+            "Preview only: list the N most recent messages (2-100) as would_delete. A real call refuses it.",
+          ),
+        message_ids: snowflakeSet(MAX_FETCH_LIMIT)
+          .optional()
+          .describe(
+            "IDs (snowflakes) of the messages to delete, 1-100 distinct. A dry run reports which are in this channel; a real call deletes only those.",
+          ),
+        dry_run: z
+          .boolean()
+          .default(true)
+          .describe(
+            "If true (default), deletes nothing and returns would_delete. Set false, with message_ids, to delete.",
+          ),
+      })
+      .refine(
+        (a) => (a.count === undefined) !== (a.message_ids === undefined),
+        "Pass exactly one of count or message_ids.",
+      ),
+    outputSchema: z.object({
+      dry_run: z.boolean().describe("true for a preview: nothing was deleted."),
+      would_delete: z
+        .array(messageToDelete)
+        .optional()
+        .describe("Dry run only: the messages a real call with these IDs would delete."),
+      deleted: z
+        .array(z.string())
+        .optional()
+        .describe(
+          "IDs found in the channel just before the request and accepted by Discord. Discord does not confirm each ID of a bulk request.",
+        ),
+      not_deletable: z
+        .array(notDeletable)
+        .optional()
+        .describe(
+          "Messages in this channel the bot may not delete, never sent to Discord: system_message for a type Discord lets no one delete, no_permission for another member's message where the bot lacks Manage Messages or is timed out.",
+        ),
+      not_found: z
+        .array(z.string())
+        .optional()
+        .describe("IDs not in this channel: another channel's, or already deleted."),
+      failed: z
+        .array(z.object({ id: z.string(), ...failureShape }))
+        .optional()
+        .describe("IDs Discord refused to delete, with its error code."),
+      remaining: z
+        .array(z.string())
+        .optional()
+        .describe("IDs this call did not reach. Call again with them as message_ids."),
+      stopped: batchStopSchema("lookup_limit").optional(),
     }),
-    handle: async ({ channel_id, count, dry_run }) => {
+    handle: async ({ channel_id, count, message_ids, dry_run }, { signal }) => {
+      const deadline = Date.now() + BATCH_BUDGET_MS;
       const channel = await getTextChannel(channel_id);
       assertCanReadHistory(channel);
-      if (dry_run) {
+      if (message_ids === undefined) {
+        if (!dry_run)
+          throw new Error(
+            "A real bulk delete takes message_ids, not count, so it deletes only messages you have seen. Preview with count, then call again with dry_run:false and message_ids set to the would_delete IDs.",
+          );
         const recent = await channel.messages.fetch({ limit: count, cache: false });
-        const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
-        const deletable = recent.filter((m) => m.createdTimestamp > cutoff).size;
-        return {
-          content: [
-            {
-              type: "text",
-              text: `🔍 Dry run: ${deletable} of the ${recent.size} most recent messages in #${channel.name} would be deleted (${recent.size - deletable} older than 14 days are skipped). Re-call with dry_run:false to delete.`,
-            },
-          ],
-        };
+        const { deletable, refused } = splitDeletable(
+          [...recent.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp),
+        );
+        return structured({
+          dry_run,
+          would_delete: deletable.map(toDelete),
+          not_deletable: refused,
+        });
       }
-      const deleted = await channel.bulkDelete(count, true);
-      return {
-        content: [
-          { type: "text", text: `✅ Deleted ${deleted.size} messages in #${channel.name}.` },
-        ],
-      };
+      const lookup = await locateMessages(channel, message_ids, { deadline, signal });
+      const { deletable, refused } = splitDeletable(lookup.found);
+      if (dry_run)
+        return structured({
+          dry_run,
+          would_delete: deletable.map(toDelete),
+          not_deletable: refused,
+          not_found: lookup.notFound,
+          remaining: lookup.unreached,
+          ...(lookup.stopped ? { stopped: lookup.stopped } : {}),
+        });
+      const cutoff = Date.now() - FOURTEEN_DAYS_MS + BULK_AGE_MARGIN_MS;
+      const recent = deletable.filter((m) => m.createdTimestamp > cutoff).map((m) => m.id);
+      const older = deletable.filter((m) => m.createdTimestamp <= cutoff).map((m) => m.id);
+      const options = { deadline, signal };
+      const bulk =
+        recent.length > 1 && canBulkDelete(channel)
+          ? await runBatch(
+              [recent],
+              (ids, itemSignal) =>
+                discord.rest.post(Routes.channelBulkDelete(channel.id), {
+                  body: { messages: ids },
+                  signal: itemSignal,
+                }),
+              options,
+            )
+          : undefined;
+      const inBulk = bulk?.done.length ? recent : [];
+      // A bulk request refused for one of its IDs fails them all, so they go one by one.
+      const singles: BatchResult<string> = bulk?.stopped
+        ? { done: [], failed: [], remaining: [...recent, ...older], stopped: bulk.stopped }
+        : await runBatch(
+            inBulk.length ? older : [...recent, ...older],
+            (id, itemSignal) =>
+              discord.rest.delete(Routes.channelMessage(channel.id, id), { signal: itemSignal }),
+            options,
+          );
+      const stopped = singles.stopped ?? lookup.stopped;
+      return structured({
+        dry_run,
+        deleted: [...inBulk, ...singles.done],
+        not_deletable: refused,
+        not_found: lookup.notFound,
+        failed: singles.failed.map(({ item, code, message }) => ({ id: item, code, message })),
+        remaining: [...singles.remaining, ...lookup.unreached],
+        ...(stopped ? { stopped } : {}),
+      });
     },
   }),
   defineTool({

@@ -262,7 +262,6 @@ type MessageReader = {
     fetch: (...args: unknown[]) => Promise<unknown>;
     fetchPins: (...args: unknown[]) => Promise<unknown>;
   };
-  bulkDelete: (...args: unknown[]) => Promise<unknown>;
 };
 
 /** Stubs every message request on a channel, as Discord answers them without Read Message History. */
@@ -273,10 +272,15 @@ function stubEmptyHistory(channelId: string) {
     items: [],
     hasMore: false,
   }));
-  const bulkDelete = mock.method(channel, "bulkDelete", async () => new Collection());
+  const post = mock.method(discord.rest, "post", async () => undefined);
+  const remove = mock.method(discord.rest, "delete", async () => undefined);
   // get_forum_post force-fetches the thread; hand back the cached structure.
   mock.method(discord.channels, "fetch", async (id: string) => discord.channels.cache.get(id));
-  return () => fetch.mock.callCount() + fetchPins.mock.callCount() + bulkDelete.mock.callCount();
+  return () =>
+    fetch.mock.callCount() +
+    fetchPins.mock.callCount() +
+    post.mock.callCount() +
+    remove.mock.callCount();
 }
 
 const READERS: Record<string, (id: string) => Promise<{ isError?: boolean }>> = {
@@ -350,7 +354,11 @@ test("read_messages does not second-guess a non-empty result", async () => {
 });
 
 const bulkDelete = (channel_id: string, dry_run: boolean) =>
-  messages.handlers.get("discord_bulk_delete_messages")!({ channel_id, count: 5, dry_run });
+  messages.handlers.get("discord_bulk_delete_messages")!({
+    channel_id,
+    ...(dry_run ? { count: 5 } : { message_ids: [TARGET, UNVIEWABLE] }),
+    dry_run,
+  });
 
 for (const dryRun of [true, false]) {
   const mode = dryRun ? "dry run" : "real run";

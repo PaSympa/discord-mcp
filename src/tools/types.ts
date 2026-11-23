@@ -40,8 +40,13 @@ export interface ToolResult {
   isError?: boolean;
 }
 
+/** Per-call context. `signal` aborts when the client cancels the request. */
+export interface ToolContext {
+  signal?: AbortSignal;
+}
+
 /** Validates and executes a single tool call, returning its result. */
-export type ToolHandler = (args: Record<string, unknown>) => Promise<ToolResult>;
+export type ToolHandler = (args: Record<string, unknown>, ctx?: ToolContext) => Promise<ToolResult>;
 
 /**
  * Contract every tool module must satisfy: the tool definitions it exposes to the

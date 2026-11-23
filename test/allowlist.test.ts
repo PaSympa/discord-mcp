@@ -2,8 +2,10 @@ import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { GuildScheduledEventEntityType, Routes } from "discord.js";
 import { discord, fetchChannelChecked } from "../src/client.js";
 import webhooks from "../src/tools/webhooks.js";
+import scheduledEvents from "../src/tools/scheduledEvents.js";
 
 const ALLOWED = "111111111111111111";
 const FOREIGN = "222222222222222222";
@@ -21,9 +23,10 @@ test("fetchChannelChecked rejects a channel whose guild is outside the allow-lis
 
 test("fetchChannelChecked passes an allowed channel and guild-less objects through", async () => {
   process.env.DISCORD_ALLOWED_GUILDS = ALLOWED;
-  mock.method(discord.channels, "fetch", async () => ({ guildId: ALLOWED }) as never);
+  const fetch = mock.method(discord.channels, "fetch", async () => ({ guildId: ALLOWED }) as never);
   assert.ok(await fetchChannelChecked("333333333333333333"));
-  mock.method(discord.channels, "fetch", async () => ({}) as never);
+  // A second mock.method on the same method survives restoreAll and leaks into later tests.
+  fetch.mock.mockImplementation(async () => ({}) as never);
   assert.ok(await fetchChannelChecked("333333333333333333"));
 });
 
@@ -77,4 +80,127 @@ test("no tool module bypasses the checked channel fetch", () => {
       `${file} declares a raw guild_id: snowflake input; use the allow-list-enforcing guildId fragment`,
     );
   }
+});
+
+type Adder = { _add: (...args: unknown[]) => unknown };
+const asAdder = (manager: unknown) => manager as unknown as Adder;
+
+const SECOND_ALLOWED = "555555555555555555";
+const EVENT_CHANNEL = "111111111111111112";
+const VOICE_CHANNEL = "111111111111111113";
+const SECOND_CHANNEL = "555555555555555556";
+const FOREIGN_CHANNEL = "222222222222222223";
+const EXTERNAL_EVENT = "111111111111111114";
+const VOICE_EVENT = "111111111111111115";
+
+const rawEvent = (id: string, entityType: number, channelId: string | null) => ({
+  id,
+  guild_id: ALLOWED,
+  channel_id: channelId,
+  name: `event-${id}`,
+  description: null,
+  scheduled_start_time: "2030-01-01T10:00:00.000Z",
+  scheduled_end_time: "2030-01-01T11:00:00.000Z",
+  privacy_level: 2,
+  status: 1,
+  entity_type: entityType,
+  entity_id: null,
+  entity_metadata: channelId ? null : { location: "elsewhere" },
+  image: null,
+});
+
+/** Real guild structures, so the invite route comes from discord.js's own channel resolution. */
+for (const [guild, channels, events] of [
+  [
+    ALLOWED,
+    [
+      { id: EVENT_CHANNEL, type: 0, name: "events", position: 0 },
+      { id: VOICE_CHANNEL, type: 2, name: "voice", position: 1 },
+    ],
+    [
+      rawEvent(EXTERNAL_EVENT, GuildScheduledEventEntityType.External, null),
+      rawEvent(VOICE_EVENT, GuildScheduledEventEntityType.Voice, VOICE_CHANNEL),
+    ],
+  ],
+  [SECOND_ALLOWED, [{ id: SECOND_CHANNEL, type: 0, name: "second", position: 0 }], []],
+  [FOREIGN, [{ id: FOREIGN_CHANNEL, type: 0, name: "foreign", position: 0 }], []],
+] as const) {
+  asAdder(discord.guilds)._add({
+    id: guild,
+    name: `guild-${guild}`,
+    owner_id: "1",
+    roles: [],
+    emojis: [],
+    features: [],
+    channels: channels.map((c) => ({ ...c, permission_overwrites: [] })),
+    threads: [],
+    guild_scheduled_events: events,
+    stickers: [],
+  });
+}
+
+function stubInvitePost() {
+  const routes: string[] = [];
+  mock.method(discord.rest, "post", (async (route: string) => {
+    routes.push(route);
+    return { code: "abc123" };
+  }) as never);
+  return routes;
+}
+
+const eventInvite = (event_id: string, channel_id?: string) =>
+  scheduledEvents.handlers.get("discord_create_event_invite")!({
+    guild_id: ALLOWED,
+    event_id,
+    ...(channel_id ? { channel_id } : {}),
+  });
+
+test("create_event_invite refuses a channel_id from a guild outside the allow-list", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = `${ALLOWED},${SECOND_ALLOWED}`;
+  const posts = stubInvitePost();
+  await assert.rejects(
+    eventInvite(EXTERNAL_EVENT, FOREIGN_CHANNEL),
+    new RegExp(`Guild ${FOREIGN} is not in the DISCORD_ALLOWED_GUILDS allow-list`),
+  );
+  assert.deepEqual(posts, []);
+});
+
+for (const allowList of [`${ALLOWED},${SECOND_ALLOWED}`, undefined]) {
+  test(`create_event_invite refuses a channel_id from another guild (allow-list ${allowList ? "on" : "off"})`, async () => {
+    if (allowList) process.env.DISCORD_ALLOWED_GUILDS = allowList;
+    const posts = stubInvitePost();
+    await assert.rejects(
+      eventInvite(EXTERNAL_EVENT, SECOND_CHANNEL),
+      new RegExp(`^Error: Channel ${SECOND_CHANNEL} is not in server ${ALLOWED}`),
+    );
+    assert.deepEqual(posts, []);
+  });
+}
+
+test("create_event_invite creates an EXTERNAL event invite in a channel of the event's guild", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = `${ALLOWED},${SECOND_ALLOWED}`;
+  const posts = stubInvitePost();
+  const result = await eventInvite(EXTERNAL_EVENT, EVENT_CHANNEL);
+  assert.ok(!result.isError);
+  assert.deepEqual(posts, [Routes.channelInvites(EVENT_CHANNEL)]);
+  assert.match(
+    (result.content[0] as { text: string }).text,
+    new RegExp(`/abc123\\?event=${EXTERNAL_EVENT}$`),
+  );
+});
+
+test("create_event_invite keeps its entity-type checks and a VOICE event's own channel", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = ALLOWED;
+  const posts = stubInvitePost();
+  await assert.rejects(
+    eventInvite(EXTERNAL_EVENT),
+    /^Error: channel_id is required for EXTERNAL events \(they have no channel of their own\)\.$/,
+  );
+  await assert.rejects(
+    eventInvite(VOICE_EVENT, EVENT_CHANNEL),
+    /^Error: channel_id is only honored for EXTERNAL events; VOICE\/STAGE invites always point at the event's own channel; omit channel_id\.$/,
+  );
+  assert.deepEqual(posts, []);
+  assert.ok(!(await eventInvite(VOICE_EVENT)).isError);
+  assert.deepEqual(posts, [Routes.channelInvites(VOICE_CHANNEL)]);
 });

@@ -11,6 +11,7 @@ import {
 } from "discord.js";
 import { discord } from "../src/client.js";
 import messages from "../src/tools/messages.js";
+import { rateLimited, retryAfterSchema } from "./rate-limit.js";
 
 const GUILD = "111111111111111111";
 const CHANNEL = "333333333333333333";
@@ -373,6 +374,30 @@ test("old messages past the time budget come back in remaining", async () => {
   assert.equal((content.deleted as string[]).length, 3);
   assert.deepEqual(content.remaining, [old[0].id], "the newest of the old ones is deleted last");
   assert.equal((content.stopped as { reason: string }).reason, "time_budget");
+});
+
+test("a rate limit past the time budget returns how long Discord asked to wait", async () => {
+  const old = [message(20 * DAY), message(21 * DAY), message(22 * DAY)];
+  channelWith(old);
+  const del = mock.method(discord.rest, "delete", async () => {
+    if (del.mock.callCount() === 1) throw rateLimited(116_500);
+  });
+  const result = await run({ message_ids: ids(old), dry_run: false });
+  assert.equal(result.isError, undefined, "the output matches its schema");
+  const content = result.structuredContent!;
+  assert.deepEqual(content.deleted, [old[2].id]);
+  assert.deepEqual(content.remaining, [old[1].id, old[0].id]);
+  assert.deepEqual(content.stopped, {
+    reason: "time_budget",
+    message:
+      "Discord asked to wait 117 s before the next request, past this call's time budget. Wait about 117 s, then call again with remaining.",
+    retry_after_seconds: 117,
+  });
+  const advertised = retryAfterSchema(
+    messages.definitions.find((d) => d.name === "discord_bulk_delete_messages")!.outputSchema,
+  );
+  assert.equal(advertised.type, "integer");
+  assert.match(advertised.description, /Wait that long/);
 });
 
 test("the lookup stops after 10 pages and returns the IDs it did not reach", async () => {

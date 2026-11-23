@@ -52,10 +52,22 @@ export const batchStopSchema = (...reasons: string[]) =>
       reason: z.enum(["time_budget", "cancelled", "error", ...reasons]),
       message: z.string(),
       code: failureShape.code.optional(),
+      retry_after_seconds: z
+        .number()
+        .int()
+        .optional()
+        .describe(
+          "Seconds Discord asked to wait before the next request, when a rate limit stopped the call. Wait that long before calling again.",
+        ),
     })
     .describe("Why the call stopped early.");
 
-export type BatchStop = { reason: string; message: string; code?: number };
+export type BatchStop = {
+  reason: string;
+  message: string;
+  code?: number;
+  retry_after_seconds?: number;
+};
 
 export interface BatchResult<T> {
   done: T[];
@@ -114,11 +126,14 @@ export function runStep<R>(
     } catch (err) {
       if (signal?.aborted) throw new BatchStopped(CANCELLED);
       if (controller.signal.aborted) throw new BatchStopped(OVERRAN);
-      if (err instanceof RateLimitError)
+      if (err instanceof RateLimitError) {
+        const seconds = Math.ceil(err.retryAfter / 1000);
         throw new BatchStopped({
           reason: "time_budget",
-          message: `Discord asked to wait ${(err.retryAfter / 1000).toFixed(1)} s, past the time budget of this call. Call again with remaining.`,
+          message: `Discord asked to wait ${seconds} s before the next request, past this call's time budget. Wait about ${seconds} s, then call again with remaining.`,
+          retry_after_seconds: seconds,
         });
+      }
       throw err;
     } finally {
       clearTimeout(hardStop);

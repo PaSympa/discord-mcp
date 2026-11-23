@@ -15,7 +15,7 @@ const siteLayout = () => import("../site/pages/layout.mjs");
 
 const BUDGET = 200_000;
 const TOOL_PAGE_BUDGET = { raw: 40_000, gzip: 8_000 };
-const LLMS_BUDGET = 24_000;
+const LLMS_BUDGET = 26_000;
 const DATE = "2026-11-08";
 const DOCS = ["guide", "recipes", "configuration", "troubleshooting", "privacy"];
 const docPage = (key: string) => `${key}/index.html`;

@@ -18,7 +18,7 @@
 
 </div>
 
-**discord-mcp** connects Claude, Codex, Cursor, VS Code and any other MCP client to your Discord server through your own bot. Ask in plain language: your assistant reads channels, answers, moderates, and manages roles, channels, forums and events, with 102 tools behind it.
+**discord-mcp** connects Claude, Codex, Cursor, VS Code and any other MCP client to your Discord server through your own bot. Ask in plain language: your assistant reads channels, answers, moderates, and manages roles, channels, forums and events, with 104 tools behind it.
 
 ## See it in action
 
@@ -48,7 +48,7 @@
 2. **Invite it to your server.** Replace `YOUR_CLIENT_ID` with the Application ID from **General Information**, then open the link:
 
    ```
-   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=2270827458424055
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=2270896177900791
    ```
 
    It requests the permissions most tools use. Remove the ones you do not need in the authorization screen.
@@ -73,13 +73,13 @@
 
 ## Expose only what you need
 
-The full set of 102 tools costs about 38k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
+The full set of 104 tools costs about 39k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
 
 | Profile              | `DISCORD_MCP_TOOLSETS`                           | Tools | Context     |
 | -------------------- | ------------------------------------------------ | ----- | ----------- |
-| Everything (default) | unset                                            | 102   | ~38k tokens |
-| Chat assistant       | `discovery,messages`                             | 25    | ~11k tokens |
-| Community manager    | `discovery,messages,forums,scheduled_events`     | 42    | ~17k tokens |
+| Everything (default) | unset                                            | 104   | ~39k tokens |
+| Chat assistant       | `discovery,messages`                             | 27    | ~12k tokens |
+| Community manager    | `discovery,messages,forums,scheduled_events`     | 44    | ~18k tokens |
 | Moderator            | `discovery,members,moderation,roles,permissions` | 33    | ~11k tokens |
 | Audit and stats      | `discovery,stats,moderation`                     | 6     | ~2k tokens  |
 
@@ -347,7 +347,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 
 ## Tools
 
-102 tools in 14 toolsets. Each one documents its permissions, side effects and return shape in its description.
+104 tools in 14 toolsets. Each one documents its permissions, side effects and return shape in its description.
 
 <details>
 <summary><strong>Discovery</strong> (4 tools)</summary>
@@ -362,7 +362,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 </details>
 
 <details>
-<summary><strong>Messages</strong> (21 tools)</summary>
+<summary><strong>Messages</strong> (23 tools)</summary>
 
 | Tool                              | Description                                              |
 | --------------------------------- | -------------------------------------------------------- |
@@ -374,7 +374,9 @@ The intent flags only change what the bot requests when it connects. Requesting 
 | `discord_add_reaction`            | Add a reaction emoji to a message                        |
 | `discord_remove_reactions`        | Remove reactions (all, by emoji, or by user)             |
 | `discord_get_reactions`           | List users who reacted with a specific emoji             |
-| `discord_create_thread`           | Create a thread from a message or standalone             |
+| `discord_create_thread`           | Create a public or private thread                        |
+| `discord_add_thread_member`       | Add a member to a thread                                 |
+| `discord_remove_thread_member`    | Remove a member from a thread                            |
 | `discord_list_channel_threads`    | List a text channel's threads, paged                     |
 | `discord_bulk_delete_messages`    | Delete up to 100 messages by ID, after a preview         |
 | `discord_send_embed`              | Send a rich embed with all options                       |

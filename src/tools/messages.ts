@@ -203,7 +203,8 @@ const MAX_THREAD_MEMBERS = 50;
 /**
  * Runs a member change on a thread. Discord accepts most changes on an archived thread, so
  * the change is tried as is; only when Discord refuses because the thread is archived is
- * it unarchived and the change retried. Returns whether the thread was unarchived.
+ * it unarchived and the change retried. If the retry fails too, the thread is archived
+ * again when Discord allows it. Returns whether the thread was unarchived.
  */
 async function changeThreadMembers(
   thread: ThreadChannel,
@@ -217,28 +218,77 @@ async function changeThreadMembers(
       err instanceof DiscordAPIError &&
       err.code === RESTJSONErrorCodes.InvalidActionOnArchivedThread;
     if (!archived) throw err;
+  }
+  try {
     await thread.setArchived(false);
+  } catch (err) {
+    throw new Error(`The thread is archived and could not be unarchived: ${formatToolError(err)}`, {
+      cause: err,
+    });
+  }
+  try {
     await change();
     return true;
+  } catch (err) {
+    const rearchived = await thread.setArchived(true).then(
+      () => true,
+      () => false,
+    );
+    const outcome = rearchived
+      ? "The thread was unarchived for the retry and is archived again."
+      : "The thread was unarchived for the retry and could not be archived again, so it is still open.";
+    throw new Error(`${formatToolError(err)} ${outcome}`, { cause: err });
   }
 }
 
-/** Adds each user to a new thread, reporting the ones Discord refused instead of failing the call. */
-async function addThreadMembers(thread: AnyThreadChannel, userIds: string[]): Promise<string> {
-  const unique = new Set(userIds);
-  if (unique.size === 0) return "";
-  const failed: string[] = [];
-  for (const id of unique) {
-    try {
-      await thread.members.add(id);
-    } catch (err) {
-      failed.push(`${id} (${formatToolError(err)})`);
-    }
-  }
-  const total = unique.size;
-  return failed.length
-    ? ` Added ${total - failed.length} of ${total} members; could not add ${failed.join(", ")}. Retry those with discord_add_thread_member.`
-    : ` Added ${total} member${total === 1 ? "" : "s"}.`;
+/**
+ * Why a member_ids batch stopped. The batch's own messages say to call again, which here
+ * would create a second thread, so only an error's message is passed on.
+ */
+function memberStopReason(stop: BatchStop): string {
+  if (stop.reason === "cancelled") return "The client cancelled the call.";
+  if (stop.reason === "time_budget")
+    return stop.retry_after_seconds === undefined
+      ? `The call used its ${BATCH_BUDGET_MS / 1000} s time budget.`
+      : `Discord asked to wait ${stop.retry_after_seconds} s, past the call's time budget, so wait that long first.`;
+  return `Stopped on this error: ${stop.message.replace(/(?<![.!?])$/, ".")}`;
+}
+
+/**
+ * The refusals that stop member_ids adds: about the bot or the thread. Missing Access
+ * (50001) is left out: it can concern one user, such as one who cannot view the parent.
+ */
+const THREAD_MEMBER_STOP_CODES = new Set<number>([
+  RESTJSONErrorCodes.MissingPermissions,
+  RESTJSONErrorCodes.UnknownChannel,
+  RESTJSONErrorCodes.InvalidActionOnArchivedThread,
+  RESTJSONErrorCodes.ThreadLocked,
+]);
+
+/**
+ * Adds each user to a new thread within the call's time budget. Never throws, so the
+ * caller always gets the thread's ID: refused and unreached users are reported instead.
+ */
+async function addThreadMembers(
+  thread: AnyThreadChannel,
+  userIds: string[],
+  options: { deadline: number; signal?: AbortSignal },
+): Promise<string> {
+  const unique = [...new Set(userIds)];
+  if (unique.length === 0) return "";
+  const { done, failed, remaining, stopped } = await runBatch(
+    unique,
+    (id, signal) => discord.rest.put(Routes.threadMembers(thread.id, id), { signal }),
+    { ...options, systemicCodes: THREAD_MEMBER_STOP_CODES },
+  );
+  const total = unique.length;
+  if (done.length === total) return ` Added ${total} member${total === 1 ? "" : "s"}.`;
+  let report = ` Added ${done.length} of ${total} members.`;
+  if (failed.length)
+    report += ` Discord refused ${failed.map((f) => `${f.item} (code ${f.code}: ${f.message})`).join(", ")}.`;
+  if (stopped)
+    report += ` Not reached: ${remaining.join(", ")}. ${memberStopReason(stopped)} Add them with discord_add_thread_member.`;
+  return report;
 }
 
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -594,7 +644,7 @@ const tools = [
   defineTool({
     name: "discord_create_thread",
     description:
-      "Create a thread, either branching from an existing message (pass message_id) or as a standalone thread in a text channel (omit message_id). Standalone creation requires a parent text channel and fails if channel_id is itself a thread. Requires the Create Public Threads permission (or Create Private Threads for a private thread), plus Read Message History when message_id is set. Returns the new thread's ID. Set private for a standalone thread that only its members and moderators see; member_ids adds people in the same call, discord_add_thread_member later.",
+      "Create a thread, either branching from an existing message (pass message_id) or as a standalone thread in a text channel (omit message_id). Standalone creation requires a parent text channel and fails if channel_id is itself a thread. Requires the Create Public Threads permission (or Create Private Threads for a private thread), plus Read Message History when message_id is set. Returns the new thread's ID. Set private for a standalone thread that only its members and moderators see. member_ids adds people in the same call and needs Send Messages in Threads; discord_add_thread_member adds them later.",
     annotations: {
       title: "Create thread",
       readOnlyHint: false,
@@ -636,7 +686,7 @@ const tools = [
           .max(MAX_THREAD_MEMBERS)
           .optional()
           .describe(
-            "Optional. Up to 50 Discord user IDs (snowflakes) to add to the new thread. A refused add is reported in the result and leaves the thread in place.",
+            "Optional. Up to 50 Discord user IDs (snowflakes) to add to the new thread; duplicates are added once. Needs Send Messages in Threads. A refused add, or one the call had no time left for, is reported in the result and leaves the thread in place.",
           ),
       })
       .refine(
@@ -647,21 +697,25 @@ const tools = [
         (args) => args.invitable === undefined || args.private,
         "invitable applies to private threads only: set private to true or omit invitable.",
       ),
-    handle: async ({
-      channel_id,
-      name,
-      message_id,
-      auto_archive_duration,
-      private: isPrivate,
-      invitable,
-      member_ids = [],
-    }) => {
+    handle: async (
+      {
+        channel_id,
+        name,
+        message_id,
+        auto_archive_duration,
+        private: isPrivate,
+        invitable,
+        member_ids = [],
+      },
+      { signal },
+    ) => {
+      const batch = { deadline: Date.now() + BATCH_BUDGET_MS, signal };
       const channel = await getTextChannel(channel_id);
       const duration = auto_archive_duration;
       if (message_id) {
         const msg = await channel.messages.fetch({ message: message_id, cache: false });
         const thread = await msg.startThread({ name, autoArchiveDuration: duration });
-        const added = await addThreadMembers(thread, member_ids);
+        const added = await addThreadMembers(thread, member_ids, batch);
         return {
           content: [
             {
@@ -683,7 +737,7 @@ const tools = [
           type: ChannelType.PrivateThread,
           ...(invitable === undefined ? {} : { invitable }),
         });
-        const added = await addThreadMembers(thread, member_ids);
+        const added = await addThreadMembers(thread, member_ids, batch);
         const hint = member_ids.length ? "" : " Add people with discord_add_thread_member.";
         return {
           content: [
@@ -699,7 +753,7 @@ const tools = [
         autoArchiveDuration: duration,
         type: ChannelType.PublicThread,
       });
-      const added = await addThreadMembers(thread, member_ids);
+      const added = await addThreadMembers(thread, member_ids, batch);
       return {
         content: [
           { type: "text", text: `✅ Thread "${thread.name}" created (id: ${thread.id}).${added}` },
@@ -710,7 +764,7 @@ const tools = [
   defineTool({
     name: "discord_add_thread_member",
     description:
-      "Add a member to a thread. This is how people join a private thread, which they cannot open otherwise; in a public thread it makes them follow it. Works on any thread, forum posts included. Adding someone already in the thread changes nothing. The member must be able to view the parent channel. If Discord refuses because the thread is archived, it is unarchived and the call retried. Requires the Send Messages in Threads permission. Returns a confirmation. Use discord_remove_thread_member to take someone out, or discord_create_thread with private set to create a private thread.",
+      "Add a member to a thread. This is how people join a private thread, which they cannot open otherwise; in a public thread it makes them follow it. Works on any thread, forum posts included. Adding someone already in the thread changes nothing. The member must be able to view the parent channel. If Discord refuses because the thread is archived, it is unarchived and the call retried, and it stays open afterwards. Unarchiving a locked thread needs Manage Threads. Requires the Send Messages in Threads permission. Returns a confirmation. Use discord_remove_thread_member to take someone out, or discord_create_thread with private set to create a private thread.",
     annotations: {
       title: "Add thread member",
       readOnlyHint: false,
@@ -736,7 +790,7 @@ const tools = [
   defineTool({
     name: "discord_remove_thread_member",
     description:
-      "Remove a member from a thread. In a private thread they lose access until someone adds them again; in a public thread they only stop following it and can still open it. Removing someone who is not in the thread changes nothing. If Discord refuses because the thread is archived, it is unarchived and the call retried. Requires the Manage Threads permission, unless the bot created the private thread. Returns a confirmation. Use discord_add_thread_member to add someone back.",
+      "Remove a member from a thread. In a private thread they lose access until someone adds them again; in a public thread they only stop following it and can still open it. Removing someone who is not in the thread changes nothing. If Discord refuses because the thread is archived, it is unarchived and the call retried, and it stays open afterwards. Unarchiving a locked thread needs Manage Threads. Requires the Manage Threads permission, unless the bot created the private thread. Returns a confirmation. Use discord_add_thread_member to add someone back.",
     annotations: {
       title: "Remove thread member",
       readOnlyHint: false,

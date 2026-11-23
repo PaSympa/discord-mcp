@@ -144,10 +144,10 @@ export function runStep<R>(
 
 /**
  * Undefined when only this item failed: a Discord error with a numeric code outside
- * SYSTEMIC_CODES. Discord answers some errors, such as a 401, with no numeric code;
+ * `systemicCodes`. Discord answers some errors, such as a 401, with no numeric code;
  * those stop the batch with the HTTP status as their code.
  */
-function stopFor(err: unknown): BatchStop | undefined {
+function stopFor(err: unknown, systemicCodes: ReadonlySet<number>): BatchStop | undefined {
   if (err instanceof BatchStopped) return err.stop;
   if (!(err instanceof DiscordAPIError)) return { reason: "error", message: formatToolError(err) };
   if (typeof err.code !== "number")
@@ -156,7 +156,7 @@ function stopFor(err: unknown): BatchStop | undefined {
       code: err.status,
       message: `Discord answered HTTP ${err.status} with no error code: ${err.message}.`,
     };
-  if (!SYSTEMIC_CODES.has(err.code)) return undefined;
+  if (!systemicCodes.has(err.code)) return undefined;
   return { reason: "error", code: err.code, message: formatToolError(err) };
 }
 
@@ -166,7 +166,8 @@ function stopFor(err: unknown): BatchStop | undefined {
  * finish, the one a stop hit included, go to `remaining`; a Discord error about one item
  * goes to `failed` and the batch goes on. A non-Discord error stops it too: the outcome
  * of that request is unknown. Each item gets its own signal, because discord.js adds an
- * abort listener per request and never removes it.
+ * abort listener per request and never removes it. `systemicCodes` replaces the codes
+ * that stop the batch, for a tool where one of the defaults can concern a single item.
  */
 export async function runBatch<T>(
   items: readonly T[],
@@ -174,7 +175,8 @@ export async function runBatch<T>(
   {
     deadline = Date.now() + BATCH_BUDGET_MS,
     signal,
-  }: { deadline?: number; signal?: AbortSignal } = {},
+    systemicCodes = SYSTEMIC_CODES,
+  }: { deadline?: number; signal?: AbortSignal; systemicCodes?: ReadonlySet<number> } = {},
 ): Promise<BatchResult<T>> {
   const done: T[] = [];
   const failed: BatchResult<T>["failed"] = [];
@@ -183,7 +185,7 @@ export async function runBatch<T>(
       await runStep((itemSignal) => run(item, itemSignal), { deadline, signal });
       done.push(item);
     } catch (err) {
-      const stopped = stopFor(err);
+      const stopped = stopFor(err, systemicCodes);
       if (stopped) return { done, failed, remaining: items.slice(i), stopped };
       const { code, message } = err as DiscordAPIError & { code: number };
       failed.push({ item, code, message });

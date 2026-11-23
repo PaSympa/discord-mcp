@@ -23,10 +23,11 @@ import {
 } from "../client.js";
 import {
   BATCH_BUDGET_MS,
+  BatchStopped,
   batchStopSchema,
-  earlyStop,
   failureShape,
   runBatch,
+  runStep,
   type BatchStop,
 } from "../batch.js";
 import {
@@ -223,13 +224,23 @@ async function locateMessages(
   const notFound: string[] = [];
   let stopped: BatchStop | undefined;
   for (let page = 0; pending.length > 0; page++) {
-    stopped = page === LOOKUP_PAGES ? LOOKUP_LIMIT : earlyStop(deadline, signal);
-    if (stopped) break;
-    const messages = await channel.messages.fetch({
-      after: (pending[0] - 1n).toString(),
-      limit: MAX_FETCH_LIMIT,
-      cache: false,
-    });
+    if (page === LOOKUP_PAGES) {
+      stopped = LOOKUP_LIMIT;
+      break;
+    }
+    const after = (pending[0] - 1n).toString();
+    let messages;
+    try {
+      // fetch takes no signal: at the hard stop the step stops waiting and abandons the read.
+      messages = await runStep(
+        () => channel.messages.fetch({ after, limit: MAX_FETCH_LIMIT, cache: false }),
+        { deadline, signal },
+      );
+    } catch (err) {
+      if (!(err instanceof BatchStopped)) throw err;
+      stopped = err.stop;
+      break;
+    }
     const newest =
       messages.size < MAX_FETCH_LIMIT
         ? undefined

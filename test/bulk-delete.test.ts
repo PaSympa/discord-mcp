@@ -285,6 +285,43 @@ test("a page settles every pending ID in its span, so clustered IDs cost one pag
   assert.equal((result.structuredContent!.would_delete as unknown[]).length, 50);
 });
 
+test(
+  "a lookup page that hangs is abandoned at the hard stop, with every ID in remaining",
+  {
+    timeout: 5_000,
+  },
+  async () => {
+    mock.timers.enable({ apis: ["setTimeout", "Date"], now: Date.now() });
+    const wanted = [message(HOUR), message(2 * HOUR)];
+    let reached!: () => void;
+    const started = new Promise<void>((resolve) => (reached = resolve));
+    const channel = {
+      id: CHANNEL,
+      name: "chan",
+      guildId: GUILD,
+      guild: { members: { me: null } },
+      isDMBased: () => false,
+      isTextBased: () => true,
+      messages: {
+        fetch: () => {
+          reached();
+          return new Promise(() => {});
+        },
+      },
+    };
+    mock.method(discord.channels, "fetch", async () => channel as never);
+    const { post, del } = stubRest();
+    const pending = run({ message_ids: ids(wanted), dry_run: false });
+    await started;
+    mock.timers.tick(50_000);
+    const content = (await pending).structuredContent!;
+    assert.deepEqual(content.deleted, []);
+    assert.deepEqual([...(content.remaining as string[])].sort(), ids(wanted).sort());
+    assert.match((content.stopped as { message: string }).message, /still running 10 s past/);
+    assert.equal(post.mock.callCount() + del.mock.callCount(), 0);
+  },
+);
+
 test("the call's signal reaches each delete request", async () => {
   const history = [message(2 * HOUR), message(HOUR)];
   channelWith(history);

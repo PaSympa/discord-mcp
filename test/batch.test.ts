@@ -98,6 +98,32 @@ test("outside a batch, the same REST client waits the rate limit out as before",
   assert.equal(sent.length, 2);
 });
 
+for (const [label, request] of [
+  [
+    "a request that honors its signal",
+    (signal: AbortSignal) =>
+      new Promise<void>((resolve, reject) => {
+        setTimeout(resolve, 60_000);
+        signal.addEventListener("abort", () => reject(new Error("aborted")));
+      }),
+  ],
+  [
+    "a request that ignores its signal",
+    () => new Promise<void>((resolve) => setTimeout(resolve, 60_000)),
+  ],
+] as const) {
+  test(`the hard stop abandons ${label} 10 s past the deadline`, async () => {
+    mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
+    const pending = runBatch(["a", "b"], (_item, signal) => request(signal));
+    mock.timers.tick(70_000);
+    const result = await pending;
+    assert.deepEqual(result.done, [], "the 60 s request must not get to finish");
+    assert.deepEqual(result.remaining, ["a", "b"]);
+    assert.equal(result.stopped?.reason, "time_budget");
+    assert.match(result.stopped?.message ?? "", /still running 10 s past the time budget/);
+  });
+}
+
 test("an aborted signal stops the loop and leaves the interrupted item in remaining", async () => {
   const controller = new AbortController();
   const signals: AbortSignal[] = [];

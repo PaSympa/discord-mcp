@@ -37,7 +37,7 @@
         },
         {
           "name": "DISCORD_MCP_TOOLSETS",
-          "description": "Comma-separated toolsets to expose: discovery, messages, channels, permissions, members, roles, moderation, screening, stats, forums, webhooks, scheduled_events, invites, dm, or all. An unknown name stops the server at startup.",
+          "description": "Comma-separated toolsets to expose: discovery, messages, channels, permissions, members, roles, moderation, screening, stats, forums, webhooks, scheduled_events, invites, dm, polls, or all. An unknown name stops the server at startup.",
           "format": "string",
           "default": "all"
         },
@@ -114,7 +114,7 @@
         },
         {
           "name": "DISCORD_MCP_TOOLSETS",
-          "description": "Comma-separated toolsets to expose: discovery, messages, channels, permissions, members, roles, moderation, screening, stats, forums, webhooks, scheduled_events, invites, dm, or all. An unknown name stops the server at startup.",
+          "description": "Comma-separated toolsets to expose: discovery, messages, channels, permissions, members, roles, moderation, screening, stats, forums, webhooks, scheduled_events, invites, dm, polls, or all. An unknown name stops the server at startup.",
           "format": "string",
           "default": "all"
         },

@@ -48,7 +48,7 @@
 2. **Invite it to your server.** Replace `YOUR_CLIENT_ID` with the Application ID from **General Information**, then open the link:
 
    ```
-   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=2270896177900791
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=2833846131322103
    ```
 
    It requests the permissions most tools use. Remove the ones you do not need in the authorization screen.
@@ -73,11 +73,11 @@
 
 ## Expose only what you need
 
-The full set of 108 tools costs about 39k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
+The full set of 108 tools costs about 40k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
 
 | Profile              | `DISCORD_MCP_TOOLSETS`                           | Tools | Context     |
 | -------------------- | ------------------------------------------------ | ----- | ----------- |
-| Everything (default) | unset                                            | 108   | ~39k tokens |
+| Everything (default) | unset                                            | 108   | ~40k tokens |
 | Chat assistant       | `discovery,messages`                             | 27    | ~12k tokens |
 | Community manager    | `discovery,messages,forums,scheduled_events`     | 44    | ~18k tokens |
 | Moderator            | `discovery,members,moderation,roles,permissions` | 33    | ~11k tokens |
@@ -92,7 +92,7 @@ The full set of 108 tools costs about 39k tokens of context when a client loads 
 
 Context sizes are measured on the `tools/list` response (bytes divided by 4). Toolsets: `discovery`, `messages`, `channels`, `permissions`, `members` (includes kick, ban and timeout), `roles`, `moderation` (the audit log), `screening`, `stats`, `forums`, `webhooks`, `scheduled_events`, `invites`, `dm`, `polls`. A toolset brings its whole module, destructive tools included; an unknown name stops the server at startup instead of exposing everything.
 
-Set `DISCORD_MCP_READ_ONLY=true` to keep only the 35 tools annotated `readOnlyHint: true`, about 14k tokens. It narrows `DISCORD_MCP_TOOLSETS` instead of replacing it: `discovery,messages` then exposes 11 tools, about 5k tokens. A selection with no read-only tool left, such as `channels` alone, stops the server at startup.
+Set `DISCORD_MCP_READ_ONLY=true` to keep only the 37 tools annotated `readOnlyHint: true`, about 15k tokens. It narrows `DISCORD_MCP_TOOLSETS` instead of replacing it: `discovery,messages` then exposes 11 tools, about 5k tokens. A selection with no read-only tool left, such as `channels` alone, stops the server at startup.
 
 ## Safety
 

@@ -52,6 +52,83 @@ export const embedArraySchema = z
   .array(embedObjectSchema)
   .max(10, "Discord allows a maximum of 10 embeds per message.");
 
+/**
+ * Caps on the embed text folded into message reads. Discord allows 4096 characters of
+ * description and 25 fields per embed, and 10 embeds per message, which no reader wants
+ * inline. Measured against a real guild these caps never bite: descriptions run to a
+ * median of 98 characters and embeds to a median of 4 fields.
+ */
+const EMBED_READ_CAPS = {
+  description: 500,
+  url: 300,
+  fields: 10,
+  fieldName: 100,
+  fieldValue: 300,
+  author: 100,
+  footer: 300,
+} as const;
+
+/** One embed as message reads report it: the parts that carry text a reader can use. */
+export const embedSummary = z.object({
+  title: z.string().optional(),
+  author: z.string().optional(),
+  description: z.string().optional(),
+  url: z.string().optional(),
+  fields: z.array(z.object({ name: z.string(), value: z.string() })).optional(),
+  moreFields: z
+    .number()
+    .optional()
+    .describe("Count of fields left out past the first 10. Absent when none were."),
+  footer: z.string().optional(),
+});
+
+/** Structural shape shared by discord.js `Embed` and the raw `APIEmbed` of a search hit. */
+interface EmbedLike {
+  title?: string | null;
+  description?: string | null;
+  url?: string | null;
+  fields?: readonly { name: string; value: string }[];
+  author?: { name: string } | null;
+  footer?: { text: string } | null;
+}
+
+function clip(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const code = text.charCodeAt(max - 1);
+  const end = code >= 0xd800 && code <= 0xdbff ? max - 1 : max;
+  return `${text.slice(0, end)}…`;
+}
+
+function summarizeEmbed(embed: EmbedLike): z.infer<typeof embedSummary> {
+  const fields = embed.fields ?? [];
+  const omitted = fields.length - EMBED_READ_CAPS.fields;
+  return {
+    ...(embed.title ? { title: embed.title } : {}),
+    ...(embed.author?.name ? { author: clip(embed.author.name, EMBED_READ_CAPS.author) } : {}),
+    ...(embed.description
+      ? { description: clip(embed.description, EMBED_READ_CAPS.description) }
+      : {}),
+    // A clipped url points somewhere else, so an over-long one is left out instead.
+    ...(embed.url && embed.url.length <= EMBED_READ_CAPS.url ? { url: embed.url } : {}),
+    ...(fields.length
+      ? {
+          fields: fields.slice(0, EMBED_READ_CAPS.fields).map((field) => ({
+            name: clip(field.name, EMBED_READ_CAPS.fieldName),
+            value: clip(field.value, EMBED_READ_CAPS.fieldValue),
+          })),
+        }
+      : {}),
+    ...(omitted > 0 ? { moreFields: omitted } : {}),
+    ...(embed.footer?.text ? { footer: clip(embed.footer.text, EMBED_READ_CAPS.footer) } : {}),
+  };
+}
+
+export function embedField(embeds: readonly EmbedLike[]): {
+  embeds?: z.infer<typeof embedSummary>[];
+} {
+  return embeds.length === 0 ? {} : { embeds: embeds.map(summarizeEmbed) };
+}
+
 /** Validated embed input: the typed shape `buildEmbed` consumes. */
 export type EmbedInput = z.infer<typeof embedObjectSchema>;
 

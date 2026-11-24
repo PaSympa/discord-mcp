@@ -4,7 +4,98 @@
 
 ### Added
 
+- A documentation site at https://pasympa.github.io/discord-mcp/: a guide from creating the bot to the first prompts, seven recipes, every configuration variable with its plugin and bundle setting, troubleshooting, a privacy page, the tool catalog and the toolset builder. It is generated from the README and the tool definitions, and `.github/workflows/pages.yml` deploys it on each push to `main`
+- An Install in Claude Desktop button in the README and on the site. It downloads `discord-mcp.mcpb` from the latest GitHub Release
+- The Claude Code plugin has an icon, a README, and the `displayName`, `documentationUrl`, `supportUrl` and `privacyPolicyUrl` fields a plugin directory reads
+- `discord_bulk_add_role` and `discord_bulk_remove_role` add or remove one role for up to 50 members in one call, as a dry run by default. Both refuse @everyone, a managed role, a role not below the bot's highest role and a bot without Manage Roles before any change. The dry run sorts the users into `would_change`, `skipped` and `not_member`. A real call sorts them again, changes only the members who need it, and returns `done`, `failed` and `remaining`. Discord allows about 10 role changes per 10 seconds, so a call stops after about 40 seconds and returns the members it did not reach in `remaining`
+- `discord_create_thread` takes `private: true` to create a standalone private thread, visible only to its members and moderators, and `invitable` to choose whether members without Manage Threads can add others. `member_ids` adds up to 50 people in the same call, within the call's 40-second time budget. A refused add is reported and leaves the thread in place, and a refusal that would fail every add, such as Missing Permissions, stops the adds. The result always gives the thread's ID first, then how many members were added and which ones Discord refused. When the adds stop early, it also lists the members not reached and the reason, and says to add them with `discord_add_thread_member`. `private` refuses `message_id`, since Discord branches only public threads from a message. The README invite link adds Create Private Threads. Contributed by [@thangnm93](https://github.com/thangnm93) in [#200](https://github.com/PaSympa/discord-mcp/pull/200)
+- `discord_add_thread_member` and `discord_remove_thread_member` add and remove a member in any thread, the only way to bring someone into a private thread. Adding a member twice or removing a non-member changes nothing. If Discord refuses a change because the thread is archived, the thread is unarchived and the change retried, and it stays open. If the retry fails, the thread is archived again when Discord allows it, and the error says whether it is still open. An archived thread on which Discord accepts the change stays archived. Contributed by [@thangnm93](https://github.com/thangnm93) in [#200](https://github.com/PaSympa/discord-mcp/pull/200)
 - `discord_create_poll`, `discord_get_poll_results`, `discord_end_poll` and `discord_get_poll_voters` create, read, end and list the voters of a native Discord poll, in a new `polls` toolset. A poll takes a question of up to 300 characters, up to 10 answers of 55 characters each and a duration of up to 768 hours; `discord_end_poll` only works on the bot's own polls and cannot be undone. Results are read with a forced, uncached fetch, because a cached message keeps the vote counts it had when it was first fetched, so a poll that had ended still read as not final.
+
+### Changed
+
+- `homepage` in `package.json`, `manifest.json` and `plugin.json`, and `websiteUrl` in `server.json` and the `initialize` response, point at the documentation site instead of the GitHub repository
+- The README links the full one-minute demo hosted on the site, which shows the new logo
+- The README says when the plugin's bot token takes effect. If you skip the prompt at install, the server stays off until you set the token with `/plugin configure discord-mcp@pasympa`, and Claude Code needs a restart after the token is set or changed
+- The README banners and the social preview name Codex next to Claude, Cursor and VS Code
+- `SECURITY.md` describes the HTTP mode: off by default, a required bearer token, loopback by default, and no TLS or OAuth of its own
+- The README and the troubleshooting page say the invite link requests the permissions most tools use, not every permission the tools use. The README's Cursor link points at https://cursor.com/docs/mcp. Contributed by [@techkayacodes](https://github.com/techkayacodes) in [#212](https://github.com/PaSympa/discord-mcp/pull/212)
+- `discord_bulk_delete_messages` deletes exact message IDs. A real call takes `message_ids` and refuses `count`, which now only previews the most recent messages. Both dry runs return `would_delete` with each message's ID, author and age, and `not_deletable` for the messages the bot may not delete: a system message, or another member's without Manage Messages. A dry run with `message_ids` also lists the IDs `not_found` in the channel. The real call looks the IDs up again, never sends one it cannot delete, and returns `deleted`, `not_deletable`, `not_found`, `failed` and `remaining` in structured output. It used to delete the N most recent messages, so a message posted after the preview could be deleted in place of one the preview showed
+- `discord_bulk_delete_messages` deletes messages older than 14 days one by one instead of skipping them, and deletes recent ones one by one when Discord refuses the bulk request. A call stops after about 40 seconds, or when the client cancels it, and returns the IDs it did not reach in `remaining` with the reason in `stopped`
+- `discord_bulk_delete_messages`, `discord_bulk_add_role` and `discord_bulk_remove_role` return `stopped.retry_after_seconds` when Discord asks them to wait past the call's time budget, and the message says to wait that long before calling again. For messages older than 14 days, Discord allows about 40 single deletes, then asks for a pause of about 2 minutes
+
+### Fixed
+
+- `discord_set_member_permission` no longer fails with "Supplied parameter is not a User nor a Role" for a member missing from the bot's user cache, which is most members from startup and nearly all of them after the 10-minute cache sweep. It refuses a user who is not a member of the channel's server, and `discord_set_role_permission` refuses an ID that is not a role of that server instead of writing a member overwrite
+- `discord_create_event_invite` refuses a `channel_id` from a server outside `DISCORD_ALLOWED_GUILDS`, or from any server other than the event's. It used to create the invite in that channel
+- `discord_update_membership_screening` and `discord_lock_channel_permissions` are annotated `destructiveHint: true`. Passing `form_fields` to the first deletes any question field, and the second replaces all of the channel's permission overwrites
+
+## [2.4.0] - 2026-11-15
+
+### Added
+
+- `server.json` declares every environment variable the server reads, so MCP Registry clients can prompt for them. `DISCORD_MCP_TOOLSETS`, `DISCORD_ALLOWED_GUILDS`, `DISCORD_MESSAGE_CONTENT` and `DISCORD_GUILD_MEMBERS` join `DISCORD_TOKEN` on both the npm and Docker packages
+- `DISCORD_MCP_READ_ONLY=true` exposes only the 35 tools annotated `readOnlyHint: true`. Write tools are absent from `tools/list`, and `tools/call` rejects them as unknown tools. The mode narrows `DISCORD_MCP_TOOLSETS`. An invalid value, or a selection with no read-only tool left, stops the server at startup
+- A Claude Desktop bundle, `discord-mcp.mcpb`, is attached to each GitHub Release and listed in the MCP Registry. Opening it installs the server and asks for the bot token; it runs on the Node.js built into Claude Desktop
+- `DISCORD_MCP_TRANSPORT=http` serves MCP over Streamable HTTP on `/mcp`, for remote clients such as the OpenAI Responses API, Codex and n8n. Every request must carry the `DISCORD_MCP_HTTP_TOKEN` bearer token. The server listens on `127.0.0.1:3000` by default and refuses a foreign `Host` header and any `Origin`. stdio stays the default
+- `discord_read_messages`, `discord_search_messages`, `discord_search_guild_messages`, `discord_fetch_pinned_messages`, `discord_get_forum_post` and `discord_read_dms` add `author_id` to every message, and `webhook_id` when a webhook, or an app replying to a command, sent it. A client can act on an author without searching members by name. `discord_read_messages` and `discord_fetch_pinned_messages` also return the channel's `guild_id`, enough to build a message link
+- A Claude Code plugin, served from this repository as a plugin marketplace. In a session, run `/plugin marketplace add PaSympa/discord-mcp`, then `/plugin install discord-mcp@pasympa`; the install asks for the bot token. The plugin runs the npm release of the same version and adds two skills: a channel digest, and a moderation sweep that applies nothing before you confirm
+- `discord_get_forum_tags` adds `emoji_id` to each tag, so a tag with a custom server emoji no longer reads like a tag without one
+
+### Changed
+
+- `discord_edit_message` and `discord_edit_embed` name the permissions they need: View Channel and Read Message History, plus Embed Links for `discord_edit_embed`
+- The hint for Discord error 50001 also names a missing Read Message History, since Discord answers a single-message fetch without it with 50001
+- New logo: a chat bubble crossed by circuit traces. It replaces the old one in the server icons, the Claude Desktop bundle icon, the README banners and the social preview
+- The npm, MCP Registry and Docker image descriptions name Codex next to Claude, Cursor and VS Code
+- 23 tool descriptions name the tool to use instead and state behavior the schemas do not show, so an agent picks the right tool among similar ones. Examples: `discord_get_guild_info` and `discord_get_server_stats` point at each other, `discord_update_membership_screening` warns that `form_fields` deletes question fields, and `discord_find_channel_by_name` describes its `{ matches }` result instead of a JSON array
+- `discord_bulk_ban`'s dry run replies with the JSON structure `{ dry_run, would_ban }` instead of the prose "Dry run: N users would be banned". `would_ban` echoes the requested IDs unchecked: a real call can still fail some of them
+- 41 tool descriptions were corrected against Discord's documentation and the server code. They name the permissions Discord checks, such as Read Message History for tools that fetch the message first and Create Events for scheduled events, and state limits they used to hide. `discord_delete_message` no longer promises an audit log reason, which Discord does not record for a message delete
+
+### Fixed
+
+- `discord_send_embed`, `discord_send_multiple_embeds` and `discord_edit_embed` refuse to run in a channel or thread where the bot lacks Embed Links, and the error names the permission and the channel. Discord used to post the text of a multi-embed message without its embeds, and leave an edited embed unchanged, while the tool reported success
+- `discord_read_messages`, `discord_search_messages`, `discord_fetch_pinned_messages` and `discord_get_forum_post` fail with an error naming Read Message History and the channel when they get no messages and the bot lacks that permission there. Discord answers such a read with an empty list, so the tools reported an empty channel. `discord_bulk_delete_messages` refuses to run without it, where both modes used to report 0 messages
+- `discord_copy_permissions` and `discord_clone_channel` refuse a source channel the bot cannot view. Discord can replace the overwrites of such a channel with a single @everyone View Channel deny, and copying that deny would lock the bot out of the result
+- `discord_list_channels` and `discord_find_channel_by_name` leave out the `___hidden___` placeholders Discord shows for channels the bot cannot view, and `discord_find_channel_by_name` counts them in `hiddenChannels`. A search for a hidden channel came back empty with nothing to say the channel might exist
+- `discord_lock_channel_permissions` refuses a channel whose parent category the bot cannot view. discord.js copies the category's cached overwrites, which Discord can replace with a single @everyone View Channel deny, and writing that deny would lock the bot out of the channel
+- `discord_get_channel_permissions` refuses a channel Discord hides from the bot behind the `___hidden___` placeholder, and the error says to grant the bot View Channel on it. Discord gives such a channel a single @everyone View Channel deny in place of its real overwrites, and the tool returned that deny as the channel's overwrites
+- `discord_audit_permissions` leaves out the `___hidden___` placeholders Discord shows for channels the bot cannot view, and counts them in `hiddenChannels`. From 2026-11-16, Discord's REST channel list omits those channels, so the audit would have reported each placeholder's @everyone View Channel deny as a real overwrite
+- `discord_set_forum_tags` keeps the ID of each existing tag it lists again, matched by name case-insensitively as Discord itself does, so posts keep that tag. Every call used to recreate all tags under new IDs, which stripped them from existing posts
+- `discord_set_forum_tags` keeps the emoji and moderated flag of a tag listed again without them. It used to send them as no emoji and `moderated: false`, so a moderator-only tag opened to everyone and a custom emoji was always lost. It accepts `emoji_id` for a custom emoji, `null` on `emoji_name` or `emoji_id` removes an emoji, and the reply names the tags created, deleted and changed, with the fields that changed
+- `discord_remove_reactions` rejects `user_id` without `emoji`, and an empty `emoji`, before any request. Both used to remove every reaction from every user and report success
+- `discord_bulk_ban` returns the IDs it banned and the IDs that failed, as `banned` and `failed` in structured output, instead of two counts. `failed` includes users who were already banned
+- `discord_bulk_ban` says plainly that none of the users were banned when Discord answers error 500000, and names the known causes: IDs that match no user, or users already banned. It used to show only Discord's "Failed to ban users"
+- `discord_get_scheduled_event` returns the interested count instead of `null`. It read the cached gateway copy of the event, which never carries `user_count`, while `discord_list_scheduled_events` already asked the API
+
+## [2.3.0] - 2026-11-07
+
+### Added
+
+- `discord_read_messages`, `discord_search_messages`, `discord_search_guild_messages`, `discord_fetch_pinned_messages` and `discord_get_forum_post` return an `embeds` array with the title, author, description, url, fields and footer of each embed, so a bot post with empty `content` no longer reads as blank. Contributed by [@nobel6018](https://github.com/nobel6018) in [#124](https://github.com/PaSympa/discord-mcp/pull/124)
+- `discord_list_channel_threads` lists the threads in a text or announcement channel: every active thread plus paginated archived ones, public or private, each flagged with whether it is private. Active threads were already visible, but archived ones outside a forum could not be listed, since `discord_list_forum_threads` covers forums alone. The result uses the same `hasMore` and `nextBefore` shape as `discord_list_forum_threads`. Contributed by [@nobel6018](https://github.com/nobel6018) in [#123](https://github.com/PaSympa/discord-mcp/pull/123)
+- The server advertises a title, its website and its logo, in the `initialize` response and in `server.json`, for MCP clients and registries that display a server icon
+
+### Changed
+
+- The README leads with what you can ask, a three-step quick start, toolset profiles with their measured context cost, and one-click install for VS Code and Cursor
+- The npm, MCP Registry and Docker image descriptions say what the server does instead of "95+ tools"
+
+### Fixed
+
+- `discord_fetch_pinned_messages` is now paginated instead of silently stopping at the first 50 pins. It takes `limit` (1-50) and a `before` cursor and returns `hasMore` and `nextBefore`, matching `discord_list_forum_threads`. The cursor compares against when a message was pinned, not when it was sent. `discord_get_reactions` no longer reads a stale snapshot after a pins call. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)
+- `discord_pin_message` states the per-channel pin cap of 250, not the old 50. Contributed by [@nobel6018](https://github.com/nobel6018) in [#122](https://github.com/PaSympa/discord-mcp/pull/122)
+- The archived-threads `limit` floor is 2, not 1. Discord answers `limit: 1` with `400 limit[NUMBER_TYPE_MIN]: int value should be greater than or equal to 2`, and the floor is absent from the endpoint's documented query parameters, so `discord_list_forum_threads` advertised a value the API rejects. Contributed by [@nobel6018](https://github.com/nobel6018) in [#123](https://github.com/PaSympa/discord-mcp/pull/123)
+
+## [2.2.1] - 2026-11-06
+
+### Security
+
+- The production dependencies are refreshed, so `npm audit --omit=dev` is clean. The 2.2.0 lockfile, which the Docker image is built from, carried 10 advisories: 1 critical (proxy-addr), 4 high (MCP SDK, body-parser, undici, zod) and 5 moderate (hono, @hono/node-server, ip-address, fast-uri, qs). dotenv moves to 18
+
+### Fixed
+
+- `discord_get_reactions` and `discord_remove_reactions` no longer answer `No reaction found` on a message the server sent itself. They read a cached copy of the message whose reactions nothing refreshed, until the sweeper dropped it.
 
 ## [2.2.0] - 2026-09-03
 

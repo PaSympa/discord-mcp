@@ -1,7 +1,24 @@
-import { ChannelType, ForumChannel, ThreadChannel } from "discord.js";
+import {
+  ChannelType,
+  ForumChannel,
+  ThreadChannel,
+  type GuildForumTag,
+  type GuildForumTagEmoji,
+} from "discord.js";
 import { z } from "zod";
-import { discord, fetchChannelChecked } from "../client.js";
-import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
+import { discord, fetchChannelChecked, getThreadChannel, assertCanReadHistory } from "../client.js";
+import { MAX_FETCH_LIMIT, MIN_ARCHIVED_THREAD_LIMIT } from "../constants.js";
+import { embedSummary, embedField } from "../embeds.js";
+import {
+  defineTool,
+  defineModule,
+  snowflake,
+  guildId,
+  intIn,
+  structured,
+  messageAuthor,
+  messageAuthorShape,
+} from "./define.js";
 
 const threadId = snowflake.describe("ID (snowflake) of the forum post (thread).");
 
@@ -19,21 +36,56 @@ const threadSummary = z.object({
 /**
  * Fetches a channel by ID and guarantees it is a forum channel.
  */
-async function getForumChannel(channelId: string): Promise<ForumChannel> {
-  const channel = await fetchChannelChecked(channelId);
+async function getForumChannel(channelId: string, { force = false } = {}): Promise<ForumChannel> {
+  const channel = await fetchChannelChecked(channelId, { force });
   if (!channel || channel.type !== ChannelType.GuildForum)
     throw new Error(`Channel ${channelId} is not a forum channel or doesn't exist.`);
   return channel as ForumChannel;
 }
 
-/**
- * Fetches a channel by ID and guarantees it is a thread channel.
- */
-async function getThreadChannel(id: string): Promise<ThreadChannel> {
-  const channel = await fetchChannelChecked(id, { force: true });
-  if (!channel || !channel.isThread())
-    throw new Error(`Channel ${id} is not a thread or doesn't exist.`);
-  return channel as ThreadChannel;
+const tagInput = z.strictObject({
+  name: z.string().describe("Tag label (max 20 characters)."),
+  emoji_name: z
+    .string()
+    .min(1)
+    .nullable()
+    .optional()
+    .describe(
+      "Unicode emoji shown on the tag. On an existing tag, omit to keep its emoji; null removes it.",
+    ),
+  emoji_id: snowflake
+    .nullable()
+    .optional()
+    .describe(
+      "ID (snowflake) of a custom server emoji shown on the tag, instead of emoji_name. On an existing tag, omit to keep its emoji; null removes it.",
+    ),
+  moderated: z
+    .boolean()
+    .optional()
+    .describe(
+      "If true, only members with Manage Threads can apply this tag. On an existing tag, omit to keep its value; a new tag defaults to false.",
+    ),
+});
+
+type TagInput = z.infer<typeof tagInput>;
+
+/** Discord rejects a tag emoji with both fields set, and discord.js writes back both as read. */
+function oneEmojiField(emoji: GuildForumTagEmoji | null | undefined): GuildForumTagEmoji | null {
+  if (emoji?.id) return { id: emoji.id, name: null };
+  return emoji?.name ? { id: null, name: emoji.name } : null;
+}
+
+/** A string sets the emoji, null removes it, and omitting both keeps the existing tag's emoji. */
+function tagEmoji(input: TagInput, existing?: GuildForumTag): GuildForumTagEmoji | null {
+  if (input.emoji_id) return { id: input.emoji_id, name: null };
+  if (input.emoji_name) return { id: null, name: input.emoji_name };
+  if (input.emoji_id === null || input.emoji_name === null) return null;
+  return oneEmojiField(existing?.emoji);
+}
+
+function sameEmoji(a: GuildForumTagEmoji | null, b: GuildForumTagEmoji | null): boolean {
+  const [x, y] = [oneEmojiField(a), oneEmojiField(b)];
+  return x?.id === y?.id && x?.name === y?.name;
 }
 
 /** Tool definitions for managing forum channels, posts, tags, and threads. */
@@ -41,7 +93,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_channels",
     description:
-      "List the forum channels in a server (id, name, topic, parent category). Read-only. Use discord_get_forum_tags to see a forum's available tags, or discord_list_forum_threads for its posts.",
+      "List the forum channels in a server (id, name, topic, parent category). From November 16, 2026, Discord leaves out forums the bot cannot view. Read-only. Use discord_get_forum_tags to see a forum's available tags, or discord_list_forum_threads for its posts.",
     annotations: { title: "List forum channels", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -107,7 +159,7 @@ const tools = [
   defineTool({
     name: "discord_create_forum_post",
     description:
-      "Create a new post (a thread with a starter message) in a forum channel. Requires the Send Messages and Create Public Threads permissions. Use discord_reply_to_forum to add follow-up messages. Returns the new post's name and thread ID.",
+      "Create a new post (a thread with a starter message) in a forum channel. Requires the Send Messages permission (Discord ignores Create Public Threads for forum posts). Use discord_reply_to_forum to add follow-up messages. Returns the new post's name and thread ID.",
     annotations: {
       title: "Create forum post",
       readOnlyHint: false,
@@ -146,7 +198,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_post",
     description:
-      "Get a forum post's details (title, archived/locked state, applied tags, message count) plus its recent messages, oldest-to-newest. Read-only. Pass the post's thread_id. Returns a JSON object.",
+      "Get a forum post's details (title, archived/locked state, applied tags, message count) plus its recent messages, oldest-to-newest. Read-only. Pass the post's thread_id. Requires the View Channel and Read Message History permissions on the forum; without Read Message History an empty message list fails with an error naming the permission. Returns a JSON object.",
     annotations: { title: "Get forum post", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       thread_id: threadId,
@@ -159,14 +211,17 @@ const tools = [
         z.object({
           id: z.string(),
           author: z.string(),
+          ...messageAuthorShape,
           content: z.string(),
           timestamp: z.string(),
+          embeds: z.array(embedSummary).optional(),
         }),
       ),
     }),
     handle: async ({ thread_id, limit }) => {
       const thread = await getThreadChannel(thread_id);
       const messages = await thread.messages.fetch({ limit, cache: false });
+      if (messages.size === 0) assertCanReadHistory(thread);
       const result = {
         id: thread.id,
         name: thread.name,
@@ -180,8 +235,10 @@ const tools = [
           .map((m) => ({
             id: m.id,
             author: m.author.tag,
+            ...messageAuthor(m.author.id, m.webhookId),
             content: m.content,
             timestamp: m.createdAt.toISOString(),
+            ...embedField(m.embeds),
           })),
       };
       return structured(result);
@@ -190,15 +247,15 @@ const tools = [
   defineTool({
     name: "discord_list_forum_threads",
     description:
-      "List posts in a forum channel. Returns { threads: [...], hasMore, nextBefore }. The first call (no `before`) includes all active posts plus the first page of archived posts; archived posts are paginated, so if hasMore is true pass nextBefore back as `before` to fetch older archived posts. Read-only. Use discord_get_forum_post to read one post's messages.",
+      "List posts in a forum channel. Returns { threads: [...], hasMore, nextBefore }. The first call (no `before`) includes all active posts plus the first page of archived posts; archived posts are paginated, so if hasMore is true pass nextBefore back as `before` to fetch older archived posts. messageCount excludes the starter message and deleted messages, and is inaccurate above 50 for threads created before July 1, 2022. Use discord_get_forum_post to read one post's messages. For threads in a text or announcement channel, use discord_list_channel_threads.",
     annotations: { title: "List forum threads", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       forum_channel_id: snowflake.describe(
         "ID (snowflake) of the forum channel to list posts from.",
       ),
-      limit: intIn(1, 100)
-        .default(100)
-        .describe("Max archived posts per page (1–100). Default 100."),
+      limit: intIn(MIN_ARCHIVED_THREAD_LIMIT, MAX_FETCH_LIMIT)
+        .default(MAX_FETCH_LIMIT)
+        .describe("Max archived posts per page (2–100). Default 100."),
       before: z.iso
         .datetime({ offset: true })
         .optional()
@@ -286,7 +343,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_tags",
     description:
-      "List the tags available on a forum channel (id, name, emoji, moderated flag). Read-only. Use these IDs with discord_create_forum_post or discord_update_forum_post; manage the tag set with discord_set_forum_tags.",
+      "List the tags available on a forum channel (id, name, emoji, emoji_id, moderated flag). Use these IDs with discord_create_forum_post or discord_update_forum_post; manage the tag set with discord_set_forum_tags. The emoji field holds a unicode emoji, or null when the tag has none or uses a custom server emoji. Fails when the channel is not a forum.",
     annotations: { title: "Get forum tags", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       forum_channel_id: snowflake.describe(
@@ -299,25 +356,33 @@ const tools = [
           id: z.string(),
           name: z.string(),
           emoji: z.string().nullable(),
+          emoji_id: z
+            .string()
+            .nullable()
+            .describe("ID of the tag's custom server emoji, or null when it has none."),
           moderated: z.boolean(),
         }),
       ),
     }),
     handle: async ({ forum_channel_id }) => {
       const forum = await getForumChannel(forum_channel_id);
-      const tags = forum.availableTags.map((t) => ({
-        id: t.id,
-        name: t.name,
-        emoji: t.emoji?.name ?? null,
-        moderated: t.moderated,
-      }));
+      const tags = forum.availableTags.map((t) => {
+        const emoji = oneEmojiField(t.emoji);
+        return {
+          id: t.id,
+          name: t.name,
+          emoji: emoji?.name ?? null,
+          emoji_id: emoji?.id ?? null,
+          moderated: t.moderated,
+        };
+      });
       return structured({ tags });
     },
   }),
   defineTool({
     name: "discord_set_forum_tags",
     description:
-      "Replace the full set of available tags on a forum channel with the provided list. This overwrites existing tags, so include every tag you want to keep. Requires the Manage Channels permission. Returns a confirmation.",
+      "Replace the full set of available tags on a forum channel with the provided list. Include every tag you want to keep: a listed tag whose name matches an existing tag (case-insensitive) keeps its ID and stays on posts, and keeps its emoji and moderated flag unless the input sets them. A tag left out is deleted from the forum, and posts that carried it keep its ID in applied_tags. Requires the Manage Channels permission. Returns a confirmation naming the tags created, deleted and changed, with the fields that changed.",
     annotations: {
       title: "Set forum tags",
       readOnlyHint: false,
@@ -329,41 +394,60 @@ const tools = [
       forum_channel_id: snowflake.describe("ID (snowflake) of the forum channel to set tags on."),
       tags: z
         .array(
-          z.strictObject({
-            name: z.string().describe("Tag label (max 20 characters)."),
-            emoji_name: z.string().optional().describe("Optional unicode emoji shown on the tag."),
-            moderated: z
-              .boolean()
-              .optional()
-              .describe(
-                "If true, only members with Manage Threads can apply this tag. Default false.",
-              ),
-          }),
+          tagInput.refine(
+            (t) => !(t.emoji_name && t.emoji_id),
+            "Pass emoji_name or emoji_id, not both: a tag shows one emoji.",
+          ),
         )
         .describe("Complete list of tags to set (replaces all existing tags)."),
     }),
     handle: async ({ forum_channel_id, tags }) => {
-      const forum = await getForumChannel(forum_channel_id);
-      const mapped = tags.map((t) => ({
-        name: t.name,
-        emoji: t.emoji_name ? { name: t.emoji_name, id: null } : undefined,
-        moderated: t.moderated ?? false,
-      }));
+      // Fresh copy: omitted fields are written back from the existing tags.
+      const forum = await getForumChannel(forum_channel_id, { force: true });
+      // A tag sent without its ID is recreated under a new one and drops off every post.
+      // Discord rejects names that differ only by case (40061), so this key is
+      // unambiguous; a repeated name goes without an ID and Discord rejects it.
+      const unclaimed = new Map(forum.availableTags.map((t) => [t.name.toLowerCase(), t]));
+      const created: string[] = [];
+      const changed: string[] = [];
+      const mapped = tags.map((t) => {
+        const key = t.name.toLowerCase();
+        const existing = unclaimed.get(key);
+        unclaimed.delete(key);
+        const tag = {
+          id: existing?.id,
+          name: t.name,
+          emoji: tagEmoji(t, existing),
+          moderated: t.moderated ?? existing?.moderated ?? false,
+        };
+        if (!existing) {
+          created.push(tag.name);
+        } else {
+          const fields = [
+            existing.name !== tag.name && "name",
+            !sameEmoji(existing.emoji, tag.emoji) && "emoji",
+            existing.moderated !== tag.moderated && "moderated",
+          ].filter(Boolean);
+          if (fields.length) changed.push(`${tag.name} (${fields.join(", ")})`);
+        }
+        return tag;
+      });
       await forum.setAvailableTags(mapped);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `✅ Forum tags updated on #${forum.name} (${mapped.length} tags set).`,
-          },
-        ],
-      };
+      const deleted = [...unclaimed.values()].map((t) => t.name);
+      const lines = [
+        `✅ Forum tags updated on #${forum.name} (${mapped.length} tags set).`,
+        created.length && `Created: ${created.join(", ")}`,
+        deleted.length && `Deleted: ${deleted.join(", ")}`,
+        changed.length && `Changed: ${changed.join("; ")}`,
+        !created.length && !deleted.length && !changed.length && "No tag changed.",
+      ].filter(Boolean);
+      return { content: [{ type: "text", text: lines.join("\n") }] };
     },
   }),
   defineTool({
     name: "discord_update_forum_post",
     description:
-      "Update a forum post's title, archived/locked state, or applied tags. Only provided fields change; passing applied_tags replaces the post's tags. Set archived:true to close a post without deleting it. Requires the Manage Threads permission.",
+      "Update a forum post's title, archived/locked state, or applied tags. Only provided fields change; passing applied_tags replaces the post's tags. Set archived:true to close a post without deleting it; archiving a pinned post unpins it. Requires the Manage Threads permission. To change which tags the forum offers, use discord_set_forum_tags; this tool picks among the forum's existing tags for one post.",
     annotations: {
       title: "Update forum post",
       readOnlyHint: false,

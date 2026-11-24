@@ -1,5 +1,6 @@
 import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { Collection, SnowflakeUtil } from "discord.js";
 import { discord } from "../src/client.js";
 import messages from "../src/tools/messages.js";
 import channels from "../src/tools/channels.js";
@@ -33,28 +34,39 @@ test("delete_channel: default previews and never deletes; dry_run:false deletes 
   assert.deepEqual(deletions, ["cleanup"]);
 });
 
-test("bulk_delete_messages: default previews via fetch; dry_run:false calls bulkDelete once", async () => {
-  const bulkCalls: unknown[][] = [];
+test("bulk_delete_messages: default previews the IDs; dry_run:false deletes them in one request", async () => {
+  const now = Date.now();
+  const recent = [2, 1].map((hours) => {
+    const createdTimestamp = now - hours * 60 * 60 * 1000;
+    return {
+      id: SnowflakeUtil.generate({ timestamp: createdTimestamp }).toString(),
+      author: { id: USER },
+      webhookId: null,
+      deletable: true,
+      createdAt: new Date(createdTimestamp),
+      createdTimestamp,
+    };
+  });
   const fakeChannel = {
+    id: CHANNEL,
     name: "chan",
     guildId: GUILD,
+    guild: { members: { me: null } },
     isDMBased: () => false,
     isTextBased: () => true,
-    messages: { fetch: async () => ({ filter: () => ({ size: 1 }), size: 3 }) },
-    bulkDelete: async (...args: unknown[]) => {
-      bulkCalls.push(args);
-      return { size: 3 };
-    },
+    messages: { fetch: async () => new Collection(recent.map((m) => [m.id, m])) },
   };
   mock.method(discord.channels, "fetch", async () => fakeChannel as never);
+  const post = mock.method(discord.rest, "post", async () => undefined);
   const handler = messages.handlers.get("discord_bulk_delete_messages")!;
 
-  const preview = await handler({ channel_id: CHANNEL, count: 3 });
-  assert.match(textOf(preview), /Dry run/);
-  assert.equal(bulkCalls.length, 0, "dry run must not bulk-delete");
+  const preview = await handler({ channel_id: CHANNEL, count: 2 });
+  const ids = (preview.structuredContent!.would_delete as { id: string }[]).map((m) => m.id);
+  assert.deepEqual(ids, [recent[0].id, recent[1].id]);
+  assert.equal(post.mock.callCount(), 0, "dry run must not delete");
 
-  await handler({ channel_id: CHANNEL, count: 3, dry_run: false });
-  assert.equal(bulkCalls.length, 1);
+  await handler({ channel_id: CHANNEL, message_ids: ids, dry_run: false });
+  assert.equal(post.mock.callCount(), 1);
 });
 
 test("bulk_ban: default previews the exact IDs; dry_run:false calls bulkBan with the reason", async () => {
@@ -71,14 +83,29 @@ test("bulk_ban: default previews the exact IDs; dry_run:false calls bulkBan with
   const handler = members.handlers.get("discord_bulk_ban")!;
 
   const preview = await handler({ guild_id: GUILD, user_ids: [USER] });
-  assert.match(textOf(preview), /Dry run/);
-  assert.match(textOf(preview), new RegExp(USER), "preview lists the exact IDs");
+  assert.deepEqual(preview.structuredContent, { dry_run: true, would_ban: [USER] });
   assert.equal(banCalls.length, 0, "dry run must not ban");
 
   await handler({ guild_id: GUILD, user_ids: [USER], dry_run: false, reason: "raid" });
   assert.equal(banCalls.length, 1);
   assert.deepEqual(banCalls[0][0], [USER]);
   assert.match(JSON.stringify(banCalls[0][1]), /raid/);
+});
+
+test("bulk_ban returns the banned and failed IDs, not just their counts", async () => {
+  const OTHER = "333333333333333333";
+  const fakeGuild = {
+    members: { bulkBan: async () => ({ bannedUsers: [USER], failedUsers: [OTHER] }) },
+  };
+  mock.method(discord.guilds, "fetch", async () => fakeGuild as never);
+  const result = await members.handlers.get("discord_bulk_ban")!({
+    guild_id: GUILD,
+    user_ids: [USER, OTHER],
+    dry_run: false,
+  });
+  assert.equal(result.isError, undefined);
+  assert.deepEqual(result.structuredContent, { dry_run: false, banned: [USER], failed: [OTHER] });
+  assert.match(textOf(result), new RegExp(OTHER), "the text block carries the failed IDs too");
 });
 
 test("prune_members: dry_run flips Discord's native dry flag", async () => {

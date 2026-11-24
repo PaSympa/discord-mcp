@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { discord, fetchChannelChecked, assertAllowedGuild } from "../client.js";
+import { discord, getInvitableChannel, assertAllowedGuild } from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ const tools = [
   defineTool({
     name: "discord_list_invites",
     description:
-      "List all active invites across a server (code, url, channel, inviter, uses, expiry). Requires the Manage Server permission. Read-only. Use discord_list_channel_invites to scope to one channel.",
+      "List all active invites across a server (code, url, channel, inviter, uses, expiry). Requires the Manage Server or View Audit Log permission; without Manage Server or Manage Channels, Discord omits invite metadata, so uses, max_uses and max_age read 0, temporary reads false and created_at null. Read-only. Use discord_list_channel_invites to scope to one channel.",
     annotations: { title: "List invites", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -66,7 +66,7 @@ const tools = [
   defineTool({
     name: "discord_get_invite",
     description:
-      "Look up a single invite by its code: target server and channel, inviter, and expiry. Works for any public invite, but this endpoint never returns usage counters (uses/max_uses/max_age read 0); use discord_list_invites or discord_list_channel_invites for real counters. Read-only. Returns a JSON object.",
+      "Look up a single invite by its code: target server and channel, inviter, and expiry. Works for any public invite, limited to the DISCORD_ALLOWED_GUILDS servers when that allow-list is set. This endpoint never returns invite metadata (uses/max_uses/max_age read 0, temporary reads false and created_at null); use discord_list_invites or discord_list_channel_invites for real counters. Read-only. Returns a JSON object.",
     annotations: { title: "Get invite", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       invite_code: z
@@ -119,10 +119,7 @@ const tools = [
         ),
     }),
     handle: async ({ channel_id, max_age, max_uses, unique, temporary }) => {
-      const channel = await fetchChannelChecked(channel_id);
-      if (!channel || !("createInvite" in channel)) {
-        throw new Error(`Channel ${channel_id} does not support invites.`);
-      }
+      const channel = await getInvitableChannel(channel_id);
       const invite = await channel.createInvite({
         maxAge: max_age,
         maxUses: max_uses,
@@ -179,10 +176,7 @@ const tools = [
       invites: z.array(inviteSummary),
     }),
     handle: async ({ channel_id }) => {
-      const channel = await fetchChannelChecked(channel_id);
-      if (!channel || !("fetchInvites" in channel)) {
-        throw new Error(`Channel ${channel_id} does not support invites.`);
-      }
+      const channel = await getInvitableChannel(channel_id);
       const invites = await channel.fetchInvites();
       const list = [...invites.values()].map(serializeInvite);
       return structured({ invites: list });

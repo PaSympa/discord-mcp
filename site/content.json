@@ -1,0 +1,353 @@
+{
+  "toolsets": {
+    "discovery": {
+      "label": "Discovery",
+      "blurb": "Find servers and channels, and the IDs most other tools need."
+    },
+    "messages": {
+      "label": "Messages",
+      "blurb": "Read, search, send, edit, react to, pin, forward and delete messages, and manage threads."
+    },
+    "channels": {
+      "label": "Channels",
+      "blurb": "Create, edit, move, clone, follow and delete channels.",
+      "readsElsewhere": {
+        "task": "list or find channels",
+        "tools": ["discord_list_channels", "discord_find_channel_by_name"]
+      }
+    },
+    "permissions": {
+      "label": "Permissions",
+      "blurb": "Inspect, set, copy and reset channel permission overwrites."
+    },
+    "members": {
+      "label": "Members",
+      "blurb": "List and search members, set nicknames, and kick, ban, time out or prune."
+    },
+    "roles": {
+      "label": "Roles",
+      "blurb": "Create, edit, assign, order and delete roles."
+    },
+    "moderation": {
+      "label": "Moderation",
+      "blurb": "Read the audit log."
+    },
+    "screening": {
+      "label": "Screening",
+      "blurb": "Read and update the membership screening form."
+    },
+    "stats": {
+      "label": "Stats",
+      "blurb": "A snapshot of server metrics."
+    },
+    "forums": {
+      "label": "Forums",
+      "blurb": "Forum channels, posts, replies and tags."
+    },
+    "webhooks": {
+      "label": "Webhooks",
+      "blurb": "Create webhooks and post, edit or delete messages through them."
+    },
+    "scheduled_events": {
+      "label": "Scheduled events",
+      "blurb": "Create and manage events, see who is interested, and invite people to them."
+    },
+    "invites": {
+      "label": "Invites",
+      "blurb": "List, inspect, create and revoke invites."
+    },
+    "dm": {
+      "label": "Direct messages",
+      "blurb": "Send, read, edit and delete direct messages."
+    }
+  },
+  "clients": {
+    "Claude Desktop": "Claude Desktop",
+    "Claude Code": "Claude Code",
+    "Cursor": "Cursor",
+    "VS Code / GitHub Copilot": "VS Code",
+    "Windsurf": "Windsurf",
+    "Codex CLI": "Codex CLI",
+    "Cline": "Cline",
+    "Docker": "Docker",
+    "From source": "From source"
+  },
+  "asks": {
+    "Catch up on a busy channel": {
+      "recorded": true,
+      "tools": ["discord_list_channels", "discord_read_messages", "discord_send_embed"]
+    },
+    "Turn feedback into a tracker": {
+      "recorded": true,
+      "tools": [
+        "discord_create_forum_channel",
+        "discord_set_forum_tags",
+        "discord_get_forum_tags",
+        "discord_create_forum_post"
+      ]
+    },
+    "Stop a spam raid safely": {
+      "recorded": true,
+      "tools": ["discord_read_messages", "discord_bulk_delete_messages"]
+    },
+    "Run community events": {
+      "recorded": true,
+      "tools": [
+        "discord_create_scheduled_event",
+        "discord_create_event_invite",
+        "discord_send_message"
+      ]
+    },
+    "Audit permissions": {
+      "recorded": false,
+      "tools": ["discord_audit_permissions"]
+    },
+    "Welcome people": {
+      "recorded": false,
+      "tools": ["discord_create_invite"]
+    },
+    "Automate notifications": {
+      "recorded": false,
+      "tools": ["discord_create_webhook", "discord_send_webhook_message"]
+    }
+  },
+  "session": {
+    "prompt": "A spam raid just hit #general. Preview the cleanup, then remove it.",
+    "calls": [
+      {
+        "tool": "discord_read_messages",
+        "args": ["#general", "limit: 10"],
+        "result": "7 messages, the last 4 are spam"
+      },
+      {
+        "tool": "discord_bulk_delete_messages",
+        "args": ["count: 4"],
+        "result": "would_delete: the 4 most recent messages in #general, with their IDs"
+      },
+      {
+        "tool": "discord_bulk_delete_messages",
+        "args": ["message_ids: the 4 IDs", "dry_run: false"],
+        "result": "deleted: the 4 IDs, nothing else"
+      }
+    ]
+  },
+  "recipes": [
+    {
+      "id": "catch-up",
+      "title": "Catch up on a channel and post a recap",
+      "goal": "You were away. You want to know what happened in a busy channel, then share a short recap with the team.",
+      "steps": [
+        {
+          "prompt": "What happened in #support since yesterday morning? Group it by topic.",
+          "does": "Finds the channel by name, then reads its messages from that point on. Each call returns up to 100 messages, so the assistant pages forward on a busy channel.",
+          "tools": ["discord_find_channel_by_name", "discord_read_messages"]
+        },
+        {
+          "prompt": "Which of these questions got no answer?",
+          "does": "Works from the messages it already read. If a thread holds the answer, it lists the channel's threads and reads them too.",
+          "tools": ["discord_list_channel_threads"]
+        },
+        {
+          "prompt": "Post the recap in #team as an embed, then pin it.",
+          "does": "Sends one embed with a title and a field per topic, then pins the new message.",
+          "tools": ["discord_send_embed", "discord_pin_message"]
+        }
+      ],
+      "notes": [
+        "Message bodies come back empty when Message Content is off in the Developer Portal. See [Troubleshooting](#empty-messages)."
+      ]
+    },
+    {
+      "id": "raid",
+      "title": "Stop a raid without guessing",
+      "goal": "New accounts flood #general with the same link. You want the spam gone and the accounts out, and you want to see each mass action before it runs.",
+      "steps": [
+        {
+          "prompt": "Read the last 50 messages in #general. Which authors posted the same link?",
+          "does": "Reads the channel. Every message carries its `author_id`, so the assistant can group the spam by account without a member search.",
+          "tools": ["discord_find_channel_by_name", "discord_read_messages"]
+        },
+        {
+          "prompt": "Time out those accounts for one hour while we look.",
+          "does": "Times out each member. A timeout is undone with a duration of 0, so this step is easy to take back.",
+          "tools": ["discord_timeout_member"]
+        },
+        {
+          "prompt": "Delete those spam messages. Show me the preview first.",
+          "does": "Runs a dry run on the IDs of the spam it read and lists each message with its author and age, then waits. It deletes only when called again with `dry_run: false` and those IDs, so a message posted meanwhile stays. Messages older than 14 days are deleted one by one, more slowly.",
+          "tools": ["discord_bulk_delete_messages"]
+        },
+        {
+          "prompt": "Ban the accounts that only posted spam. List them before you ban anyone.",
+          "does": "The dry run returns the user IDs it would send to Discord. After your go, the real call returns which bans succeeded and which failed.",
+          "tools": ["discord_bulk_ban"]
+        },
+        {
+          "prompt": "Show me the audit log for the last hour.",
+          "does": "Reads who did what: your bans and timeouts, and anything another moderator did meanwhile.",
+          "tools": ["discord_get_audit_log"]
+        }
+      ],
+      "notes": [
+        "The bot can only time out, kick or ban members whose highest role sits below its own. Discord refuses to time out the server owner or a member with Administrator.",
+        "Bulk delete skips messages older than 14 days: Discord does not allow it."
+      ]
+    },
+    {
+      "id": "event",
+      "title": "Run a community event",
+      "goal": "You host a monthly community call. You want the event created, announced with a link, and a headcount on the day.",
+      "steps": [
+        {
+          "prompt": "Create an event called Community call next Friday at 8 PM in the Town hall voice channel.",
+          "does": "Finds the voice channel, then creates the event. A voice or stage event needs its channel; an external event needs a location and an end time instead.",
+          "tools": ["discord_find_channel_by_name", "discord_create_scheduled_event"]
+        },
+        {
+          "prompt": "Make an invite to the event and announce it in #announcements.",
+          "does": "Creates an invite that opens the event, then posts the announcement with the link.",
+          "tools": ["discord_create_event_invite", "discord_send_embed"]
+        },
+        {
+          "prompt": "Publish the announcement to the servers that follow #announcements.",
+          "does": "Crossposts the message. This works only in an announcement channel, once per message.",
+          "tools": ["discord_crosspost_message"]
+        },
+        {
+          "prompt": "How many people are interested? Move the start to 8:30 PM.",
+          "does": "Lists the interested users, then changes only the start time of the event.",
+          "tools": ["discord_get_event_subscribers", "discord_edit_scheduled_event"]
+        }
+      ],
+      "notes": [
+        "Creating an event needs the Create Events permission. Manage Events alone no longer suffices."
+      ]
+    },
+    {
+      "id": "restructure",
+      "title": "Restructure channels and roles in one pass",
+      "goal": "Your server grew without a plan. You want new categories, a staff area, a Helper role and the right permissions, reviewed once and then applied together.",
+      "steps": [
+        {
+          "prompt": "Look at my channels, roles and permissions. Propose a layout with an Events category, a private Staff category and a Helper role. Do not change anything yet.",
+          "does": "Reads the current structure and replies with a plan: what it would create, move and allow, in order. Nothing changes on Discord in this step.",
+          "tools": ["discord_list_channels", "discord_list_roles", "discord_audit_permissions"]
+        },
+        {
+          "prompt": "Apply the plan.",
+          "does": "Creates the role and the categories, moves the channels, and puts the role where the plan says. For the private category it grants the bot View Channel before it denies @everyone, then syncs the channels inside with their category.",
+          "tools": [
+            "discord_create_role",
+            "discord_create_channel",
+            "discord_move_channel",
+            "discord_set_member_permission",
+            "discord_set_role_permission",
+            "discord_lock_channel_permissions",
+            "discord_set_role_position"
+          ]
+        },
+        {
+          "prompt": "Check that Helpers can see #help but not the Staff category.",
+          "does": "Reads the overwrites on the channels it changed and compares them with the plan.",
+          "tools": ["discord_get_channel_permissions"]
+        },
+        {
+          "prompt": "Delete the old #events-old channel.",
+          "does": "Runs a dry run first and names the channel it would delete. It deletes only when called again with `dry_run: false`.",
+          "tools": ["discord_delete_channel"]
+        }
+      ],
+      "notes": [
+        "For the steps with no dry run, the preview is the plan in the first step, and your client's prompt before each write, if it asks.",
+        "Deny @everyone View Channel only after the bot has its own allow: otherwise the bot loses sight of the channel. Only Administrator ignores channel overwrites.",
+        "The bot can only edit, assign or move roles below its own highest role. New roles are placed below it."
+      ]
+    },
+    {
+      "id": "support-forum",
+      "title": "Set up a support forum with tags",
+      "goal": "Questions get lost in a chat channel. You want a forum where each question is a post, tagged by type, and closed when solved.",
+      "steps": [
+        {
+          "prompt": "Create a forum called help in the Support category.",
+          "does": "Finds the category, then creates the forum channel in it.",
+          "tools": ["discord_find_channel_by_name", "discord_create_forum_channel"]
+        },
+        {
+          "prompt": "Give it the tags Bug, Question, Feature request and Solved. Only moderators can apply Solved.",
+          "does": "Sets the forum's tags. A moderated tag can only be applied by members with Manage Threads.",
+          "tools": ["discord_set_forum_tags"]
+        },
+        {
+          "prompt": "Open a first post that explains how to ask a good question.",
+          "does": "Creates the post with its title and starter message.",
+          "tools": ["discord_create_forum_post"]
+        },
+        {
+          "prompt": "List the posts tagged Bug. Mark the fixed ones Solved and archive them.",
+          "does": "Lists the forum's posts, reads the ones in question, then updates their tags and archives them. Archiving closes a post without deleting it.",
+          "tools": [
+            "discord_get_forum_tags",
+            "discord_list_forum_threads",
+            "discord_get_forum_post",
+            "discord_update_forum_post"
+          ]
+        }
+      ],
+      "notes": [
+        "`discord_set_forum_tags` replaces the whole tag list. A tag you leave out is deleted from the forum, so ask the assistant to read the current tags first when you only add one."
+      ]
+    },
+    {
+      "id": "webhooks",
+      "title": "Post notifications through a webhook",
+      "goal": "Release notes and alerts should arrive in #releases under their own name and avatar, as tidy embeds.",
+      "steps": [
+        {
+          "prompt": "Create a webhook named Release notes in #releases.",
+          "does": "Creates the webhook and returns its ID and token.",
+          "tools": ["discord_find_channel_by_name", "discord_create_webhook"]
+        },
+        {
+          "prompt": "Post the notes for version 2.0 through it as an embed with a field per change.",
+          "does": "Sends the message through the webhook. The token authorizes the send, so the bot needs no permission in the channel for it.",
+          "tools": ["discord_send_webhook_message"]
+        },
+        {
+          "prompt": "Fix the typo in the second field of that message.",
+          "does": "Edits the message it sent, through the same webhook.",
+          "tools": ["discord_edit_webhook_message"]
+        }
+      ],
+      "notes": [
+        "A webhook token lets anyone post through it, with or without this server. Keep it out of shared chats and repositories. Delete the webhook to revoke the token.",
+        "`discord_list_webhooks` returns tokens, even in read-only mode. Leave the webhooks toolset out when you do not need it."
+      ]
+    },
+    {
+      "id": "audit",
+      "title": "Audit who can do what",
+      "goal": "Before you open the server to more people, you want to know which channels are restricted, which roles hold strong permissions, and who changed them lately.",
+      "steps": [
+        {
+          "prompt": "Audit the permissions of my server. Which channels deny @everyone, and which roles have Administrator or Manage Server?",
+          "does": "Builds a report of every channel overwrite, with role and member names, and lists the roles with their permissions.",
+          "tools": ["discord_audit_permissions", "discord_list_roles"]
+        },
+        {
+          "prompt": "Who holds the Moderator role? What can Alex do on the server?",
+          "does": "Lists the role's members, then one member's roles and server-wide permissions. Those come from roles only: channel overwrites are not applied.",
+          "tools": ["discord_get_role_members", "discord_search_members", "discord_get_member_info"]
+        },
+        {
+          "prompt": "Who changed roles or channels this week?",
+          "does": "Reads the audit log, filtered by action type when you ask for one.",
+          "tools": ["discord_get_audit_log"]
+        }
+      ],
+      "notes": [
+        "Channels the bot cannot view are left out of the audit and counted in `hiddenChannels`. Grant the bot View Channel on them to include them."
+      ]
+    }
+  ]
+}

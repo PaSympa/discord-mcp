@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { discord } from "../client.js";
 import { buildEmbed, embedFieldsShape } from "../embeds.js";
-import { defineTool, defineModule, snowflake, intIn, structured } from "./define.js";
+import {
+  defineTool,
+  defineModule,
+  snowflake,
+  intIn,
+  structured,
+  messageAuthor,
+  messageAuthorShape,
+} from "./define.js";
 
 const userId = snowflake.describe("Discord user ID (snowflake) of the DM recipient.");
 const messageId = snowflake.describe("ID of the target message within the DM conversation.");
@@ -99,7 +107,7 @@ const tools = [
   defineTool({
     name: "discord_edit_dm_embed",
     description:
-      "Replace the embed on a DM message previously sent by this bot. Only the bot's own messages can be edited. Full replace, not merge: provided fields are applied and omitted fields are dropped. Returns a confirmation.",
+      "Replace the embed on a DM message previously sent by this bot. Full replace, not merge: provided fields are applied and omitted fields are dropped. Omitting content, or passing an empty string, keeps the message's current text; this tool cannot clear it. Use discord_edit_dm to change only the text, or discord_edit_embed for a message in a server channel. Returns a confirmation.",
     annotations: {
       title: "Edit DM embed",
       readOnlyHint: false,
@@ -178,6 +186,7 @@ const tools = [
         z.object({
           id: z.string(),
           author: z.string(),
+          ...messageAuthorShape,
           content: z.string(),
           embeds: z.number(),
           timestamp: z.string(),
@@ -193,6 +202,7 @@ const tools = [
         .map((m) => ({
           id: m.id,
           author: m.author.username,
+          ...messageAuthor(m.author.id, m.webhookId),
           content: m.content,
           embeds: m.embeds.length,
           timestamp: m.createdAt.toISOString(),
@@ -203,7 +213,7 @@ const tools = [
   defineTool({
     name: "discord_reply_dm",
     description:
-      "Reply to a specific message in a DM, attaching a quoted reply reference. Unlike the edit/delete DM tools, this works on any message in the conversation (the bot's or the user's). Use discord_send_dm for a standalone DM with no reference. Returns the new reply's message ID.",
+      "Reply to a specific message in a DM, attaching a quoted reply reference. Unlike the edit/delete DM tools, this works on the bot's messages and the user's alike, though Discord refuses some system messages as reply targets. Use discord_send_dm for a standalone DM with no reference. Returns the new reply's message ID.",
     annotations: {
       title: "Reply to DM",
       readOnlyHint: false,

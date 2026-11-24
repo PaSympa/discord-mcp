@@ -1,6 +1,15 @@
-import { PermissionOverwriteOptions, GuildChannel } from "discord.js";
+import { PermissionOverwriteOptions, GuildChannel, OverwriteType } from "discord.js";
 import { z } from "zod";
-import { discord, getGuildChannel, serializePermissions, parsePermissionNames } from "../client.js";
+import {
+  discord,
+  getGuildChannel,
+  serializePermissions,
+  parsePermissionNames,
+  assertCanCopyFrom,
+  isObfuscated,
+  splitObfuscated,
+  fetchRole,
+} from "../client.js";
 import { defineTool, defineModule, snowflake, guildId, structured } from "./define.js";
 
 /** Flag names as an array, or a JSON-encoded array string (some clients serialize arrays). */
@@ -25,7 +34,7 @@ const tools = [
   defineTool({
     name: "discord_get_channel_permissions",
     description:
-      "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Use discord_audit_permissions for a server-wide report across all channels.",
+      "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Refuses a channel that Discord hides from the bot behind the placeholder name ___hidden___: Discord shows a placeholder in place of its real overwrites, so grant the bot View Channel on it first. Use discord_audit_permissions for a server-wide report across all channels.",
     annotations: { title: "Get channel permissions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to inspect."),
@@ -35,6 +44,10 @@ const tools = [
     }),
     handle: async ({ channel_id }) => {
       const channel = await getGuildChannel(channel_id);
+      if (isObfuscated(channel))
+        throw new Error(
+          `The bot cannot view channel ${channel.id}. Discord hides that channel's real overwrites from the bot, so the overwrites shown would be a placeholder: a single @everyone View Channel deny. Grant the bot View Channel on this channel, then retry.`,
+        );
       const overwrites = channel.permissionOverwrites.cache.map((ow) => ({
         id: ow.id,
         type: ow.type === 0 ? "role" : "member",
@@ -47,7 +60,7 @@ const tools = [
   defineTool({
     name: "discord_set_role_permission",
     description:
-      "Add or update a per-channel permission overwrite for a role, allowing and/or denying specific permissions. Merges with the role's existing overwrite (does not reset it). Denying View Channel to @everyone also locks the bot out unless it holds an allow overwrite of its own; grant that with discord_set_member_permission before the deny. Requires the Manage Roles permission. Use discord_set_member_permission to target a single member instead.",
+      "Add or update a per-channel permission overwrite for a role, allowing and/or denying specific permissions. Merges with the role's existing overwrite (does not reset it). Denying View Channel to @everyone on a channel also hides it from the bot, unless the bot has Administrator or a View Channel allow overwrite there, on its own member or on one of its roles. Grant that allow first, for example with discord_set_member_permission, then deny. Requires the Manage Roles permission. Use discord_set_member_permission to target a single member instead.",
     annotations: {
       title: "Set role channel permission",
       readOnlyHint: false,
@@ -75,7 +88,11 @@ const tools = [
       parsePermissionNames(deny).forEach((p) => {
         (options as Record<string, boolean>)[p] = false;
       });
-      await channel.permissionOverwrites.edit(role_id, options, { reason });
+      const role = await fetchRole(channel.guild, role_id);
+      await channel.permissionOverwrites.edit(role.id, options, {
+        reason,
+        type: OverwriteType.Role,
+      });
       return {
         content: [
           { type: "text", text: `✅ Permissions updated for role ${role_id} on #${channel.name}.` },
@@ -114,7 +131,11 @@ const tools = [
       parsePermissionNames(deny).forEach((p) => {
         (options as Record<string, boolean>)[p] = false;
       });
-      await channel.permissionOverwrites.edit(user_id, options, { reason });
+      const member = await channel.guild.members.fetch(user_id);
+      await channel.permissionOverwrites.edit(member.id, options, {
+        reason,
+        type: OverwriteType.Member,
+      });
       return {
         content: [
           {
@@ -128,7 +149,7 @@ const tools = [
   defineTool({
     name: "discord_reset_channel_permissions",
     description:
-      "Remove ALL permission overwrites on a channel, so only role/server-level permissions apply. Does NOT re-sync with the category; use discord_lock_channel_permissions for that. IRREVERSIBLE: the cleared overwrites cannot be recovered. Requires the Manage Roles permission.",
+      "Remove ALL permission overwrites on a channel, so only role/server-level permissions apply. Does NOT re-sync with the category; use discord_lock_channel_permissions for that. IRREVERSIBLE: the cleared overwrites cannot be recovered. Requires the Manage Channels and Manage Roles permissions.",
     annotations: {
       title: "Reset channel permissions",
       readOnlyHint: false,
@@ -155,7 +176,7 @@ const tools = [
   defineTool({
     name: "discord_copy_permissions",
     description:
-      "Replace the target channel's permission overwrites with a copy of the source channel's. The target's existing overwrites are overwritten. Requires the Manage Roles permission. Returns a confirmation.",
+      "Replace the target channel's permission overwrites with a copy of the source channel's. The target's existing overwrites are overwritten. Requires the Manage Channels and Manage Roles permissions, and View Channel on the source: the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. To create a new channel with the same overwrites, use discord_clone_channel; to remove them all, use discord_reset_channel_permissions.",
     annotations: {
       title: "Copy channel permissions",
       readOnlyHint: false,
@@ -174,6 +195,7 @@ const tools = [
     }),
     handle: async ({ source_channel_id, target_channel_id, reason }) => {
       const source = await getGuildChannel(source_channel_id);
+      assertCanCopyFrom(source);
       const target = await getGuildChannel(target_channel_id);
       const overwrites = source.permissionOverwrites.cache.map((ow) => ({
         id: ow.id,
@@ -192,7 +214,7 @@ const tools = [
   defineTool({
     name: "discord_audit_permissions",
     description:
-      "Generate a server-wide permission report: for every channel that has overwrites, lists each role/member and their allowed/denied permissions (entity names resolved). Read-only. Returns { channels: [...] } with channel, channelId, overwrites. Use discord_get_channel_permissions for a single channel.",
+      "Generate a server-wide permission report: for every channel that has overwrites, lists each role/member and their allowed/denied permissions (entity names resolved). Read-only. Returns { channels: [...], hiddenChannels } with channel, channelId, overwrites. Channels that Discord hides from the bot behind the placeholder name ___hidden___ are left out and counted in hiddenChannels: Discord shows a placeholder in place of their real overwrites. Use discord_get_channel_permissions for a single channel.",
     annotations: { title: "Audit permissions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -205,13 +227,15 @@ const tools = [
           overwrites: z.array(auditOverwriteSummary),
         }),
       ),
+      hiddenChannels: z.number().int(),
     }),
     handle: async ({ guild_id }) => {
       const guild = await discord.guilds.fetch(guild_id);
       await guild.channels.fetch();
       await guild.roles.fetch();
+      const { visible, hidden: hiddenChannels } = splitObfuscated(guild.channels.cache);
       const memberIdsNeeded = new Set<string>();
-      guild.channels.cache.forEach((ch) => {
+      visible.forEach((ch) => {
         if (ch instanceof GuildChannel) {
           ch.permissionOverwrites.cache.forEach((ow) => {
             if (ow.type === 1) memberIdsNeeded.add(ow.id);
@@ -224,7 +248,7 @@ const tools = [
       );
       const memberTags = new Map(fetched.filter((m) => m !== null).map((m) => [m.id, m.user.tag]));
       const report: Record<string, unknown>[] = [];
-      guild.channels.cache
+      visible
         .filter((c) => c instanceof GuildChannel)
         .forEach((ch) => {
           const gch = ch as GuildChannel;
@@ -243,7 +267,7 @@ const tools = [
           if (overwrites.length > 0)
             report.push({ channel: gch.name, channelId: gch.id, overwrites });
         });
-      return structured({ channels: report });
+      return structured({ channels: report, hiddenChannels });
     },
   }),
 ];

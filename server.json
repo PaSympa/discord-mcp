@@ -1,17 +1,29 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.PaSympa/discord-mcp",
-  "description": "A lightweight, multi-guild Discord MCP server with 95+ tools",
+  "description": "Run your Discord from Claude, Codex, Cursor or VS Code: messages, moderation, roles, forums, events",
+  "title": "discord-mcp",
+  "websiteUrl": "https://pasympa.github.io/discord-mcp/",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/PaSympa/discord-mcp/main/.github/assets/logo.svg",
+      "mimeType": "image/svg+xml"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/PaSympa/discord-mcp/main/.github/assets/logo-512.png",
+      "mimeType": "image/png"
+    }
+  ],
   "repository": {
     "url": "https://github.com/PaSympa/discord-mcp",
     "source": "github"
   },
-  "version": "2.2.0",
+  "version": "2.4.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@pasympa/discord-mcp",
-      "version": "2.2.0",
+      "version": "2.4.0",
       "transport": {
         "type": "stdio"
       },
@@ -22,12 +34,73 @@
           "isRequired": true,
           "isSecret": true,
           "format": "string"
+        },
+        {
+          "name": "DISCORD_MCP_TOOLSETS",
+          "description": "Comma-separated toolsets to expose: discovery, messages, channels, permissions, members, roles, moderation, screening, stats, forums, webhooks, scheduled_events, invites, dm, or all. An unknown name stops the server at startup.",
+          "format": "string",
+          "default": "all"
+        },
+        {
+          "name": "DISCORD_MCP_READ_ONLY",
+          "description": "Set to true to expose only the read-only tools of the selected toolsets: write tools are neither listed nor callable. Any value other than true/false, 1/0, yes/no or on/off stops the server at startup.",
+          "format": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "DISCORD_ALLOWED_GUILDS",
+          "description": "Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected. Unset allows every guild.",
+          "format": "string",
+          "placeholder": "123456789012345678,234567890123456789"
+        },
+        {
+          "name": "DISCORD_MESSAGE_CONTENT",
+          "description": "Set to false to stop requesting the Message Content privileged intent at connect time.",
+          "format": "boolean",
+          "default": "true"
+        },
+        {
+          "name": "DISCORD_GUILD_MEMBERS",
+          "description": "Set to false to stop requesting the Server Members privileged intent at connect time.",
+          "format": "boolean",
+          "default": "true"
+        },
+        {
+          "name": "DISCORD_MCP_TRANSPORT",
+          "description": "stdio, or http to serve Streamable HTTP on /mcp for remote clients such as the OpenAI Responses API, Codex or n8n. Any other value stops the server at startup.",
+          "format": "string",
+          "default": "stdio",
+          "choices": ["stdio", "http"]
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_TOKEN",
+          "description": "Bearer token every HTTP request must carry. Required when DISCORD_MCP_TRANSPORT is http: at least 32 characters from the RFC 6750 b64token alphabet, different from DISCORD_TOKEN. Generate one with openssl rand -hex 32.",
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_HOST",
+          "description": "Address the HTTP server listens on when DISCORD_MCP_TRANSPORT is http. Keep 127.0.0.1 unless the server runs in a container.",
+          "format": "string",
+          "default": "127.0.0.1"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_PORT",
+          "description": "Port the HTTP server listens on when DISCORD_MCP_TRANSPORT is http.",
+          "format": "number",
+          "default": "3000"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_ALLOWED_HOSTS",
+          "description": "Comma-separated hostnames, without port, accepted in the Host header of HTTP requests besides localhost, 127.0.0.1 and [::1], such as the public name a reverse proxy forwards.",
+          "format": "string",
+          "placeholder": "discord-mcp.example.com"
         }
       ]
     },
     {
       "registryType": "oci",
-      "identifier": "docker.io/pasympa/discord-mcp:2.2.0",
+      "identifier": "docker.io/pasympa/discord-mcp:2.4.0",
       "transport": {
         "type": "stdio"
       },
@@ -38,6 +111,67 @@
           "isRequired": true,
           "isSecret": true,
           "format": "string"
+        },
+        {
+          "name": "DISCORD_MCP_TOOLSETS",
+          "description": "Comma-separated toolsets to expose: discovery, messages, channels, permissions, members, roles, moderation, screening, stats, forums, webhooks, scheduled_events, invites, dm, or all. An unknown name stops the server at startup.",
+          "format": "string",
+          "default": "all"
+        },
+        {
+          "name": "DISCORD_MCP_READ_ONLY",
+          "description": "Set to true to expose only the read-only tools of the selected toolsets: write tools are neither listed nor callable. Any value other than true/false, 1/0, yes/no or on/off stops the server at startup.",
+          "format": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "DISCORD_ALLOWED_GUILDS",
+          "description": "Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected. Unset allows every guild.",
+          "format": "string",
+          "placeholder": "123456789012345678,234567890123456789"
+        },
+        {
+          "name": "DISCORD_MESSAGE_CONTENT",
+          "description": "Set to false to stop requesting the Message Content privileged intent at connect time.",
+          "format": "boolean",
+          "default": "true"
+        },
+        {
+          "name": "DISCORD_GUILD_MEMBERS",
+          "description": "Set to false to stop requesting the Server Members privileged intent at connect time.",
+          "format": "boolean",
+          "default": "true"
+        },
+        {
+          "name": "DISCORD_MCP_TRANSPORT",
+          "description": "stdio, or http to serve Streamable HTTP on /mcp for remote clients such as the OpenAI Responses API, Codex or n8n. Any other value stops the server at startup.",
+          "format": "string",
+          "default": "stdio",
+          "choices": ["stdio", "http"]
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_TOKEN",
+          "description": "Bearer token every HTTP request must carry. Required when DISCORD_MCP_TRANSPORT is http: at least 32 characters from the RFC 6750 b64token alphabet, different from DISCORD_TOKEN. Generate one with openssl rand -hex 32.",
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_HOST",
+          "description": "Address the HTTP server listens on when DISCORD_MCP_TRANSPORT is http. Keep 127.0.0.1 unless the server runs in a container.",
+          "format": "string",
+          "default": "127.0.0.1"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_PORT",
+          "description": "Port the HTTP server listens on when DISCORD_MCP_TRANSPORT is http.",
+          "format": "number",
+          "default": "3000"
+        },
+        {
+          "name": "DISCORD_MCP_HTTP_ALLOWED_HOSTS",
+          "description": "Comma-separated hostnames, without port, accepted in the Host header of HTTP requests besides localhost, 127.0.0.1 and [::1], such as the public name a reverse proxy forwards.",
+          "format": "string",
+          "placeholder": "discord-mcp.example.com"
         }
       ]
     }

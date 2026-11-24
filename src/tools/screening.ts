@@ -7,7 +7,7 @@ const tools = [
   defineTool({
     name: "discord_get_membership_screening",
     description:
-      "Fetch the server's membership screening form, the rules/questions new members must accept before gaining access. Requires the server to have the Community feature enabled. Read-only. Returns the form as JSON, including its version.",
+      "Fetch the server's membership screening form, the rules/questions new members must accept before gaining access. Requires the server to have the Community feature enabled. Read-only. Returns { version, description, form_fields } with each field's type, label, values, required flag and description; any other key Discord returns on a field is dropped.",
     annotations: { title: "Get membership screening", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -53,11 +53,11 @@ const tools = [
   defineTool({
     name: "discord_update_membership_screening",
     description:
-      "Update the server's membership screening form: set the welcome description and the rules new members must agree to. Only provided fields change. Requires the Community feature and the Manage Server permission. Returns the updated form.",
+      "Update the server's membership screening form: set the welcome description and the rules new members must agree to. Only provided fields change. Passing form_fields replaces every existing field with TERMS rule blocks, which deletes any question field. Read the form first with discord_get_membership_screening. Requires the Community feature and the Manage Server permission. Returns the updated form.",
     annotations: {
       title: "Update membership screening",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

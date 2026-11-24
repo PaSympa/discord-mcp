@@ -3,7 +3,7 @@ import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["dist/", "node_modules/", "live-test*.mjs"] },
+  { ignores: ["dist/", "node_modules/", "_site/", "live-test*.mjs"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,
@@ -26,6 +26,46 @@ export default tseslint.config(
     },
     rules: {
       "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
+    files: ["site/**/*.mjs", "scripts/**/*.mjs"],
+    ignores: ["site/client/**"],
+    languageOptions: {
+      globals: {
+        Buffer: "readonly",
+        console: "readonly",
+        fetch: "readonly",
+        process: "readonly",
+        URL: "readonly",
+        WebSocket: "readonly",
+      },
+    },
+  },
+  {
+    // Browser code, bundled into _site/assets/. search, detail, suggest and keys also run in Node.
+    files: ["site/client/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        cancelAnimationFrame: "readonly",
+        clearTimeout: "readonly",
+        console: "readonly",
+        document: "readonly",
+        Event: "readonly",
+        fetch: "readonly",
+        history: "readonly",
+        HTMLElement: "readonly",
+        localStorage: "readonly",
+        location: "readonly",
+        matchMedia: "readonly",
+        navigator: "readonly",
+        Node: "readonly",
+        performance: "readonly",
+        requestAnimationFrame: "readonly",
+        setTimeout: "readonly",
+        URLSearchParams: "readonly",
+        window: "readonly",
+      },
     },
   },
 );

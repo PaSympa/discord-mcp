@@ -1,0 +1,335 @@
+import { $, $$, initCommon, reduceMotion } from "./common.mjs";
+import { renderToolDetail } from "./detail.mjs";
+import { createIndex, matchRanges, search } from "./search.mjs";
+import { breakable, formatTokens, marked, mixText, plural, RISKS } from "./tpl.mjs";
+
+const DATA = JSON.parse($("#catalog-data").textContent);
+const TOOLS = DATA.tools;
+const SETS = DATA.toolsets.map((s) => s.name);
+const LABELS = Object.fromEntries(DATA.toolsets.map((s) => [s.name, s.label]));
+const byName = new Map(TOOLS.map((t) => [t.name, t]));
+const index = createIndex(TOOLS, LABELS);
+
+// Rows are rendered at build time; this maps each one to its parts.
+const rows = new Map(
+  $$(".row-li").map((li, order) => [
+    li.dataset.tool,
+    {
+      li,
+      order,
+      home: li.parentElement,
+      title: $(".row-title", li),
+      name: $(".row-name", li),
+      purpose: $(".row-purpose", li),
+      why: $(".why", li),
+      tool: byName.get(li.dataset.tool),
+    },
+  ]),
+);
+const groups = new Map(
+  SETS.map((s) => [
+    s,
+    { el: document.getElementById("set-" + s), meta: $(`#set-${s} [data-meta]`) },
+  ]),
+);
+
+const state = { q: "", risks: new Set(), sets: new Set(), dry: false };
+const input = $("#q");
+const ranked = $("#ranked");
+const groupsEl = $("#groups");
+const riskChips = $$("#risk-chips [data-risk]");
+const dryChip = $("#risk-chips [data-dry]");
+const setChips = $$("#set-chips [data-set]");
+const setSelect = $("#set-select");
+const wide = matchMedia("(min-width: 641px)");
+const placeholders = [input.placeholder, input.dataset.widePlaceholder];
+const setPlaceholder = () => {
+  input.placeholder = placeholders[wide.matches ? 1 : 0];
+};
+setPlaceholder();
+wide.addEventListener("change", setPlaceholder);
+
+const byRisk = (t) => !state.risks.size || state.risks.has(t.risk);
+const bySet = (t) => !state.sets.size || state.sets.has(t.toolset);
+const byDry = (t) => !state.dry || t.dryRunDefault;
+
+function setChipCount(chip, n) {
+  $(".n", chip).textContent = String(n);
+  chip.classList.toggle("zero", n === 0);
+}
+
+function highlight(entry, terms) {
+  const { tool } = entry;
+  entry.title.innerHTML = String(marked(tool.title, matchRanges(tool.title, terms)));
+  entry.name.innerHTML = String(breakable(tool.name, matchRanges(tool.name, terms)));
+  entry.purpose.innerHTML = String(marked(tool.purpose, matchRanges(tool.purpose, terms)));
+}
+
+function whyText(hidden) {
+  const where = { params: "parameters", description: "description", toolset: "toolset" };
+  const list = hidden.map((field) => where[field]).filter(Boolean);
+  return list.length ? "Match in " + list.slice(0, 2).join(" and ") : "";
+}
+
+function applyFilters() {
+  const q = state.q.trim();
+  const result = q ? search(index, q) : null;
+  const ranking = result && result.mode !== "all" ? result : null;
+  const hits = ranking ? new Map(ranking.results.map((r) => [r.name, r])) : null;
+  const byQuery = (t) => !hits || hits.has(t.name);
+
+  const shown = TOOLS.filter((t) => byQuery(t) && byRisk(t) && bySet(t) && byDry(t));
+  const visible = new Set(shown.map((t) => t.name));
+
+  if (ranking) {
+    groupsEl.hidden = true;
+    ranked.hidden = false;
+    const order = ranking.results.filter((r) => visible.has(r.name));
+    for (const r of order) {
+      const entry = rows.get(r.name);
+      entry.li.hidden = false;
+      highlight(entry, ranking.terms);
+      entry.why.textContent = whyText(r.hidden);
+      ranked.append(entry.li);
+    }
+    for (const entry of rows.values()) if (!visible.has(entry.tool.name)) entry.li.hidden = true;
+  } else {
+    ranked.hidden = true;
+    groupsEl.hidden = false;
+    for (const entry of [...rows.values()].sort((a, b) => a.order - b.order)) {
+      entry.home.append(entry.li);
+      entry.title.textContent = entry.tool.title;
+      entry.name.innerHTML = String(breakable(entry.tool.name));
+      entry.purpose.textContent = entry.tool.purpose;
+      entry.why.textContent = "";
+      entry.li.hidden = !visible.has(entry.tool.name);
+    }
+    for (const [s, g] of groups) {
+      const set = DATA.toolsets.find((x) => x.name === s);
+      const inSet = shown.filter((t) => t.toolset === s);
+      const n = inSet.length;
+      g.el.hidden = n === 0;
+      // The strip, its text and the cost all describe the rows left in the group.
+      const left = Object.fromEntries(
+        RISKS.map((risk) => [risk, inSet.filter((t) => t.risk === risk).length]),
+      );
+      for (const risk of RISKS)
+        $$(`.group-head .strip [data-risk="${risk}"]`, g.el).forEach((bar, i) => {
+          bar.hidden = i >= left[risk];
+        });
+      g.meta.textContent =
+        (n === set.tools ? plural(set.tools, "tool") : `${n} of ${set.tools} tools`) +
+        ": " +
+        mixText(left) +
+        ", " +
+        formatTokens(inSet.reduce((sum, t) => sum + t.tokens, 0)) +
+        " tokens";
+    }
+  }
+
+  for (const chip of riskChips) {
+    const risk = chip.dataset.risk;
+    chip.setAttribute("aria-pressed", String(state.risks.has(risk)));
+    setChipCount(
+      chip,
+      TOOLS.filter((t) => t.risk === risk && byQuery(t) && bySet(t) && byDry(t)).length,
+    );
+  }
+  dryChip.setAttribute("aria-pressed", String(state.dry));
+  setChipCount(
+    dryChip,
+    TOOLS.filter((t) => t.dryRunDefault && byQuery(t) && byRisk(t) && bySet(t)).length,
+  );
+  for (const chip of setChips) {
+    const s = chip.dataset.set;
+    chip.setAttribute("aria-pressed", String(state.sets.has(s)));
+    setChipCount(
+      chip,
+      TOOLS.filter((t) => t.toolset === s && byQuery(t) && byRisk(t) && byDry(t)).length,
+    );
+  }
+  setSelect.value = state.sets.size === 0 ? "" : state.sets.size === 1 ? [...state.sets][0] : "*";
+
+  const active = !!(q || state.risks.size || state.sets.size || state.dry);
+  $("#count").textContent =
+    shown.length === TOOLS.length
+      ? `Showing all ${TOOLS.length} tools`
+      : `Showing ${shown.length} of ${TOOLS.length} tools`;
+  $("#clear").hidden = !active;
+  syncUrl(q);
+  $("#mode-note").hidden = !(ranking && ranking.mode === "or" && shown.length);
+  $("#empty").hidden = shown.length !== 0;
+  if (shown.length === 0)
+    $("#empty-msg").textContent = q
+      ? `No tool matches “${q}” with these filters. Try other words, or clear the filters.`
+      : "No tool matches these filters.";
+}
+
+/** Keeps the address in step with the filters, so a reload or a shared link shows the same list. */
+function syncUrl(q) {
+  const query = [
+    ...(q ? ["q=" + encodeURIComponent(q)] : []),
+    ...(state.sets.size ? ["sets=" + SETS.filter((s) => state.sets.has(s)).join(",")] : []),
+    ...(state.risks.size ? ["risk=" + RISKS.filter((r) => state.risks.has(r)).join(",")] : []),
+    ...(state.dry ? ["dry"] : []),
+  ].join("&");
+  const url = location.pathname + (query ? "?" + query : "") + location.hash;
+  if (url !== location.pathname + location.search + location.hash)
+    history.replaceState(history.state, "", url);
+}
+
+const toggle = (set, value) => (set.has(value) ? set.delete(value) : set.add(value));
+for (const chip of riskChips)
+  chip.addEventListener("click", () => {
+    toggle(state.risks, chip.dataset.risk);
+    applyFilters();
+  });
+dryChip.addEventListener("click", () => {
+  state.dry = !state.dry;
+  applyFilters();
+});
+for (const chip of setChips)
+  chip.addEventListener("click", () => {
+    toggle(state.sets, chip.dataset.set);
+    applyFilters();
+  });
+setSelect.addEventListener("change", () => {
+  if (setSelect.value === "*") return;
+  state.sets = new Set(setSelect.value ? [setSelect.value] : []);
+  applyFilters();
+});
+function clearFilters() {
+  state.q = "";
+  input.value = "";
+  state.risks.clear();
+  state.sets.clear();
+  state.dry = false;
+  applyFilters();
+}
+input.addEventListener("input", () => {
+  state.q = input.value;
+  applyFilters();
+});
+input.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && input.value) {
+    event.preventDefault();
+    state.q = "";
+    input.value = "";
+    applyFilters();
+  }
+});
+$("#clear").addEventListener("click", () => {
+  clearFilters();
+  input.focus();
+});
+$("#empty-clear").addEventListener("click", () => {
+  clearFilters();
+  input.focus();
+});
+function focusSearch() {
+  if (dialog.open) {
+    lastFocus = null;
+    dialog.close();
+  }
+  const top = input.getBoundingClientRect().top;
+  if (top < 70 || top > window.innerHeight - 80)
+    $("#search").scrollIntoView({
+      block: "center",
+      behavior: reduceMotion.matches ? "auto" : "smooth",
+    });
+  input.focus({ preventScroll: true });
+}
+$("#search-jump").addEventListener("click", focusSearch);
+initCommon({ onSearch: focusSearch });
+
+const dialog = $("#tool");
+let current = null;
+let lastFocus = null;
+const href = (name) => name + "/";
+
+function renderDetail(tool) {
+  current = tool;
+  const { head, body } = renderToolDetail(tool, {
+    labels: LABELS,
+    byName,
+    href,
+    toolsetPage: `../toolsets/${tool.toolset}/`,
+    page: href(tool.name),
+  });
+  $("#dlg-head").innerHTML = String(head);
+  $("#dlg-body").innerHTML = String(body);
+  $("#dlg-body").scrollTop = 0;
+  dialog.scrollTop = 0;
+}
+
+function openTool(name) {
+  const tool = byName.get(name);
+  if (!tool) return false;
+  renderDetail(tool);
+  if (!dialog.open) {
+    lastFocus = document.activeElement;
+    dialog.showModal();
+  }
+  $("#dlg-title").focus({ preventScroll: true });
+  return true;
+}
+const toolFromHash = () => {
+  const name = decodeURIComponent(location.hash.slice(1));
+  return byName.has(name) ? name : null;
+};
+dialog.addEventListener("close", () => {
+  current = null;
+  if (toolFromHash()) {
+    const depth = history.state?.dlg || 0;
+    if (depth > 0) history.go(-depth);
+    else history.replaceState(null, "", location.pathname + location.search);
+  }
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+});
+$("#dlg-close").addEventListener("click", () => dialog.close());
+dialog.addEventListener("click", (event) => {
+  if (event.target === dialog) dialog.close();
+});
+document.addEventListener("click", (event) => {
+  const link = event.target.closest("a[data-tool]");
+  if (!link || event.defaultPrevented || event.button !== 0) return;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  const name = link.dataset.tool;
+  if (current && current.name === name) return;
+  const depth = (history.state?.dlg || 0) + 1;
+  history.pushState({ dlg: dialog.open ? depth : 1 }, "", "#" + name);
+  openTool(name);
+});
+function route() {
+  const name = toolFromHash();
+  if (name) {
+    if (!current || current.name !== name) openTool(name);
+  } else if (dialog.open) {
+    current = null;
+    dialog.close();
+  }
+}
+window.addEventListener("popstate", route);
+window.addEventListener("hashchange", route);
+
+const params = new URLSearchParams(location.search);
+for (const s of (params.get("sets") || "").split(",")) if (SETS.includes(s)) state.sets.add(s);
+for (const r of (params.get("risk") || "").split(",")) if (RISKS.includes(r)) state.risks.add(r);
+state.dry = params.has("dry");
+const q0 = (params.get("q") || "").trim();
+if (q0) {
+  input.value = q0;
+  state.q = q0;
+}
+applyFilters();
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+const initial = toolFromHash();
+if (initial) {
+  history.replaceState(null, "", location.pathname + location.search);
+  history.pushState({ dlg: 1 }, "", "#" + initial);
+  openTool(initial);
+} else if (q0 || location.hash === "#q") {
+  $("#search").scrollIntoView({ block: "start" });
+  input.focus({ preventScroll: true });
+}

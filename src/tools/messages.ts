@@ -1335,7 +1335,7 @@ const tools = [
   defineTool({
     name: "discord_get_reactions",
     description:
-      "List the users who reacted to a message with a specific emoji. Returns { reactions: [...] } with id, username, bot flag. Returns 25 users by default and at most 100, with no cursor for the rest. Super reactions are not listed. Fails when no one reacted with that emoji. Requires the View Channel and Read Message History permissions.",
+      "List the users who reacted to a message with a specific emoji. Returns { reactions: [...], hasMore, nextAfter } with id, username, bot flag, ordered by user ID. Returns 25 users by default and at most 100 per call; while hasMore is true pass nextAfter back as `after` for the next page. A reaction added while paging is missed if the user's ID sorts before the cursor. Super reactions are not listed. Fails when no one reacted with that emoji. Requires the View Channel and Read Message History permissions.",
     annotations: { title: "Get reactions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(
@@ -1346,6 +1346,11 @@ const tools = [
       limit: intIn(1, MAX_FETCH_LIMIT)
         .default(DEFAULTS.LIMIT)
         .describe("Max users to return (1–100). Default 25."),
+      after: snowflake
+        .optional()
+        .describe(
+          "Pagination cursor: a user ID (snowflake). Pass the previous response's nextAfter to fetch the next page.",
+        ),
     }),
     outputSchema: z.object({
       reactions: z.array(
@@ -1355,8 +1360,10 @@ const tools = [
           bot: z.boolean(),
         }),
       ),
+      hasMore: z.boolean(),
+      nextAfter: z.string().nullable(),
     }),
-    handle: async ({ channel_id, message_id, emoji, limit }) => {
+    handle: async ({ channel_id, message_id, emoji, limit, after }) => {
       const channel = await getTextChannel(channel_id);
       const msg = await channel.messages.fetch({
         message: message_id,
@@ -1366,13 +1373,25 @@ const tools = [
       const reaction = findReaction(msg, emoji);
       if (!reaction)
         throw new Error(`No reaction found for emoji "${emoji}" on message ${msg.id}.`);
-      const users = await reaction.users.fetch({ limit });
-      const result = [...users.values()].map((u) => ({
-        id: u.id,
-        username: u.username,
-        bot: u.bot,
-      }));
-      return structured({ reactions: result });
+      const page = [
+        ...(
+          await reaction.users.fetch({ after, limit: Math.min(limit + 1, MAX_FETCH_LIMIT) })
+        ).values(),
+      ];
+      const users = page.slice(0, limit);
+      const last = users.at(-1);
+      // Discord serves at most 100 users per call, so a full page of 100 needs a probe for more.
+      const more =
+        page.length > limit ||
+        (last !== undefined &&
+          users.length === MAX_FETCH_LIMIT &&
+          (await reaction.users.fetch({ after: last.id, limit: 1 })).size > 0);
+      const nextAfter = more && last ? last.id : null;
+      return structured({
+        reactions: users.map((u) => ({ id: u.id, username: u.username, bot: u.bot })),
+        hasMore: nextAfter !== null,
+        nextAfter,
+      });
     },
   }),
   defineTool({

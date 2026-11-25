@@ -113,7 +113,7 @@ export function renderConfiguration(site) {
 </section>
 <section class="panel" id="set-env-file" aria-labelledby="set-env-file-h">
   <h3 id="set-env-file-h">From source</h3>
-  <p>A <code>.env</code> file at the project root works too: the server loads it on start. Variables set by the client win over the file.</p>
+  <p>A <code>.env</code> file in the folder your client starts the server from works too: the server loads it on start. Variables set by the client win over the file.</p>
   ${term(
     Object.entries(EXAMPLE)
       .map(([k, v]) => `${k}=${v}`)

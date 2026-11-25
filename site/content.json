@@ -194,7 +194,7 @@
       ],
       "notes": [
         "The bot can only time out, kick or ban members whose highest role sits below its own. Discord refuses to time out the server owner or a member with Administrator.",
-        "Bulk delete skips messages older than 14 days: Discord does not allow it."
+        "Messages older than 14 days are deleted one by one: Discord allows about 40, then asks for a pause of about 2 minutes, and the tool says how long to wait."
       ]
     },
     {

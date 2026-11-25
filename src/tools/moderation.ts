@@ -30,7 +30,7 @@ const tools = [
         .min(1)
         .optional()
         .describe(
-          "Optional Discord AuditLogEvent numeric ID to filter by. Common IDs: 20 = MemberKick, 22 = MemberBanAdd, 23 = MemberBanRemove, 24 = MemberUpdate (nickname, timeout), 25 = MemberRoleUpdate, 12 = ChannelDelete, 32 = RoleDelete, 72 = MessageDelete. Discord's full list has more. Omit for all action types.",
+          "Optional Discord AuditLogEvent numeric ID to filter by. Common IDs: 12 = ChannelDelete, 20 = MemberKick, 22 = MemberBanAdd, 23 = MemberBanRemove, 24 = MemberUpdate (nickname, timeout), 25 = MemberRoleUpdate, 32 = RoleDelete, 72 = MessageDelete. Discord's full list has more. Omit for all action types.",
         ),
     }),
     outputSchema: z.object({ entries: z.array(auditLogEntry) }),

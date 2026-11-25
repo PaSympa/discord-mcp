@@ -19,6 +19,7 @@ const version: string = pkg.version;
 /** How long in-flight HTTP responses may run after SIGINT or SIGTERM before the process exits. */
 const SHUTDOWN_GRACE_MS = 5_000;
 
+/** How long requests in flight may run after the stdio client closes stdin before the process exits. */
 const DISCONNECT_GRACE_MS = 5_000;
 
 let httpServer: Server | undefined;

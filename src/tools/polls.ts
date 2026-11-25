@@ -167,7 +167,7 @@ const tools = [
   defineTool({
     name: "discord_get_poll_voters",
     description:
-      "List the users who voted for one specific answer of a poll. Returns { voters: [...], hasMore, nextAfter } with id, username, bot flag, ordered by user ID. Returns 25 voters by default and at most 100 per call; while hasMore is true pass nextAfter back as `after` for the next page. A vote cast while paging is missed if the voter's ID sorts before the cursor. Use discord_get_poll_results first to find an answer's id. Requires the View Channel and Read Message History permissions. Read-only.",
+      "List the users who voted for one specific answer of a poll. Returns { voters: [...], hasMore, nextAfter } with id, username, bot flag. Returns 25 voters by default and at most 100 per call; while hasMore is true pass nextAfter back as `after` for the next page. Votes cast while paging can be missed. Use discord_get_poll_results first to find an answer's id. Requires the View Channel and Read Message History permissions. Read-only.",
     annotations: { title: "Get poll voters", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId,

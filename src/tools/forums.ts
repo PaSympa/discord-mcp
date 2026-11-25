@@ -249,7 +249,7 @@ const tools = [
   defineTool({
     name: "discord_list_forum_threads",
     description:
-      "List posts in a forum channel. Returns { threads: [...], hasMore, nextBefore }. The first call (no `before`) includes all active posts plus the first page of archived posts; archived posts are paginated, so if hasMore is true pass nextBefore back as `before` to fetch older archived posts. messageCount excludes the starter message and deleted messages, and is inaccurate above 50 for threads created before July 1, 2022. Use discord_get_forum_post to read one post's messages. For threads in a text or announcement channel, use discord_list_channel_threads. Find forum IDs with discord_get_forum_channels.",
+      "List posts in a forum channel. Returns { threads: [...], hasMore, nextBefore }. The first call (no `before`) includes all active posts plus the first page of archived posts; archived posts are paginated, so if hasMore is true pass nextBefore back as `before` to fetch older archived posts. messageCount excludes the starter message and deleted messages, and is inaccurate above 50 for threads created before July 1, 2022. Use discord_get_forum_post to read one post's messages. For threads in a text or announcement channel, use discord_list_channel_threads. Find forum IDs with discord_get_forum_channels. Requires the View Channel and Read Message History permissions.",
     annotations: { title: "List forum threads", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       forum_channel_id: snowflake.describe(

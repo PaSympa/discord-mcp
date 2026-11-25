@@ -11,6 +11,7 @@ import {
   snowflake,
   structured,
   fetchPageAfter,
+  textUpTo,
 } from "./define.js";
 
 const pollMessageId = messageId.describe("ID of the poll message.");
@@ -83,11 +84,11 @@ const tools = [
     },
     schema: z.object({
       channel_id: channelId.describe("ID (snowflake) of the target channel or thread."),
-      question: z.string().min(1).max(300).describe("Poll question (1–300 characters)."),
+      question: textUpTo(300).min(1).describe("Poll question (up to 300 characters)."),
       answers: z
         .array(
           z.strictObject({
-            text: z.string().min(1).max(55).describe("Answer text (1–55 characters)."),
+            text: textUpTo(55).min(1).describe("Answer text (up to 55 characters)."),
             emoji: answerEmoji
               .optional()
               .describe(

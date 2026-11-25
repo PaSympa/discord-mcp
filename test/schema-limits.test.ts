@@ -14,6 +14,7 @@ import scheduledEvents from "../src/tools/scheduledEvents.js";
 import dm from "../src/tools/dm.js";
 import moderation from "../src/tools/moderation.js";
 import members from "../src/tools/members.js";
+import polls from "../src/tools/polls.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -80,6 +81,8 @@ const LIMITS: [ToolModule, string, (string | number)[], number][] = [
   [forums, "discord_create_forum_post", ["content"], 2000],
   [forums, "discord_reply_to_forum", ["content"], 2000],
   [forums, "discord_set_forum_tags", ["tags", 0, "name"], 50],
+  [polls, "discord_create_poll", ["question"], 300],
+  [polls, "discord_create_poll", ["answers", 0, "text"], 55],
   [forums, "discord_update_forum_post", ["title"], 100],
   [webhooks, "discord_create_webhook", ["name"], 80],
   [webhooks, "discord_send_webhook_message", ["content"], 2000],

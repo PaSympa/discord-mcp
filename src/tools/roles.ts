@@ -367,7 +367,7 @@ const tools = [
   defineTool({
     name: "discord_get_role_members",
     description:
-      "List members who currently hold a specific role, scanning up to 20,000 members. Returns { members: [...], truncated }; check `truncated` on very large servers. Read-only. Use discord_list_roles to discover role IDs first.",
+      "List members who currently hold a specific role, scanning up to 20,000 members. Returns { members: [...], truncated }; check `truncated` on very large servers. Read-only. Use discord_list_roles to discover role IDs first. Requires the Server Members privileged intent, enabled in the Developer Portal.",
     annotations: { title: "Get role members", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

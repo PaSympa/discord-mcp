@@ -540,6 +540,7 @@ async function main() {
             await evaluate(`[...document.images].every((img) => img.hasAttribute("alt"))`),
           );
 
+          await evaluate(`for (const d of document.querySelectorAll("details")) d.open = true`);
           const expected = await evaluate(FOCUSABLES);
           await evaluate(
             `document.activeElement && document.activeElement.blur(); window.scrollTo(0, 0)`,

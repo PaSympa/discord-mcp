@@ -54,7 +54,7 @@ What Claude reads from Discord enters your conversation and goes to your model p
 
 ## Safety
 
-The bot can only do what its Discord permissions allow. Bulk delete, bulk ban, member prune and channel delete run as a dry run unless you confirm. Every tool declares whether it is read-only or destructive.
+The bot can only do what its Discord permissions allow. Bulk delete, bulk ban, bulk role add and remove, member prune and channel delete run as a dry run unless you confirm. Every tool declares whether it is read-only or destructive.
 
 ## Links
 

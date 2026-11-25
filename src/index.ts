@@ -9,6 +9,7 @@ import { readFileSync } from "fs";
 import type { Server } from "http";
 import type { AddressInfo } from "net";
 import { join } from "path";
+import { finished } from "stream";
 import { discord } from "./client.js";
 import { createServer } from "./server.js";
 
@@ -17,6 +18,9 @@ const version: string = pkg.version;
 
 /** How long in-flight HTTP responses may run after SIGINT or SIGTERM before the process exits. */
 const SHUTDOWN_GRACE_MS = 5_000;
+
+/** How long requests in flight may run after the stdio client closes stdin before the process exits. */
+const DISCONNECT_GRACE_MS = 5_000;
 
 let httpServer: Server | undefined;
 
@@ -33,6 +37,10 @@ function selectTransport(): "stdio" | "http" {
 
 async function main() {
   if (selectTransport() === "http") return serveHttp();
+  // The SDK ignores stdin EOF. Closing the transport here would drop pending responses.
+  finished(process.stdin, { writable: false }, () =>
+    setTimeout(shutdown, DISCONNECT_GRACE_MS).unref(),
+  );
   const transport = new StdioServerTransport();
   await createServer(version).connect(transport);
   console.error(`Discord MCP Server v${version} running on stdio.`);
@@ -65,6 +73,8 @@ function shutdown() {
 
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
+// Otherwise the uncaughtException log below loops forever on a broken stderr.
+process.stderr.on("error", () => {});
 process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
 process.on("uncaughtException", (err) => console.error("Uncaught exception:", err));
 

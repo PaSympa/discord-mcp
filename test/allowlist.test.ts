@@ -160,6 +160,7 @@ const EVENT_CHANNEL = "111111111111111112";
 const VOICE_CHANNEL = "111111111111111113";
 const SECOND_CHANNEL = "555555555555555556";
 const FOREIGN_CHANNEL = "222222222222222223";
+const FOREIGN_NEWS = "222222222222222224";
 const EXTERNAL_EVENT = "111111111111111114";
 const VOICE_EVENT = "111111111111111115";
 
@@ -193,7 +194,14 @@ for (const [guild, channels, events] of [
     ],
   ],
   [SECOND_ALLOWED, [{ id: SECOND_CHANNEL, type: 0, name: "second", position: 0 }], []],
-  [FOREIGN, [{ id: FOREIGN_CHANNEL, type: 0, name: "foreign", position: 0 }], []],
+  [
+    FOREIGN,
+    [
+      { id: FOREIGN_CHANNEL, type: 0, name: "foreign", position: 0 },
+      { id: FOREIGN_NEWS, type: 5, name: "foreign-news", position: 1 },
+    ],
+    [],
+  ],
 ] as const) {
   asAdder(discord.guilds)._add({
     id: guild,
@@ -273,4 +281,14 @@ test("create_event_invite keeps its entity-type checks and a VOICE event's own c
   assert.deepEqual(posts, []);
   assert.ok(!(await eventInvite(VOICE_EVENT)).isError);
   assert.deepEqual(posts, [Routes.channelInvites(VOICE_CHANNEL)]);
+});
+
+test("create_thread refuses an announcement channel outside the allow-list before reaching Discord", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = ALLOWED;
+  const { writes } = recordThreadWrites();
+  await assert.rejects(
+    messages.handlers.get("discord_create_thread")!({ channel_id: FOREIGN_NEWS, name: "news" }),
+    new RegExp(`Guild ${FOREIGN} is not in the DISCORD_ALLOWED_GUILDS allow-list`),
+  );
+  assert.deepEqual(writes, []);
 });

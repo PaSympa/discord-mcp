@@ -392,8 +392,12 @@ const ACCEPTED_EMOJI = [
   "party:123456789012345678",
   "<:party:123456789012345678>",
   "<a:party:1234567890123456789>",
+  "123456789012345678",
+  "1234567890123456789",
 ];
 const REFUSED_EMOJI = [
+  "1234567890123456",
+  "12345678901234567890",
   "x:1",
   ":",
   "",
@@ -409,7 +413,7 @@ const REFUSED_EMOJI = [
 test("create_poll accepts every emoji form discord.js reads whole", async () => {
   for (const emoji of ACCEPTED_EMOJI) {
     const parsed = resolvePartialEmoji(emoji) as { name?: string; id?: string } | null;
-    assert.ok(parsed?.name, `discord.js reads ${emoji}`);
+    assert.ok(parsed?.name ?? parsed?.id, `discord.js reads ${emoji}`);
     const id = /(\d{17,19})>?$/.exec(emoji)?.[1];
     assert.equal(parsed.id, id, `${emoji} keeps its whole ID`);
     mock.method(discord.rest, "post", (async () => rawPollMessage()) as never);

@@ -17,13 +17,13 @@ const pollMessageId = messageId.describe("ID of the poll message.");
 /**
  * discord.js drops an emoji it cannot parse without an error, reads at most 19 ID digits,
  * and URL-decodes any "%". So only the forms it reads whole get through: a unicode emoji
- * (at least one character beyond printable ASCII), or name:id, <:name:id> or <a:name:id>.
+ * (at least one character beyond printable ASCII), a bare ID, or name:id, <:name:id> or <a:name:id>.
  */
 const answerEmoji = z
   .string()
   .regex(
-    /^(?:[^:%\s]*[^\s!-~][^:%\s]*|<?(?:a?:)?\w{2,32}:\d{17,19}>?)$/,
-    "Must be a unicode emoji, or a custom emoji 'name:id' or '<:name:id>' with a 2-32 character name and a 17-19 digit ID.",
+    /^(?:[^:%\s]*[^\s!-~][^:%\s]*|<?(?:a?:)?\w{2,32}:\d{17,19}>?|\d{17,19})$/,
+    "Must be a unicode emoji, or a custom emoji given by its 17-19 digit ID alone, as 'name:id' or as '<:name:id>', with a 2-32 character name.",
   );
 
 const pollAnswerSummary = z.object({

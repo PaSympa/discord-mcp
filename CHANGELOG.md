@@ -22,12 +22,18 @@
 - `discord_bulk_delete_messages` deletes exact message IDs. A real call takes `message_ids` and refuses `count`, which now only previews the most recent messages. Both dry runs return `would_delete` with each message's ID, author and age, and `not_deletable` for the messages the bot may not delete: a system message, or another member's without Manage Messages. A dry run with `message_ids` also lists the IDs `not_found` in the channel. The real call looks the IDs up again, never sends one it cannot delete, and returns `deleted`, `not_deletable`, `not_found`, `failed` and `remaining` in structured output. It used to delete the N most recent messages, so a message posted after the preview could be deleted in place of one the preview showed
 - `discord_bulk_delete_messages` deletes messages older than 14 days one by one instead of skipping them, and deletes recent ones one by one when Discord refuses the bulk request. A call stops after about 40 seconds, or when the client cancels it, and returns the IDs it did not reach in `remaining` with the reason in `stopped`
 - `discord_bulk_delete_messages`, `discord_bulk_add_role` and `discord_bulk_remove_role` return `stopped.retry_after_seconds` when Discord asks them to wait past the call's time budget, and the message says to wait that long before calling again. For messages older than 14 days, Discord allows about 40 single deletes, then asks for a pause of about 2 minutes
+- CI also tests on Node 26, the version the Docker image runs. A test fails when the Dockerfile moves to a Node version CI does not test, or when CI stops testing the oldest version `engines` accepts
+- CONTRIBUTING lists the two files a new toolset also needs: its label in `site/content.json` and its name in the `DISCORD_MCP_TOOLSETS` description of both `server.json` packages. A test checks that `server.json` and the README name every toolset
 
 ### Fixed
 
 - `discord_set_member_permission` no longer fails with "Supplied parameter is not a User nor a Role" for a member missing from the bot's user cache, which is most members from startup and nearly all of them after the 10-minute cache sweep. It refuses a user who is not a member of the channel's server, and `discord_set_role_permission` refuses an ID that is not a role of that server instead of writing a member overwrite
 - `discord_create_event_invite` refuses a `channel_id` from a server outside `DISCORD_ALLOWED_GUILDS`, or from any server other than the event's. It used to create the invite in that channel
 - `discord_update_membership_screening` and `discord_lock_channel_permissions` are annotated `destructiveHint: true`. Passing `form_fields` to the first deletes any question field, and the second replaces all of the channel's permission overwrites
+- On the site, the closing backslash of a shell command no longer wraps onto a line of its own on a phone, as it did in the Codex CLI block of the configuration page at 390 px. A word in a code block that is wider than the line now wraps inside it, and long variable names on the configuration page break after an underscore, so the guide and configuration pages no longer scroll sideways at 320 px
+- The home page's client setup block is a section named by its heading, so screen readers announce "Add it to your client"
+- `scripts/site-browser-check.mjs` runs to the end again. It checks the toolset builder on `/toolsets/`, where it moved, and covers the guide, recipes, configuration, troubleshooting and privacy pages
+- The release dates of 1.1.0 to 1.4.1 in this changelog: four said 2025 instead of 2026, and 1.4.1 was released on 2026-03-25
 
 ## [2.4.0] - 2026-11-15
 
@@ -257,7 +263,7 @@
 - Full DM toolset (6 new tools, 97 total): `discord_send_dm_embed`, `discord_edit_dm`, `discord_edit_dm_embed`, `discord_delete_dm`, `discord_read_dms`, `discord_reply_dm`
 - All DM tools take `user_id` directly and are self-contained in `dm.ts`
 
-## [1.4.1] - 2026-04-06
+## [1.4.1] - 2026-03-25
 
 ### Added
 
@@ -272,7 +278,7 @@
 
 - Removed `dist/` from git tracking (now in `.gitignore`)
 
-## [1.4.0] - 2025-03-25
+## [1.4.0] - 2026-03-25
 
 ### Added
 
@@ -289,7 +295,7 @@
 
 - `discord_list_bans` now handles empty ban lists gracefully
 
-## [1.3.0] - 2025-03-24
+## [1.3.0] - 2026-03-24
 
 ### Added
 
@@ -298,7 +304,7 @@
 - Invites: list, get, create, delete (4 tools)
 - `GuildScheduledEvents` and `GuildInvites` gateway intents
 
-## [1.2.0] - 2025-03-20
+## [1.2.0] - 2026-03-20
 
 ### Added
 
@@ -307,7 +313,7 @@
 - Docker support with multi-stage build
 - Glama badge for MCP server listing
 
-## [1.1.0] - 2025-03-18
+## [1.1.0] - 2026-03-18
 
 ### Added
 

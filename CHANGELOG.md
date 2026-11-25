@@ -38,7 +38,7 @@
 - On the site, the closing backslash of a shell command no longer wraps onto a line of its own on a phone, as it did in the Codex CLI block of the configuration page at 390 px. A word in a code block that is wider than the line now wraps inside it, and long variable names on the configuration page break after an underscore, so the guide and configuration pages no longer scroll sideways at 320 px
 - The home page's client setup block is a section named by its heading, so screen readers announce "Add it to your client"
 - `scripts/site-browser-check.mjs` runs to the end again. It checks the toolset builder on `/toolsets/`, where it moved, and covers the guide, recipes, configuration, troubleshooting and privacy pages
-- The release dates of 1.1.0 to 1.4.1 in this changelog: four said 2025 instead of 2026, and 1.4.1 was released on 2026-03-25
+- The release dates of 1.1.0 to 1.4.1 in this changelog: four said 2025 instead of 2026, 1.2.0 was released on 2026-03-21 and 1.4.1 on 2026-03-25
 
 ## [2.4.0] - 2026-11-15
 
@@ -309,7 +309,7 @@
 - Invites: list, get, create, delete (4 tools)
 - `GuildScheduledEvents` and `GuildInvites` gateway intents
 
-## [1.2.0] - 2026-03-20
+## [1.2.0] - 2026-03-21
 
 ### Added
 

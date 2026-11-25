@@ -34,7 +34,7 @@ const tools = [
   defineTool({
     name: "discord_get_channel_permissions",
     description:
-      "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Requires the View Channel permission. Refuses a channel that Discord hides from the bot behind the placeholder name ___hidden___: Discord shows a placeholder in place of its real overwrites, so grant the bot View Channel on it first. Use discord_audit_permissions for a server-wide report across all channels.",
+      "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Refuses a channel that Discord hides from the bot behind the placeholder name ___hidden___: Discord shows a placeholder in place of its real overwrites. Reading such a channel requires the View Channel permission. Use discord_audit_permissions for a server-wide report across all channels.",
     annotations: { title: "Get channel permissions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to inspect."),

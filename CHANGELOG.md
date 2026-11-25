@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-25
+
 ### Added
 
 - A documentation site at https://pasympa.github.io/discord-mcp/: a guide from creating the bot to the first prompts, seven recipes, every configuration variable with its plugin and bundle setting, troubleshooting, a privacy page, the tool catalog and the toolset builder. It is generated from the README and the tool definitions, and `.github/workflows/pages.yml` deploys it on each push to `main`
@@ -15,15 +17,20 @@
 
 ### Changed
 
+- The README and the Configuration page say the server reads `.env` from the folder the client starts it from, not the project root. The banners no longer show a tool count
+- The plugin's `moderation-sweep` skill deletes the flagged message IDs with `message_ids`, reports `not_deletable`, and waits out `stopped.retry_after_seconds` before calling again with `remaining`. It says Discord records no audit log reason for `discord_delete_message`. The plugin runs `@pasympa/discord-mcp@2.5.0`
 - `homepage` in `package.json`, `manifest.json` and `plugin.json`, and `websiteUrl` in `server.json` and the `initialize` response, point at the documentation site instead of the GitHub repository
 - The README links the full one-minute demo hosted on the site, which shows the new logo
 - The README says when the plugin's bot token takes effect. If you skip the prompt at install, the server stays off until you set the token with `/plugin configure discord-mcp@pasympa`, and Claude Code needs a restart after the token is set or changed
 - The README banners and the social preview name Codex next to Claude, Cursor and VS Code
 - `SECURITY.md` describes the HTTP mode: off by default, a required bearer token, loopback by default, and no TLS or OAuth of its own
 - The README and the troubleshooting page say the invite link requests the permissions most tools use, not every permission the tools use. The README's Cursor link points at https://cursor.com/docs/mcp. Contributed by [@techkayacodes](https://github.com/techkayacodes) in [#212](https://github.com/PaSympa/discord-mcp/pull/212)
+- The README's VS Code and Codex links point at their current MCP pages instead of permanent redirects, and the Install in Cursor button drops `/en/` from its URL
+- GitHub release notes leave out Dependabot PRs and PRs labeled `release`, through `.github/release.yml`. CONTRIBUTING says to label the release PR
+- `server.json` says to set `DISCORD_MCP_HTTP_HOST` to `0.0.0.0` in the Docker image, since 127.0.0.1 is unreachable from outside the container, and to publish the port on the host loopback only. It used to say to keep 127.0.0.1 unless the server runs in a container, without naming the address to use
 - `discord_bulk_delete_messages` deletes exact message IDs. A real call takes `message_ids` and refuses `count`, which now only previews the most recent messages. Both dry runs return `would_delete` with each message's ID, author and age, and `not_deletable` for the messages the bot may not delete: a system message, or another member's without Manage Messages. A dry run with `message_ids` also lists the IDs `not_found` in the channel. The real call looks the IDs up again, never sends one it cannot delete, and returns `deleted`, `not_deletable`, `not_found`, `failed` and `remaining` in structured output. It used to delete the N most recent messages, so a message posted after the preview could be deleted in place of one the preview showed
 - `discord_bulk_delete_messages` deletes messages older than 14 days one by one instead of skipping them, and deletes recent ones one by one when Discord refuses the bulk request. A call stops after about 40 seconds, or when the client cancels it, and returns the IDs it did not reach in `remaining` with the reason in `stopped`
-- Tool descriptions write the boundary between neighboring tools in both directions. Each one names the tools it can be confused with and says when to use them instead: sending, replying, editing and deleting in channels, DMs and webhooks, threads and forum posts, permission overwrites, roles, sanctions, invites, announcements and polls. A test checks that every tool a description names names it back, and CONTRIBUTING states the rule. The first sentence of each description is unchanged, except `discord_create_thread`, which now names announcement channels. Some descriptions were wrong or incomplete. `discord_edit_message` and `discord_edit_dm` pointed to the embed tools for embed messages, while they change the text and keep the embeds. `discord_crosspost_message` now says a message already published returns a success. `discord_reply_to_forum` and `discord_delete_forum_post` say they accept any thread, and that the second deletes with no dry run, unlike `discord_delete_channel`. The seven `dm` tools say that with `DISCORD_ALLOWED_GUILDS` set, the user must be a member of a listed server. `discord_send_embed` announces its `content`, and `discord_create_thread` names announcement channels and the channels it refuses. The permission clauses of 14 tools are worded so that their page on the site lists every permission they name. `discord_list_bans` and `discord_list_invites` had no permission box, and `discord_get_channel_permissions` now says it needs View Channel. The full set costs about 42k tokens instead of 40k, and the README's profile sizes follow
+- Tool descriptions write the boundary between neighboring tools in both directions. Each one names the tools it can be confused with and says when to use them instead: sending, replying, editing and deleting in channels, DMs and webhooks, threads and forum posts, permission overwrites, roles, sanctions, invites, announcements and polls. A test checks that every tool a description names names it back, and CONTRIBUTING states the rule. The first sentence of each description is unchanged, except `discord_create_thread`, which now names announcement channels, and `discord_bulk_delete_messages`, rewritten for `message_ids`. Some descriptions were wrong or incomplete. `discord_bulk_delete_messages` needs Manage Messages only to delete other members' messages or to use the bulk endpoint. `discord_list_members` and `discord_get_role_members` name the Server Members privileged intent they need, and `discord_list_forum_threads` its View Channel and Read Message History permissions. `discord_edit_message` and `discord_edit_dm` pointed to the embed tools for embed messages, while they change the text and keep the embeds. `discord_crosspost_message` now says a message already published returns a success. `discord_reply_to_forum` and `discord_delete_forum_post` say they accept any thread, and that the second deletes with no dry run, unlike `discord_delete_channel`. The seven `dm` tools say that with `DISCORD_ALLOWED_GUILDS` set, the user must be a member of a listed server. `discord_send_embed` announces its `content`, and `discord_create_thread` names announcement channels and the channels it refuses. The permission clauses of 14 tools are worded so that their page on the site lists every permission they name. `discord_list_bans` and `discord_list_invites` had no permission box, and `discord_get_channel_permissions` now says reading a hidden channel needs View Channel. `discord_send_message`, `discord_reply_message`, `discord_send_embed`, `discord_send_multiple_embeds` and `discord_create_poll` name Send Messages in Threads, which a thread needs instead of Send Messages, and `discord_remove_reactions` names the Read Message History permission its message lookup needs. The full set costs about 42k tokens, against 35k for the 100 tools of 2.4.0, and the README's profile sizes follow
 - `discord_get_reactions` pages through every user who reacted, in user ID order. While `hasMore` is true, pass `nextAfter` back as `after` for the next page. It used to return at most 100 users with no way to reach the others. A full page of 100 costs one extra request to tell whether another page exists
 - `discord_bulk_delete_messages`, `discord_bulk_add_role` and `discord_bulk_remove_role` return `stopped.retry_after_seconds` when Discord asks them to wait past the call's time budget, and the message says to wait that long before calling again. For messages older than 14 days, Discord allows about 40 single deletes, then asks for a pause of about 2 minutes
 - 32 parameters whose text states a Discord limit carry it in their schema, as `maxLength` or `maxItems`, and refuse a longer value before the call reaches Discord. Message text stops at 2000 characters, channel, thread, role, forum post and event names at 100, webhook names at 80, forum tag names at 50 (the text used to say 20, which Discord does not enforce), event descriptions at 1000, and embed `fields` at 25. Characters are counted in code points, as JSON Schema counts `maxLength`, and `discord_set_nickname` counts its 32 characters the same way. The optional text above the embeds of `discord_send_embed`, `discord_send_multiple_embeds`, `discord_send_dm_embed` and `discord_edit_dm_embed` stops at 2000 characters too
@@ -33,6 +40,7 @@
 
 ### Fixed
 
+- `discord_create_poll` counts its 300 and 55 character limits in code points, like the other bounded texts. With zod 4.3, which `package.json` still accepts, an emoji-heavy question the schema allows was refused
 - `discord_set_member_permission` no longer fails with "Supplied parameter is not a User nor a Role" for a member missing from the bot's user cache, which is most members from startup and nearly all of them after the 10-minute cache sweep. It refuses a user who is not a member of the channel's server, and `discord_set_role_permission` refuses an ID that is not a role of that server instead of writing a member overwrite
 - `discord_create_event_invite` refuses a `channel_id` from a server outside `DISCORD_ALLOWED_GUILDS`, or from any server other than the event's. It used to create the invite in that channel
 - `discord_update_membership_screening` and `discord_lock_channel_permissions` are annotated `destructiveHint: true`. Passing `form_fields` to the first deletes any question field, and the second replaces all of the channel's permission overwrites
@@ -43,7 +51,11 @@
 - On the site, the closing backslash of a shell command no longer wraps onto a line of its own on a phone, as it did in the Codex CLI block of the configuration page at 390 px. A word in a code block that is wider than the line now wraps inside it, and long variable names on the configuration page break after an underscore, so the guide and configuration pages no longer scroll sideways at 320 px
 - The home page's client setup block is a section named by its heading, so screen readers announce "Add it to your client"
 - `scripts/site-browser-check.mjs` runs to the end again. It checks the toolset builder on `/toolsets/`, where it moved, and covers the guide, recipes, configuration, troubleshooting and privacy pages
-- The release dates of 1.1.0 to 1.4.1 in this changelog: four said 2025 instead of 2026, 1.2.0 was released on 2026-03-21 and 1.4.1 on 2026-03-25
+- The release dates of 1.1.0 to 1.5.1 in this changelog follow their npm publication: four said 2025 instead of 2026, 1.1.0 was released on 2026-03-20, 1.2.0 on 2026-03-21, 1.4.1 on 2026-03-25 and 1.5.1 on 2026-05-28
+
+### Security
+
+- `hono` 4.13.21 and `@hono/node-server` 2.1.11, which the MCP SDK uses for the HTTP mode, fix their security advisories. The Docker image is built from this lockfile, and `npm audit --omit=dev` reports no vulnerability
 
 ## [2.4.0] - 2026-11-15
 
@@ -259,7 +271,7 @@
 - Extracted shared embed schema fragments (`EMBED_FIELD_PROPS`, `WEBHOOK_EMBED_PROPS`) to keep repeated definitions in sync
 - CONTRIBUTING: documented the tool-definition quality bar (description, annotations, parameter docs)
 
-## [1.5.1] - 2026-05-27
+## [1.5.1] - 2026-05-28
 
 ### Fixed
 
@@ -323,7 +335,7 @@
 - Docker support with multi-stage build
 - Glama badge for MCP server listing
 
-## [1.1.0] - 2026-03-18
+## [1.1.0] - 2026-03-20
 
 ### Added
 

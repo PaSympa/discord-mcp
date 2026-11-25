@@ -15,6 +15,7 @@ import {
   guildId,
   httpUrl,
   intIn,
+  textUpTo,
   structured,
 } from "./define.js";
 
@@ -139,9 +140,8 @@ const tools = [
     },
     schema: z.object({
       guild_id: guildId,
-      name: z.string().describe("Event name (max 100 characters)."),
-      description: z
-        .string()
+      name: textUpTo(100).describe("Event name (max 100 characters)."),
+      description: textUpTo(1000)
         .optional()
         .describe("Optional event description (max 1000 characters)."),
       entity_type: z
@@ -232,8 +232,10 @@ const tools = [
     schema: z.object({
       guild_id: guildId,
       event_id: snowflake.describe("ID (snowflake) of the event to edit."),
-      name: z.string().optional().describe("New event name (max 100 characters)."),
-      description: z.string().optional().describe("New event description (max 1000 characters)."),
+      name: textUpTo(100).optional().describe("New event name (max 100 characters)."),
+      description: textUpTo(1000)
+        .optional()
+        .describe("New event description (max 1000 characters)."),
       scheduled_start_time: z.iso
         .datetime({ offset: true })
         .optional()

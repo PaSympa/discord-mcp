@@ -1,7 +1,7 @@
 import { ChannelType, NewsChannel } from "discord.js";
 import { z } from "zod";
 import { discord, getGuildChannel, fetchChannelChecked, assertCanCopyFrom } from "../client.js";
-import { defineTool, defineModule, snowflake, guildId, intIn } from "./define.js";
+import { defineTool, defineModule, snowflake, guildId, intIn, textUpTo } from "./define.js";
 
 /** Tool definitions for guild channels: lifecycle, layout, following, and permission sync. */
 const tools = [
@@ -18,7 +18,7 @@ const tools = [
     },
     schema: z.object({
       guild_id: guildId.describe("Discord server (guild) ID (snowflake) to create the channel in."),
-      name: z.string().describe("Name of the new channel (max 100 characters)."),
+      name: textUpTo(100).describe("Name of the new channel (max 100 characters)."),
       type: z
         .enum(["text", "voice", "category"])
         .optional()
@@ -105,7 +105,7 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to edit."),
-      name: z.string().optional().describe("New channel name (max 100 characters)."),
+      name: textUpTo(100).optional().describe("New channel name (max 100 characters)."),
       topic: z
         .string()
         .optional()

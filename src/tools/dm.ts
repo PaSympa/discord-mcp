@@ -6,6 +6,7 @@ import {
   defineModule,
   snowflake,
   intIn,
+  messageText,
   structured,
   messageAuthor,
   messageAuthorShape,
@@ -29,7 +30,7 @@ const tools = [
     },
     schema: z.object({
       user_id: userId,
-      content: z.string().describe("Plain-text body of the DM (max 2000 characters)."),
+      content: messageText.describe("Plain-text body of the DM (max 2000 characters)."),
     }),
     handle: async ({ user_id, content }) => {
       const user = await fetchDmRecipient(user_id);
@@ -84,11 +85,9 @@ const tools = [
     schema: z.object({
       user_id: userId,
       message_id: messageId,
-      content: z
-        .string()
-        .describe(
-          "New plain-text content that fully replaces the existing message (max 2000 characters).",
-        ),
+      content: messageText.describe(
+        "New plain-text content that fully replaces the existing message (max 2000 characters).",
+      ),
     }),
     handle: async ({ user_id, message_id, content }) => {
       const user = await fetchDmRecipient(user_id);
@@ -224,7 +223,7 @@ const tools = [
     schema: z.object({
       user_id: userId,
       message_id: messageId,
-      content: z.string().describe("Plain-text body of the reply (max 2000 characters)."),
+      content: messageText.describe("Plain-text body of the reply (max 2000 characters)."),
     }),
     handle: async ({ user_id, message_id, content }) => {
       const user = await fetchDmRecipient(user_id);

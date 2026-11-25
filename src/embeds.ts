@@ -26,6 +26,7 @@ export const embedFieldsShape = {
           .describe("If true, render this field side-by-side with adjacent inline fields."),
       }),
     )
+    .max(25, "Discord allows a maximum of 25 fields per embed.")
     .optional()
     .describe(
       "Up to 25 name/value field blocks. Set inline:true on a field to render it side-by-side with adjacent inline fields (up to 3 per row).",

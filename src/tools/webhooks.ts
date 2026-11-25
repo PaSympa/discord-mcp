@@ -2,7 +2,16 @@ import { WebhookClient } from "discord.js";
 import { z } from "zod";
 import { discord, fetchChannelChecked, assertAllowedGuild, allowListActive } from "../client.js";
 import { buildEmbed, embedArraySchema } from "../embeds.js";
-import { defineTool, defineModule, snowflake, guildId, httpUrl, structured } from "./define.js";
+import {
+  defineTool,
+  defineModule,
+  snowflake,
+  guildId,
+  httpUrl,
+  messageText,
+  textUpTo,
+  structured,
+} from "./define.js";
 
 const webhookId = snowflake.describe("ID (snowflake) of the webhook.");
 const webhookToken = z.string().describe("Secret token of the webhook.");
@@ -31,7 +40,7 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to attach the webhook to."),
-      name: z.string().describe("Display name for the webhook (max 80 characters)."),
+      name: textUpTo(80).describe("Display name for the webhook (max 80 characters)."),
       avatar: httpUrl.optional().describe("Optional avatar image URL for the webhook."),
     }),
     handle: async ({ channel_id, name, avatar }) => {
@@ -66,8 +75,7 @@ const tools = [
       webhook_token: webhookToken.describe(
         "Secret token of the webhook (from discord_create_webhook or discord_list_webhooks).",
       ),
-      content: z
-        .string()
+      content: messageText
         .optional()
         .describe(
           "Plain-text body of the message (max 2000 characters). Optional if embeds are provided.",
@@ -124,7 +132,9 @@ const tools = [
     },
     schema: z.object({
       webhook_id: webhookId.describe("ID (snowflake) of the webhook to edit."),
-      name: z.string().optional().describe("New display name for the webhook (max 80 characters)."),
+      name: textUpTo(80)
+        .optional()
+        .describe("New display name for the webhook (max 80 characters)."),
       avatar: httpUrl.optional().describe("New avatar image URL for the webhook."),
       channel_id: snowflake
         .optional()
@@ -237,8 +247,7 @@ const tools = [
       webhook_id: webhookId.describe("ID (snowflake) of the webhook that sent the message."),
       webhook_token: webhookToken.describe("Secret token of the webhook."),
       message_id: messageId.describe("ID of the webhook message to edit."),
-      content: z
-        .string()
+      content: messageText
         .optional()
         .describe("New plain-text content for the message (max 2000 characters)."),
       embeds: embedArraySchema

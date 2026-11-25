@@ -80,7 +80,7 @@
         },
         {
           "name": "DISCORD_MCP_HTTP_HOST",
-          "description": "Address the HTTP server listens on when DISCORD_MCP_TRANSPORT is http. Keep 127.0.0.1 unless the server runs in a container.",
+          "description": "Address the HTTP server listens on when DISCORD_MCP_TRANSPORT is http. Keep 127.0.0.1 outside a container. In the Docker image, set 0.0.0.0, since 127.0.0.1 is unreachable from outside the container, and publish the port on the host loopback only: -p 127.0.0.1:3000:3000.",
           "format": "string",
           "default": "127.0.0.1"
         },
@@ -157,7 +157,7 @@
         },
         {
           "name": "DISCORD_MCP_HTTP_HOST",
-          "description": "Address the HTTP server listens on when DISCORD_MCP_TRANSPORT is http. Keep 127.0.0.1 unless the server runs in a container.",
+          "description": "Address the HTTP server listens on when DISCORD_MCP_TRANSPORT is http. Keep 127.0.0.1 outside a container. In the Docker image, set 0.0.0.0, since 127.0.0.1 is unreachable from outside the container, and publish the port on the host loopback only: -p 127.0.0.1:3000:3000.",
           "format": "string",
           "default": "127.0.0.1"
         },

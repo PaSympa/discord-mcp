@@ -476,8 +476,10 @@ async function main() {
     );
     if (!found)
       throw new Error(`Nothing matches ${selector} on ${await evaluate("location.pathname")}.`);
+    // The scroll re-fits the builder's sticky panel in the next frame, which moves its
+    // controls; measuring before that frame clicked beside the read-only switch at 1440 px.
     const box = await evaluate(
-      `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`,
+      `new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); done({ x: r.x + r.width / 2, y: r.y + r.height / 2 }); })))`,
     );
     for (const type of ["mousePressed", "mouseReleased"])
       await send("Input.dispatchMouseEvent", {

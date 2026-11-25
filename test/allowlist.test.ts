@@ -409,6 +409,15 @@ test("a failed member lookup blocks the DM only when no other allowed guild conf
   assert.deepEqual(gate.fetched, [RECIPIENT]);
 });
 
+test("a Discord error other than Unknown Member or Unknown User is not read as a non-member", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = `${ALLOWED},${SECOND_ALLOWED}`;
+  const missingAccess = unknown(50001);
+  const gate = stubDmGate({ [ALLOWED]: missingAccess });
+  await assert.rejects(readDms(), (err) => err === missingAccess);
+  assert.deepEqual(gate.lookups, [ALLOWED, SECOND_ALLOWED]);
+  assert.deepEqual(gate.fetched, []);
+});
+
 test("without an allow-list, a DM tool looks up no member", async () => {
   const gate = stubDmGate({});
   assert.ok(!(await readDms()).isError);

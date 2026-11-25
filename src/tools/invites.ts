@@ -48,7 +48,7 @@ const tools = [
   defineTool({
     name: "discord_list_invites",
     description:
-      "List all active invites across a server (code, url, channel, inviter, uses, expiry). Requires the Manage Server or View Audit Log permission; without Manage Server or Manage Channels, Discord omits invite metadata, so uses, max_uses and max_age read 0, temporary reads false and created_at null. Read-only. Use discord_list_channel_invites to scope to one channel.",
+      "List all active invites across a server (code, url, channel, inviter, uses, expiry). Requires the Manage Server or View Audit Log permission; without Manage Server or Manage Channels, Discord omits invite metadata, so uses, max_uses and max_age read 0, temporary reads false and created_at null. Read-only. Use discord_list_channel_invites to scope to one channel. Look up one code with discord_get_invite, or revoke one with discord_delete_invite.",
     annotations: { title: "List invites", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -87,7 +87,7 @@ const tools = [
   defineTool({
     name: "discord_create_invite",
     description:
-      "Create an invite link for a channel, optionally limiting its lifetime, uses, and membership type. SECURITY: anyone with the returned link can join the server. Requires the Create Instant Invite permission. Returns the invite URL and code.",
+      "Create an invite link for a channel, optionally limiting its lifetime, uses, and membership type. SECURITY: anyone with the returned link can join the server. Requires the Create Instant Invite permission. Returns the invite URL and code. For an invite that opens a scheduled event, use discord_create_event_invite.",
     annotations: {
       title: "Create invite",
       readOnlyHint: false,
@@ -139,7 +139,7 @@ const tools = [
   defineTool({
     name: "discord_delete_invite",
     description:
-      "Revoke an invite by its code so it can no longer be used. IRREVERSIBLE (the code is freed). Requires the Manage Channels permission (or Manage Server). The reason is recorded in the audit log.",
+      "Revoke an invite by its code so it can no longer be used. IRREVERSIBLE (the code is freed). Requires the Manage Channels permission (or Manage Server). The reason is recorded in the audit log. Find codes with discord_list_invites.",
     annotations: {
       title: "Delete invite",
       readOnlyHint: false,
@@ -167,7 +167,7 @@ const tools = [
   defineTool({
     name: "discord_list_channel_invites",
     description:
-      "List the active invites that point to one specific channel. Unlike discord_list_invites (server-wide), this scopes results to a single channel. Requires the Manage Channels permission. Read-only.",
+      "List the active invites that point to one specific channel. Unlike discord_list_invites (server-wide), this scopes results to a single channel. Requires the Manage Channels permission. Read-only. Look up one code with discord_get_invite.",
     annotations: { title: "List channel invites", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to list invites for."),

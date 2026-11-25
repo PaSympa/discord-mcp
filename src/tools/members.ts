@@ -97,7 +97,7 @@ const tools = [
   defineTool({
     name: "discord_kick_member",
     description:
-      "Remove a member from the server. They can rejoin with a new invite (unlike a ban). Requires the Kick Members permission, and the bot's top role must be higher than the target's. Use discord_ban_member to block re-entry. The reason is recorded in the audit log.",
+      "Remove a member from the server. They can rejoin with a new invite (unlike a ban). Requires the Kick Members permission, and the bot's top role must be higher than the target's. Use discord_ban_member to block re-entry. The reason is recorded in the audit log. To mute them for a while instead, use discord_timeout_member, or discord_prune_members to remove inactive members in bulk.",
     annotations: {
       title: "Kick member",
       readOnlyHint: false,
@@ -120,7 +120,7 @@ const tools = [
   defineTool({
     name: "discord_ban_member",
     description:
-      "Ban a user from the server, blocking re-entry until unbanned. Optionally bulk-deletes their recent messages. Requires the Ban Members permission, and the bot's top role must outrank the target's. Use discord_unban_member to reverse, or discord_kick_member for a non-permanent removal. The reason is recorded in the audit log.",
+      "Ban a user from the server, blocking re-entry until unbanned. Optionally bulk-deletes their recent messages. Requires the Ban Members permission, and the bot's top role must outrank the target's. Use discord_unban_member to reverse, or discord_kick_member for a non-permanent removal. The reason is recorded in the audit log. For many users at once, use discord_bulk_ban.",
     annotations: {
       title: "Ban member",
       readOnlyHint: false,
@@ -150,7 +150,7 @@ const tools = [
   defineTool({
     name: "discord_unban_member",
     description:
-      "Lift a ban so the user may rejoin via a new invite. Requires the Ban Members permission. Reverses discord_ban_member. The reason is recorded in the audit log.",
+      "Lift a ban so the user may rejoin via a new invite. Requires the Ban Members permission. Reverses discord_ban_member. The reason is recorded in the audit log. Find banned users with discord_list_bans.",
     annotations: {
       title: "Unban member",
       readOnlyHint: false,
@@ -172,7 +172,7 @@ const tools = [
   defineTool({
     name: "discord_timeout_member",
     description:
-      "Mute a member for a set duration (Discord 'timeout'): they cannot send messages, react, or speak until it expires. Pass duration_minutes = 0 to remove an active timeout early. Max 28 days (40320 minutes). Requires the Moderate Members permission. Discord refuses to time out the server owner or a member with Administrator.",
+      "Mute a member for a set duration (Discord 'timeout'): they cannot send messages, react, or speak until it expires. Pass duration_minutes = 0 to remove an active timeout early. Max 28 days (40320 minutes). Requires the Moderate Members permission. Discord refuses to time out the server owner or a member with Administrator. To remove the member from the server, use discord_kick_member.",
     annotations: {
       title: "Timeout member",
       readOnlyHint: false,
@@ -210,7 +210,7 @@ const tools = [
   defineTool({
     name: "discord_search_members",
     description:
-      "Find server members whose username or nickname starts with a query string (prefix match). Returns { members: [...] } with id, username, nickname, roles. Use discord_list_members to page through everyone. Read-only.",
+      "Find server members whose username or nickname starts with a query string (prefix match). Returns { members: [...] } with id, username, nickname, roles. Use discord_list_members to page through everyone. Read-only. Use discord_get_member_info for one member's full details.",
     annotations: { title: "Search members", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -282,7 +282,7 @@ const tools = [
   defineTool({
     name: "discord_list_bans",
     description:
-      "List the users banned from the server, with their ban reasons. Returns { bans: [...], nextCursor }. A page holds up to 1000 bans; if nextCursor is non-null, pass it back as `after` to fetch the next page. Requires the Ban Members or View Audit Log permission. Read-only.",
+      "List the users banned from the server, with their ban reasons. Returns { bans: [...], nextCursor }. A page holds up to 1000 bans; if nextCursor is non-null, pass it back as `after` to fetch the next page. Requires the Ban Members or View Audit Log permission. Read-only. Lift a ban with discord_unban_member.",
     annotations: { title: "List bans", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -373,7 +373,7 @@ const tools = [
   defineTool({
     name: "discord_prune_members",
     description:
-      "Remove members who have been inactive (no roles, not seen) for a number of days. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the count, then re-call with dry_run:false to actually remove them. Removal is irreversible (members must rejoin). Requires the Manage Server and Kick Members permissions (Administrator when the server has the PRUNE_REQUIRES_ADMIN feature).",
+      "Remove members who have been inactive (no roles, not seen) for a number of days. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the count, then re-call with dry_run:false to actually remove them. Removal is irreversible (members must rejoin). Requires the Manage Server and Kick Members permissions (Administrator when the server has the PRUNE_REQUIRES_ADMIN feature). To remove specific members, use discord_kick_member.",
     annotations: {
       title: "Prune inactive members",
       readOnlyHint: false,

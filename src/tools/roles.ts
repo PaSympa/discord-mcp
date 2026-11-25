@@ -234,7 +234,7 @@ const tools = [
   defineTool({
     name: "discord_edit_role",
     description:
-      "Update an existing role's name, color, permissions, hoist, or mentionable flag. Only provided fields change; passing permissions REPLACES the role's full permission set, and passing color sets a single solid color, removing any gradient or holographic colors. Requires the Manage Roles permission, and the role must be below the bot's highest role.",
+      "Update an existing role's name, color, permissions, hoist, or mentionable flag. Only provided fields change; passing permissions REPLACES the role's full permission set, and passing color sets a single solid color, removing any gradient or holographic colors. Requires the Manage Roles permission, and the role must be below the bot's highest role. These permissions apply server-wide; for one channel, use discord_set_role_permission. Use discord_set_role_position to move the role, discord_set_role_icon for its icon, or discord_create_role for a new role.",
     annotations: {
       title: "Edit role",
       readOnlyHint: false,
@@ -280,7 +280,7 @@ const tools = [
   defineTool({
     name: "discord_delete_role",
     description:
-      "Permanently delete a role from the server; it is automatically removed from every member who held it. IRREVERSIBLE. Requires the Manage Roles permission, and the role must be below the bot's highest role.",
+      "Permanently delete a role from the server; it is automatically removed from every member who held it. IRREVERSIBLE. Requires the Manage Roles permission, and the role must be below the bot's highest role. To take the role from one member only, use discord_remove_role.",
     annotations: {
       title: "Delete role",
       readOnlyHint: false,
@@ -303,7 +303,7 @@ const tools = [
   defineTool({
     name: "discord_add_role",
     description:
-      "Assign an existing role to a member. Requires the Manage Roles permission, and the role must be below the bot's highest role. Idempotent: assigning a role the member already has has no effect. Use discord_remove_role to undo.",
+      "Assign an existing role to a member. Requires the Manage Roles permission, and the role must be below the bot's highest role. Idempotent: assigning a role the member already has has no effect. Use discord_remove_role to undo. Use discord_bulk_add_role for many members, or discord_create_role to create a new role.",
     annotations: {
       title: "Add role to member",
       readOnlyHint: false,
@@ -327,7 +327,7 @@ const tools = [
   defineTool({
     name: "discord_remove_role",
     description:
-      "Remove a role from a member. Requires the Manage Roles permission, and the role must be below the bot's highest role. Idempotent: removing a role the member doesn't have has no effect. Reverses discord_add_role.",
+      "Remove a role from a member. Requires the Manage Roles permission, and the role must be below the bot's highest role. Idempotent: removing a role the member doesn't have has no effect. Reverses discord_add_role. Use discord_bulk_remove_role for many members, or discord_delete_role to delete the role itself.",
     annotations: {
       title: "Remove role from member",
       readOnlyHint: false,
@@ -411,7 +411,7 @@ const tools = [
   defineTool({
     name: "discord_set_role_position",
     description:
-      "Move a role up or down in the server's role hierarchy, which determines permission precedence and member-list ordering. Higher position = higher in the list. Requires the Manage Roles permission, and the target position must be below the bot's highest role.",
+      "Move a role up or down in the server's role hierarchy, which determines permission precedence and member-list ordering. Higher position = higher in the list. Requires the Manage Roles permission, and the target position must be below the bot's highest role. To change the role's name, color or permissions, use discord_edit_role.",
     annotations: {
       title: "Set role position",
       readOnlyHint: false,
@@ -446,7 +446,7 @@ const tools = [
   defineTool({
     name: "discord_set_role_icon",
     description:
-      "Set or clear a role's icon, either a custom image or a unicode emoji. Requires the server to be Boost Level 2+ (the ROLE_ICONS feature) and the Manage Roles permission. Pass null to either field to remove that icon. Returns a confirmation.",
+      "Set or clear a role's icon, either a custom image or a unicode emoji. Requires the server to be Boost Level 2+ (the ROLE_ICONS feature) and the Manage Roles permission. Pass null to either field to remove that icon. Returns a confirmation. To change the role's name, color or permissions, use discord_edit_role.",
     annotations: {
       title: "Set role icon",
       readOnlyHint: false,

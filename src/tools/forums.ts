@@ -95,7 +95,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_channels",
     description:
-      "List the forum channels in a server (id, name, topic, parent category). From November 16, 2026, Discord leaves out forums the bot cannot view. Read-only. Use discord_get_forum_tags to see a forum's available tags, or discord_list_forum_threads for its posts.",
+      "List the forum channels in a server (id, name, topic, parent category). From November 16, 2026, Discord leaves out forums the bot cannot view. Read-only. Use discord_get_forum_tags to see a forum's available tags, or discord_list_forum_threads for its posts. discord_list_channels lists forums too, along with every other channel.",
     annotations: { title: "List forum channels", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -161,7 +161,7 @@ const tools = [
   defineTool({
     name: "discord_create_forum_post",
     description:
-      "Create a new post (a thread with a starter message) in a forum channel. Requires the Send Messages permission (Discord ignores Create Public Threads for forum posts). Use discord_reply_to_forum to add follow-up messages. Returns the new post's name and thread ID.",
+      "Create a new post (a thread with a starter message) in a forum channel. Requires the Send Messages permission (Discord ignores Create Public Threads for forum posts). Use discord_reply_to_forum to add follow-up messages. Returns the new post's name and thread ID. Find tag IDs with discord_get_forum_tags; for a thread in a text channel, use discord_create_thread.",
     annotations: {
       title: "Create forum post",
       readOnlyHint: false,
@@ -200,7 +200,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_post",
     description:
-      "Get a forum post's details (title, archived/locked state, applied tags, message count) plus its recent messages, oldest-to-newest. Read-only. Pass the post's thread_id. Requires the View Channel and Read Message History permissions on the forum; without Read Message History an empty message list fails with an error naming the permission. Returns a JSON object.",
+      "Get a forum post's details (title, archived/locked state, applied tags, message count) plus its recent messages, oldest-to-newest. Read-only. Pass the post's thread_id. Requires the View Channel and Read Message History permissions on the forum; without Read Message History an empty message list fails with an error naming the permission. Returns a JSON object. Find posts with discord_list_forum_threads; to page through a long post, use discord_read_messages with its thread ID.",
     annotations: { title: "Get forum post", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       thread_id: threadId,
@@ -249,7 +249,7 @@ const tools = [
   defineTool({
     name: "discord_list_forum_threads",
     description:
-      "List posts in a forum channel. Returns { threads: [...], hasMore, nextBefore }. The first call (no `before`) includes all active posts plus the first page of archived posts; archived posts are paginated, so if hasMore is true pass nextBefore back as `before` to fetch older archived posts. messageCount excludes the starter message and deleted messages, and is inaccurate above 50 for threads created before July 1, 2022. Use discord_get_forum_post to read one post's messages. For threads in a text or announcement channel, use discord_list_channel_threads.",
+      "List posts in a forum channel. Returns { threads: [...], hasMore, nextBefore }. The first call (no `before`) includes all active posts plus the first page of archived posts; archived posts are paginated, so if hasMore is true pass nextBefore back as `before` to fetch older archived posts. messageCount excludes the starter message and deleted messages, and is inaccurate above 50 for threads created before July 1, 2022. Use discord_get_forum_post to read one post's messages. For threads in a text or announcement channel, use discord_list_channel_threads. Find forum IDs with discord_get_forum_channels.",
     annotations: { title: "List forum threads", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       forum_channel_id: snowflake.describe(
@@ -299,7 +299,7 @@ const tools = [
   defineTool({
     name: "discord_reply_to_forum",
     description:
-      "Post a follow-up message inside an existing forum post (thread). Requires the Send Messages in Threads permission (shown as 'Send Messages in Posts' for forums). Use discord_create_forum_post to start a new post instead. Returns the new message ID.",
+      "Post a follow-up message inside an existing forum post (thread). Requires the Send Messages in Threads permission (shown as 'Send Messages in Posts' for forums). Use discord_create_forum_post to start a new post instead. Returns the new message ID. Works on any thread, not only forum posts, and adds no reply reference: discord_send_message with the thread ID does the same. To quote a message, use discord_reply_message.",
     annotations: {
       title: "Reply to forum post",
       readOnlyHint: false,
@@ -324,7 +324,7 @@ const tools = [
   defineTool({
     name: "discord_delete_forum_post",
     description:
-      "Permanently delete a forum post (thread) and all its messages. IRREVERSIBLE. To merely close it without deleting, use discord_update_forum_post with archived:true. Requires the Manage Threads permission.",
+      "Permanently delete a forum post (thread) and all its messages. IRREVERSIBLE. To merely close it without deleting, use discord_update_forum_post with archived:true. Requires the Manage Threads permission. It accepts any thread and deletes it at once, with no dry run; discord_delete_channel deletes a thread too, with a dry run by default.",
     annotations: {
       title: "Delete forum post",
       readOnlyHint: false,
@@ -345,7 +345,7 @@ const tools = [
   defineTool({
     name: "discord_get_forum_tags",
     description:
-      "List the tags available on a forum channel (id, name, emoji, emoji_id, moderated flag). Use these IDs with discord_create_forum_post or discord_update_forum_post; manage the tag set with discord_set_forum_tags. The emoji field holds a unicode emoji, or null when the tag has none or uses a custom server emoji. Fails when the channel is not a forum.",
+      "List the tags available on a forum channel (id, name, emoji, emoji_id, moderated flag). Use these IDs with discord_create_forum_post or discord_update_forum_post; manage the tag set with discord_set_forum_tags. The emoji field holds a unicode emoji, or null when the tag has none or uses a custom server emoji. Fails when the channel is not a forum. Find forum IDs with discord_get_forum_channels.",
     annotations: { title: "Get forum tags", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       forum_channel_id: snowflake.describe(
@@ -384,7 +384,7 @@ const tools = [
   defineTool({
     name: "discord_set_forum_tags",
     description:
-      "Replace the full set of available tags on a forum channel with the provided list. Include every tag you want to keep: a listed tag whose name matches an existing tag (case-insensitive) keeps its ID and stays on posts, and keeps its emoji and moderated flag unless the input sets them. A tag left out is deleted from the forum, and posts that carried it keep its ID in applied_tags. Requires the Manage Channels permission. Returns a confirmation naming the tags created, deleted and changed, with the fields that changed.",
+      "Replace the full set of available tags on a forum channel with the provided list. Include every tag you want to keep: a listed tag whose name matches an existing tag (case-insensitive) keeps its ID and stays on posts, and keeps its emoji and moderated flag unless the input sets them. A tag left out is deleted from the forum, and posts that carried it keep its ID in applied_tags. Requires the Manage Channels permission. Returns a confirmation naming the tags created, deleted and changed, with the fields that changed. Read the current tags with discord_get_forum_tags first, and apply tags to a post with discord_update_forum_post.",
     annotations: {
       title: "Set forum tags",
       readOnlyHint: false,
@@ -449,7 +449,7 @@ const tools = [
   defineTool({
     name: "discord_update_forum_post",
     description:
-      "Update a forum post's title, archived/locked state, or applied tags. Only provided fields change; passing applied_tags replaces the post's tags. Set archived:true to close a post without deleting it; archiving a pinned post unpins it. Requires the Manage Threads permission. To change which tags the forum offers, use discord_set_forum_tags; this tool picks among the forum's existing tags for one post.",
+      "Update a forum post's title, archived/locked state, or applied tags. Only provided fields change; passing applied_tags replaces the post's tags. Set archived:true to close a post without deleting it; archiving a pinned post unpins it. Requires the Manage Threads permission. To change which tags the forum offers, use discord_set_forum_tags; this tool picks among the forum's existing tags for one post. Find tag IDs with discord_get_forum_tags; to remove a post for good, use discord_delete_forum_post.",
     annotations: {
       title: "Update forum post",
       readOnlyHint: false,

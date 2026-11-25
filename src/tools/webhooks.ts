@@ -30,7 +30,7 @@ const tools = [
   defineTool({
     name: "discord_create_webhook",
     description:
-      "Create a webhook on a channel and return its ID and token. SECURITY: the returned token grants anyone the ability to post as this webhook without authentication; treat it as a secret. Requires the Manage Webhooks permission. Use the returned id+token with discord_send_webhook_message. On a forum or media channel, discord_send_webhook_message cannot post through the webhook, since Discord then requires a thread.",
+      "Create a webhook on a channel and return its ID and token. SECURITY: the returned token grants anyone the ability to post as this webhook without authentication; treat it as a secret. Requires the Manage Webhooks permission. Use the returned id+token with discord_send_webhook_message. On a forum or media channel, discord_send_webhook_message cannot post through the webhook, since Discord then requires a thread. To reuse an existing webhook, find it with discord_list_webhooks.",
     annotations: {
       title: "Create webhook",
       readOnlyHint: false,
@@ -62,7 +62,7 @@ const tools = [
   defineTool({
     name: "discord_send_webhook_message",
     description:
-      "Send a message through a webhook using its ID and token (no bot permissions needed; the token authorizes the send). Supports per-message username/avatar overrides and up to 10 embeds. At least one of content or embeds is required. Returns the new message ID.",
+      "Send a message through a webhook using its ID and token (no bot permissions needed; the token authorizes the send). Supports per-message username/avatar overrides and up to 10 embeds. At least one of content or embeds is required. Returns the new message ID. Get the ID and token from discord_create_webhook or discord_list_webhooks; to post as the bot itself, use discord_send_message.",
     annotations: {
       title: "Send webhook message",
       readOnlyHint: false,
@@ -122,7 +122,7 @@ const tools = [
   defineTool({
     name: "discord_edit_webhook",
     description:
-      "Update a webhook's name, avatar, or the channel it posts to. Only provided fields change. Requires the Manage Webhooks permission. Returns a confirmation.",
+      "Update a webhook's name, avatar, or the channel it posts to. Only provided fields change. Requires the Manage Webhooks permission. Returns a confirmation. To edit a message the webhook sent, use discord_edit_webhook_message.",
     annotations: {
       title: "Edit webhook",
       readOnlyHint: false,
@@ -186,7 +186,7 @@ const tools = [
   defineTool({
     name: "discord_list_webhooks",
     description:
-      "List the webhooks in a single channel or across a whole server (id, name, channel, token when visible, creator). Provide channel_id or guild_id; when both are given, only channel_id is used. Requires the Manage Webhooks permission. SECURITY: a returned token lets anyone post as that webhook; treat it as a secret. Pass the id and token to discord_send_webhook_message, or create a webhook with discord_create_webhook.",
+      "List the webhooks in a single channel or across a whole server (id, name, channel, token when visible, creator). Provide channel_id or guild_id; when both are given, only channel_id is used. Requires the Manage Webhooks permission. SECURITY: a returned token lets anyone post as that webhook; treat it as a secret. Pass the id and token to discord_send_webhook_message, or create a webhook with discord_create_webhook. Remove one with discord_delete_webhook.",
     annotations: { title: "List webhooks", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake
@@ -235,7 +235,7 @@ const tools = [
   defineTool({
     name: "discord_edit_webhook_message",
     description:
-      "Edit a message previously sent through a webhook, using the webhook's ID and token. Replaces the provided fields. No bot permission is needed: the token authorizes the edit. For a message the bot sent itself, use discord_edit_message or discord_edit_embed. Returns a confirmation.",
+      "Edit a message previously sent through a webhook, using the webhook's ID and token. Replaces the provided fields. No bot permission is needed: the token authorizes the edit. For a message the bot sent itself, use discord_edit_message or discord_edit_embed. Returns a confirmation. To change the webhook itself, use discord_edit_webhook.",
     annotations: {
       title: "Edit webhook message",
       readOnlyHint: false,
@@ -280,7 +280,7 @@ const tools = [
   defineTool({
     name: "discord_delete_webhook_message",
     description:
-      "Permanently delete a message that was sent through a webhook, using the webhook's ID and token. IRREVERSIBLE. No bot permission is needed: the token authorizes the call. To delete the webhook itself, use discord_delete_webhook.",
+      "Permanently delete a message that was sent through a webhook, using the webhook's ID and token. IRREVERSIBLE. No bot permission is needed: the token authorizes the call. To delete the webhook itself, use discord_delete_webhook. To delete a message with the bot's own permissions, use discord_delete_message.",
     annotations: {
       title: "Delete webhook message",
       readOnlyHint: false,

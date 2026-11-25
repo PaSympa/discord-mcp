@@ -72,7 +72,7 @@ const tools = [
   defineTool({
     name: "discord_create_poll",
     description:
-      "Create a native Discord poll in a channel or thread. Up to 10 answers (55 characters each), a question up to 300 characters, and a duration up to 768 hours (32 days). Requires the Send Messages and Send Polls permissions. Returns the poll message ID.",
+      "Create a native Discord poll in a channel or thread. Up to 10 answers (55 characters each), a question up to 300 characters, and a duration up to 768 hours (32 days). Requires the Send Messages and Send Polls permissions. Returns the poll message ID. For a message without a poll, use discord_send_message.",
     annotations: {
       title: "Create poll",
       readOnlyHint: false,
@@ -128,7 +128,7 @@ const tools = [
   defineTool({
     name: "discord_get_poll_results",
     description:
-      "Read a poll's current question, answers and vote counts. Counts update as people vote and are final once resultsFinalized is true, which Discord sets after the poll expires or discord_end_poll ends it. Requires the View Channel and Read Message History permissions. Read-only.",
+      "Read a poll's current question, answers and vote counts. Counts update as people vote and are final once resultsFinalized is true, which Discord sets after the poll expires or discord_end_poll ends it. Requires the View Channel and Read Message History permissions. Read-only. Use discord_get_poll_voters to see who picked an answer.",
     annotations: { title: "Get poll results", readOnlyHint: true, openWorldHint: true },
     schema: z.object({ channel_id: channelId, message_id: pollMessageId }),
     outputSchema: pollSummary,
@@ -139,7 +139,7 @@ const tools = [
   defineTool({
     name: "discord_end_poll",
     description:
-      "End a poll immediately instead of waiting for its duration to expire. Only the bot's own polls can be ended early. Irreversible: a poll cannot be reopened once ended. A poll that has already ended or expired is returned unchanged. Requires the View Channel and Read Message History permissions. Returns the results; resultsFinalized tells whether Discord has finished counting them.",
+      "End a poll immediately instead of waiting for its duration to expire. Only the bot's own polls can be ended early. Irreversible: a poll cannot be reopened once ended. A poll that has already ended or expired is returned unchanged. Requires the View Channel and Read Message History permissions. Returns the results; resultsFinalized tells whether Discord has finished counting them. To read the results without ending the poll, use discord_get_poll_results.",
     annotations: {
       title: "End poll",
       readOnlyHint: false,
@@ -167,7 +167,7 @@ const tools = [
   defineTool({
     name: "discord_get_poll_voters",
     description:
-      "List the users who voted for one specific answer of a poll. Returns { voters: [...], hasMore, nextAfter } with id, username, bot flag. Returns 25 voters by default and at most 100 per call; while hasMore is true pass nextAfter back as `after` for the next page. Votes cast while paging can be missed. Use discord_get_poll_results first to find an answer's id. Requires the View Channel and Read Message History permissions. Read-only.",
+      "List the users who voted for one specific answer of a poll. Returns { voters: [...], hasMore, nextAfter } with id, username, bot flag. Returns 25 voters by default and at most 100 per call; while hasMore is true pass nextAfter back as `after` for the next page. Votes cast while paging can be missed. Use discord_get_poll_results first to find an answer's id. Requires the View Channel and Read Message History permissions. Read-only. For emoji reactions rather than poll votes, use discord_get_reactions.",
     annotations: { title: "Get poll voters", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId,

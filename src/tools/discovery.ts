@@ -76,7 +76,7 @@ const tools = [
   defineTool({
     name: "discord_list_channels",
     description:
-      'List all channels in a server, grouped by their parent category and ordered by position. Returns a JSON object keyed by category name. Channels that Discord hides from the bot behind the placeholder name ___hidden___ are left out, and discord_find_channel_by_name reports how many; a visible channel whose category is hidden is listed under "Hidden parent". Read-only. Use discord_find_channel_by_name to locate a specific channel.',
+      'List all channels in a server, grouped by their parent category and ordered by position. Returns a JSON object keyed by category name. Channels that Discord hides from the bot behind the placeholder name ___hidden___ are left out, and discord_find_channel_by_name reports how many; a visible channel whose category is hidden is listed under "Hidden parent". Read-only. Use discord_find_channel_by_name to locate a specific channel. Use discord_get_forum_channels for forums only.',
     annotations: { title: "List channels", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

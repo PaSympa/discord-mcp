@@ -221,7 +221,7 @@ const tools = [
   defineTool({
     name: "discord_edit_scheduled_event",
     description:
-      "Update a scheduled event; only provided fields change. Use the status field to start ('ACTIVE'), end ('COMPLETED'), or cancel ('CANCELED') an event; Discord only allows certain status transitions. Discord rejects a location on VOICE and STAGE_INSTANCE events. An ACTIVE voice or stage event ends on its own a few minutes after its channel empties. Requires the Manage Events permission, or Create Events for an event the bot created, plus the same channel permissions as creating it.",
+      "Update a scheduled event; only provided fields change. Use the status field to start ('ACTIVE'), end ('COMPLETED'), or cancel ('CANCELED') an event; Discord only allows certain status transitions. Discord rejects a location on VOICE and STAGE_INSTANCE events. An ACTIVE voice or stage event ends on its own a few minutes after its channel empties. Requires the Manage Events permission, or Create Events for an event the bot created, plus the same channel permissions as creating it. Use discord_create_scheduled_event for a new event, or discord_delete_scheduled_event to remove one for good.",
     annotations: {
       title: "Edit scheduled event",
       readOnlyHint: false,
@@ -327,7 +327,7 @@ const tools = [
   defineTool({
     name: "discord_get_event_subscribers",
     description:
-      "List the users who marked themselves 'Interested' in a scheduled event. Returns { subscribers: [...], nextCursor }. A page holds up to 100 users; if nextCursor is non-null, pass it back as `after` to fetch the next page. Read-only.",
+      "List the users who marked themselves 'Interested' in a scheduled event. Returns { subscribers: [...], nextCursor }. A page holds up to 100 users; if nextCursor is non-null, pass it back as `after` to fetch the next page. Read-only. Use discord_get_scheduled_event for the event's details.",
     annotations: { title: "Get event subscribers", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

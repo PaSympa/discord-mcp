@@ -411,7 +411,7 @@ const tools = [
   defineTool({
     name: "discord_read_messages",
     description:
-      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions; without Read Message History an empty result fails with an error naming the permission. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag, and the text of any embeds. Use discord_search_messages or discord_search_guild_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only.",
+      "Read messages from a text channel or thread, oldest-to-newest. Page backwards by re-calling with before set to the id of the oldest message you received, which walks a channel past the 100-message per-call cap. Requires the View Channel and Read Message History permissions; without Read Message History an empty result fails with an error naming the permission. Returns { messages: [...] } with id, author, content, timestamp, attachment count, pinned flag, and the text of any embeds. Use discord_search_messages or discord_search_guild_messages to filter by keyword, or discord_fetch_pinned_messages for pinned messages only. Use discord_read_dms for the bot's DMs, discord_get_message_attachments for a message's files, or discord_get_forum_post for a forum post's tags and state.",
     annotations: { title: "Read messages", readOnlyHint: true, openWorldHint: true },
     schema: z
       .object({
@@ -461,7 +461,7 @@ const tools = [
   defineTool({
     name: "discord_send_message",
     description:
-      "Send a plain-text message to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission. Returns the new message ID.",
+      "Send a plain-text message to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission. Returns the new message ID. Use discord_send_multiple_embeds for text with embeds, discord_forward_message to share an existing message, discord_send_webhook_message to post as a webhook, discord_create_poll for a poll, or discord_send_dm for a DM; in a thread, discord_reply_to_forum does the same.",
     annotations: {
       title: "Send message",
       readOnlyHint: false,
@@ -484,7 +484,7 @@ const tools = [
   defineTool({
     name: "discord_reply_message",
     description:
-      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages and Read Message History permissions. Discord refuses some system messages as reply targets. Returns the new reply's message ID.",
+      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages and Read Message History permissions. Discord refuses some system messages as reply targets. Returns the new reply's message ID. In a DM, use discord_reply_dm; discord_reply_to_forum posts in a thread without a reply reference.",
     annotations: {
       title: "Reply to message",
       readOnlyHint: false,
@@ -516,7 +516,7 @@ const tools = [
   defineTool({
     name: "discord_edit_message",
     description:
-      "Edit the text content of a message previously sent by this bot. Discord forbids editing other users' messages, so this fails for non-bot messages. Use discord_edit_embed for embed messages. Works in text channels and threads. Requires the View Channel and Read Message History permissions. Returns the edited message ID.",
+      "Edit the text content of a message previously sent by this bot. Discord forbids editing other users' messages, so this fails for non-bot messages. It changes the text and keeps any embeds; discord_edit_embed replaces the embeds and keeps the text. Works in text channels and threads. Requires the View Channel and Read Message History permissions. Returns the edited message ID. Use discord_edit_dm for a DM, or discord_edit_webhook_message for a message sent through a webhook.",
     annotations: {
       title: "Edit message",
       readOnlyHint: false,
@@ -644,7 +644,7 @@ const tools = [
   defineTool({
     name: "discord_create_thread",
     description:
-      "Create a thread, either branching from an existing message (pass message_id) or as a standalone thread in a text channel (omit message_id). Standalone creation requires a parent text channel and fails if channel_id is itself a thread. Requires the Create Public Threads permission (or Create Private Threads for a private thread), plus Read Message History when message_id is set. Returns the new thread's ID. Set private for a standalone thread that only its members and moderators see. member_ids adds people in the same call and needs Send Messages in Threads; discord_add_thread_member adds them later.",
+      "Create a thread, either branching from an existing message (pass message_id) or as a standalone thread in a text channel (omit message_id). Standalone creation requires a parent text channel and fails if channel_id is itself a thread. Requires the Create Public Threads permission (or Create Private Threads for a private thread), plus Read Message History when message_id is set. Returns the new thread's ID. Set private for a standalone thread that only its members and moderators see. member_ids adds people in the same call and needs Send Messages in Threads; discord_add_thread_member adds them later. In a forum channel, use discord_create_forum_post instead.",
     annotations: {
       title: "Create thread",
       readOnlyHint: false,
@@ -959,7 +959,7 @@ const tools = [
   defineTool({
     name: "discord_send_embed",
     description:
-      "Send a single rich embed (title, description, color, fields, author, footer, images, timestamp). Use discord_send_message for plain text, or discord_send_multiple_embeds to send several embeds at once. Requires the Send Messages and Embed Links permissions. Returns the new message ID.",
+      "Send a single rich embed (title, description, color, fields, author, footer, images, timestamp). Use discord_send_message for plain text, or discord_send_multiple_embeds to send several embeds at once. Requires the Send Messages and Embed Links permissions. Returns the new message ID. For a DM, use discord_send_dm_embed.",
     annotations: {
       title: "Send embed",
       readOnlyHint: false,
@@ -987,7 +987,7 @@ const tools = [
   defineTool({
     name: "discord_edit_embed",
     description:
-      "Replace the embed on a message previously sent by this bot. Only this bot's messages can be edited. This is a full replace, not a merge: provided fields are applied and omitted fields are dropped from the embed. Requires the View Channel, Read Message History and Embed Links permissions. Returns a confirmation.",
+      "Replace the embed on a message previously sent by this bot. Only this bot's messages can be edited. This is a full replace, not a merge: provided fields are applied and omitted fields are dropped from the embed. Requires the View Channel, Read Message History and Embed Links permissions. Returns a confirmation. It keeps the message's text; use discord_edit_message to change the text, discord_edit_dm_embed for a DM, or discord_edit_webhook_message for a webhook's message.",
     annotations: {
       title: "Edit embed",
       readOnlyHint: false,
@@ -1021,7 +1021,7 @@ const tools = [
   defineTool({
     name: "discord_send_multiple_embeds",
     description:
-      "Send up to 10 embeds in a single message, with optional text above them. Use discord_send_embed for a single embed. Requires the Send Messages and Embed Links permissions. Returns the new message ID.",
+      "Send up to 10 embeds in a single message, with optional text above them. Use discord_send_embed for a single embed. Requires the Send Messages and Embed Links permissions. Returns the new message ID. For text with no embed, use discord_send_message.",
     annotations: {
       title: "Send multiple embeds",
       readOnlyHint: false,
@@ -1054,7 +1054,7 @@ const tools = [
   defineTool({
     name: "discord_delete_message",
     description:
-      "Permanently delete one specific message. IRREVERSIBLE. Requires the View Channel and Read Message History permissions to find the message. The bot can then delete its own messages; deleting another user's message also requires the Manage Messages permission. Use discord_bulk_delete_messages to remove many at once. Discord does not record a reason for a single message delete in the audit log.",
+      "Permanently delete one specific message. IRREVERSIBLE. Requires the View Channel and Read Message History permissions to find the message. The bot can then delete its own messages; deleting another user's message also requires the Manage Messages permission. Use discord_bulk_delete_messages to remove many at once. Discord does not record a reason for a single message delete in the audit log. Use discord_delete_dm for a DM, or discord_delete_webhook_message to delete a webhook's message with its token.",
     annotations: {
       title: "Delete message",
       readOnlyHint: false,
@@ -1084,7 +1084,7 @@ const tools = [
   defineTool({
     name: "discord_pin_message",
     description:
-      "Pin or unpin a message in a channel, controlled by the pin flag. Requires the Pin Messages and Read Message History permissions (Pin Messages is a dedicated permission since early 2026, separate from Manage Messages). A channel holds at most 250 pins. Idempotent: pinning an already-pinned message (or unpinning an unpinned one) has no additional effect.",
+      "Pin or unpin a message in a channel, controlled by the pin flag. Requires the Pin Messages and Read Message History permissions (Pin Messages is a dedicated permission since early 2026, separate from Manage Messages). A channel holds at most 250 pins. Idempotent: pinning an already-pinned message (or unpinning an unpinned one) has no additional effect. List the pins with discord_fetch_pinned_messages.",
     annotations: {
       title: "Pin or unpin message",
       readOnlyHint: false,
@@ -1221,7 +1221,7 @@ const tools = [
   defineTool({
     name: "discord_crosspost_message",
     description:
-      "Publish (crosspost) a message from an Announcement channel to every server that follows it. Only works in announcement channels on a message that has not already been published. Requires the Read Message History and Send Messages permissions (and Manage Messages for messages authored by others). Returns a confirmation.",
+      "Publish (crosspost) a message from an Announcement channel to every server that follows it. Only works in announcement channels; a message that was already published returns a success and is not published again. Requires the Read Message History and Send Messages permissions (and Manage Messages for messages authored by others). Returns a confirmation. Use discord_forward_message to copy one message into another channel, or discord_follow_announcement_channel to subscribe a channel to future publications.",
     annotations: {
       title: "Crosspost message",
       readOnlyHint: false,
@@ -1335,7 +1335,7 @@ const tools = [
   defineTool({
     name: "discord_get_reactions",
     description:
-      "List the users who reacted to a message with a specific emoji. Returns { reactions: [...], hasMore, nextAfter } with id, username, bot flag, ordered by user ID. Returns 25 users by default and at most 100 per call; while hasMore is true pass nextAfter back as `after` for the next page. A reaction added while paging is missed if the user's ID sorts before the cursor. Super reactions are not listed. Fails when no one reacted with that emoji. Requires the View Channel and Read Message History permissions.",
+      "List the users who reacted to a message with a specific emoji. Returns { reactions: [...], hasMore, nextAfter } with id, username, bot flag, ordered by user ID. Returns 25 users by default and at most 100 per call; while hasMore is true pass nextAfter back as `after` for the next page. A reaction added while paging is missed if the user's ID sorts before the cursor. Super reactions are not listed. Fails when no one reacted with that emoji. Requires the View Channel and Read Message History permissions. For the votes of a native poll, use discord_get_poll_voters.",
     annotations: { title: "Get reactions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId.describe(
@@ -1477,7 +1477,7 @@ const tools = [
   defineTool({
     name: "discord_forward_message",
     description:
-      "Forward an existing message to another channel using Discord's native forward, which links back to the original message. The forward carries a snapshot of the content, embeds and attachments, without the original author. Works across text channels and threads. Discord forwards only regular messages, replies and command responses, not polls, and refuses a message whose content the bot cannot read (error 160014). Use discord_send_message to compose new content instead. Requires the View Channel and Read Message History permissions in the source channel and Send Messages in the target channel. Returns a confirmation.",
+      "Forward an existing message to another channel using Discord's native forward, which links back to the original message. The forward carries a snapshot of the content, embeds and attachments, without the original author. Works across text channels and threads. Discord forwards only regular messages, replies and command responses, not polls, and refuses a message whose content the bot cannot read (error 160014). Use discord_send_message to compose new content instead. Requires the View Channel and Read Message History permissions in the source channel and Send Messages in the target channel. Returns a confirmation. Use discord_crosspost_message to publish an announcement to following servers, or discord_follow_announcement_channel to repost a channel's future announcements.",
     annotations: {
       title: "Forward message",
       readOnlyHint: false,

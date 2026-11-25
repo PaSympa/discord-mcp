@@ -64,6 +64,7 @@ import {
   messageText,
   textUpTo,
   structured,
+  fetchPageAfter,
   messageAuthor,
   messageAuthorShape,
 } from "./define.js";
@@ -1373,24 +1374,11 @@ const tools = [
       const reaction = findReaction(msg, emoji);
       if (!reaction)
         throw new Error(`No reaction found for emoji "${emoji}" on message ${msg.id}.`);
-      const page = [
-        ...(
-          await reaction.users.fetch({ after, limit: Math.min(limit + 1, MAX_FETCH_LIMIT) })
-        ).values(),
-      ];
-      const users = page.slice(0, limit);
-      const last = users.at(-1);
-      // Discord serves at most 100 users per call, so a full page of 100 needs a probe for more.
-      const more =
-        page.length > limit ||
-        (last !== undefined &&
-          users.length === MAX_FETCH_LIMIT &&
-          (await reaction.users.fetch({ after: last.id, limit: 1 })).size > 0);
-      const nextAfter = more && last ? last.id : null;
+      const page = await fetchPageAfter((query) => reaction.users.fetch(query), after, limit);
       return structured({
-        reactions: users.map((u) => ({ id: u.id, username: u.username, bot: u.bot })),
-        hasMore: nextAfter !== null,
-        nextAfter,
+        reactions: page.items.map((u) => ({ id: u.id, username: u.username, bot: u.bot })),
+        hasMore: page.hasMore,
+        nextAfter: page.nextAfter,
       });
     },
   }),

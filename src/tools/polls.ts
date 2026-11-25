@@ -10,6 +10,7 @@ import {
   messageId,
   snowflake,
   structured,
+  fetchPageAfter,
 } from "./define.js";
 
 const pollMessageId = messageId.describe("ID of the poll message.");
@@ -195,24 +196,11 @@ const tools = [
       const answer = poll.answers.get(answer_id);
       if (!answer)
         throw new Error(`Poll on message ${message_id} has no answer with id ${answer_id}.`);
-      const page = [
-        ...(
-          await answer.voters.fetch({ after, limit: Math.min(limit + 1, MAX_FETCH_LIMIT) })
-        ).values(),
-      ];
-      const voters = page.slice(0, limit);
-      const last = voters.at(-1);
-      // Discord serves at most 100 voters per call, so a full page of 100 needs a probe for more.
-      const more =
-        page.length > limit ||
-        (last !== undefined &&
-          voters.length === MAX_FETCH_LIMIT &&
-          (await answer.voters.fetch({ after: last.id, limit: 1 })).size > 0);
-      const nextAfter = more && last ? last.id : null;
+      const page = await fetchPageAfter((query) => answer.voters.fetch(query), after, limit);
       return structured({
-        voters: voters.map((u) => ({ id: u.id, username: u.username, bot: u.bot })),
-        hasMore: nextAfter !== null,
-        nextAfter,
+        voters: page.items.map((u) => ({ id: u.id, username: u.username, bot: u.bot })),
+        hasMore: page.hasMore,
+        nextAfter: page.nextAfter,
       });
     },
   }),

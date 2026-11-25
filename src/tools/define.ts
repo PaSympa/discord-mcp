@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isGuildAllowed } from "../client.js";
+import { MAX_FETCH_LIMIT } from "../constants.js";
 import type {
   ToolModule,
   ToolDefinition,
@@ -119,6 +120,30 @@ export function structured(data: Record<string, unknown>): ToolResult {
     content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
     structuredContent: data,
   };
+}
+
+/**
+ * One page of a list Discord serves in ID order behind an `after` cursor, at most 100 per
+ * call (reaction users, poll voters). One extra entry tells whether a next page exists; a
+ * full page of 100 leaves no room for it, so a one-entry probe asks instead.
+ */
+export async function fetchPageAfter<T extends { id: string }>(
+  fetchPage: (query: { after?: string; limit: number }) => Promise<ReadonlyMap<string, T>>,
+  after: string | undefined,
+  limit: number,
+): Promise<{ items: T[]; hasMore: boolean; nextAfter: string | null }> {
+  const page = [
+    ...(await fetchPage({ after, limit: Math.min(limit + 1, MAX_FETCH_LIMIT) })).values(),
+  ];
+  const items = page.slice(0, limit);
+  const last = items.at(-1);
+  const more =
+    page.length > limit ||
+    (last !== undefined &&
+      items.length === MAX_FETCH_LIMIT &&
+      (await fetchPage({ after: last.id, limit: 1 })).size > 0);
+  const nextAfter = more && last ? last.id : null;
+  return { items, hasMore: nextAfter !== null, nextAfter };
 }
 
 /**

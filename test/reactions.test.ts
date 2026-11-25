@@ -107,6 +107,7 @@ test("get_reactions walks every reactor once, in order, by passing nextAfter bac
   const pages: boolean[] = [];
   let after: string | undefined;
   do {
+    assert.ok(pages.length < 10, "nextAfter must move the walk forward");
     const result = await page({ limit: 2, ...(after ? { after } : {}) });
     seen.push(...result.reactions.map((r) => r.id));
     pages.push(result.hasMore);

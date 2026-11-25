@@ -16,6 +16,7 @@ import {
   guildId,
   structured,
   httpUrl,
+  textUpTo,
 } from "./define.js";
 
 const roleId = snowflake.describe("ID (snowflake) of the role to edit.");
@@ -197,7 +198,7 @@ const tools = [
     },
     schema: z.object({
       guild_id: guildId,
-      name: z.string().describe("Name of the new role (max 100 characters)."),
+      name: textUpTo(100).describe("Name of the new role (max 100 characters)."),
       color: z
         .string()
         .regex(/^#[0-9A-Fa-f]{6}$/, "Hex color like '#FF5733'.")
@@ -244,7 +245,7 @@ const tools = [
     schema: z.object({
       guild_id: guildId,
       role_id: roleId,
-      name: z.string().optional().describe("New role name (max 100 characters)."),
+      name: textUpTo(100).optional().describe("New role name (max 100 characters)."),
       color: z
         .string()
         .regex(/^#[0-9A-Fa-f]{6}$/, "Hex color like '#FF5733'.")

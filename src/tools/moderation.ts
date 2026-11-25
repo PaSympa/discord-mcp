@@ -1,4 +1,3 @@
-import { AuditLogEvent } from "discord.js";
 import { z } from "zod";
 import { discord } from "../client.js";
 import { defineTool, defineModule, guildId, intIn, structured } from "./define.js";
@@ -24,11 +23,14 @@ const tools = [
       limit: intIn(1, 100)
         .default(25)
         .describe("How many recent entries to fetch (1–100). Default 25."),
+      // No enum from discord.js: its AuditLogEvent list grows between releases of a transitive
+      // dependency, so tools/list would change without a release of this server.
       action_type: z
-        .union([z.enum(AuditLogEvent), z.int().min(1)])
+        .int()
+        .min(1)
         .optional()
         .describe(
-          "Optional Discord AuditLogEvent numeric ID to filter by (e.g. 22 = MemberBanAdd). Accepts event IDs newer than the bundled enum. Omit for all action types.",
+          "Optional Discord AuditLogEvent numeric ID to filter by. Common IDs: 12 = ChannelDelete, 20 = MemberKick, 22 = MemberBanAdd, 23 = MemberBanRemove, 24 = MemberUpdate (nickname, timeout), 25 = MemberRoleUpdate, 32 = RoleDelete, 72 = MessageDelete. Discord's full list has more. Omit for all action types.",
         ),
     }),
     outputSchema: z.object({ entries: z.array(auditLogEntry) }),

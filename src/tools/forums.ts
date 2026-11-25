@@ -15,6 +15,8 @@ import {
   snowflake,
   guildId,
   intIn,
+  messageText,
+  textUpTo,
   structured,
   messageAuthor,
   messageAuthorShape,
@@ -44,7 +46,7 @@ async function getForumChannel(channelId: string, { force = false } = {}): Promi
 }
 
 const tagInput = z.strictObject({
-  name: z.string().describe("Tag label (max 20 characters)."),
+  name: textUpTo(50).describe("Tag label (max 50 characters)."),
   emoji_name: z
     .string()
     .min(1)
@@ -135,7 +137,7 @@ const tools = [
     },
     schema: z.object({
       guild_id: guildId,
-      name: z.string().describe("Name of the new forum channel (max 100 characters)."),
+      name: textUpTo(100).describe("Name of the new forum channel (max 100 characters)."),
       topic: z.string().optional().describe("Guidelines/topic text shown at the top of the forum."),
       category_id: snowflake
         .optional()
@@ -169,10 +171,10 @@ const tools = [
     },
     schema: z.object({
       forum_channel_id: snowflake.describe("ID (snowflake) of the forum channel to post in."),
-      title: z
-        .string()
-        .describe("Title of the post, used as the thread name (max 100 characters)."),
-      content: z.string().describe("Body of the post's starter message (max 2000 characters)."),
+      title: textUpTo(100).describe(
+        "Title of the post, used as the thread name (max 100 characters).",
+      ),
+      content: messageText.describe("Body of the post's starter message (max 2000 characters)."),
       applied_tags: z
         .array(z.string())
         .optional()
@@ -307,7 +309,7 @@ const tools = [
     },
     schema: z.object({
       thread_id: snowflake.describe("ID (snowflake) of the forum post (thread) to reply in."),
-      content: z.string().describe("Plain-text body of the reply (max 2000 characters)."),
+      content: messageText.describe("Plain-text body of the reply (max 2000 characters)."),
     }),
     handle: async ({ thread_id, content }) => {
       const thread = await getThreadChannel(thread_id);
@@ -457,7 +459,7 @@ const tools = [
     },
     schema: z.object({
       thread_id: snowflake.describe("ID (snowflake) of the forum post (thread) to update."),
-      title: z.string().optional().describe("New title/thread name (max 100 characters)."),
+      title: textUpTo(100).optional().describe("New title/thread name (max 100 characters)."),
       archived: z
         .boolean()
         .optional()

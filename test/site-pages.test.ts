@@ -1720,6 +1720,23 @@ test("generated sentences agree in number, commands keep each flag with its valu
   }
 });
 
+test("a shell line's closing backslash wraps with the end of the word before it", () => {
+  let continued = 0;
+  for (const page of pages)
+    for (const [, line] of read(page).matchAll(
+      /<span class="l"[^>]*>([\s\S]*?)<\/span>(?=<span class="l"|<\/code>)/g,
+    )) {
+      if (!/ \\$/.test(unescape(line.replace(/<[^>]+>/g, "")))) continue;
+      continued++;
+      const whole = /<span class="nw">((?:(?!<span class="nw">)[\s\S])*)<\/span>$/.exec(line);
+      assert.ok(
+        whole && !whole[1].includes("<wbr>") && /\S \\$/.test(whole[1].replace(/<[^>]+>/g, "")),
+        `${page}: ${line}`,
+      );
+    }
+  assert.ok(continued > 10, `only ${continued} continued shell lines found`);
+});
+
 test("the privacy page matches what the site, the plugin and the server do", () => {
   const html = read("privacy/index.html");
   const plugin = JSON.parse(

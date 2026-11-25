@@ -62,20 +62,28 @@ export function md(site, text, up, local) {
 
 const PLACEHOLDER = /YOUR_[A-Z_]+|\/absolute\/path\/to\/[\w/.-]+/g;
 
-// Short words never wrap inside (a package name stays whole); long ones may break anywhere,
-// and preferably after a comma or an equals sign.
+const wordHtml = (text, long) =>
+  esc(text)
+    .replace(long ? /([,=])/g : /$^/, "$1<wbr>")
+    .replace(PLACEHOLDER, (m) => `<span class="ph">${m}</span>`)
+    .replace(/\?/g, "?<wbr>")
+    .replace(/&amp;/g, "&amp;<wbr>");
+
+// Short words move to the next line whole (a package name stays whole); long ones may break
+// anywhere, and preferably after a comma or an equals sign. A closing " \" joins the last
+// segment of the word before it, so the backslash never wraps onto a line of its own.
 function codeLine(text) {
-  const html = text
-    .split(/( +)/)
-    .map((part) => {
+  const words = text.split(/( +)/);
+  const continued = words.length > 2 && words.at(-1) === "\\" && words.at(-3) !== "";
+  const closing = continued ? words.splice(-2).join("") : "";
+  const html = words
+    .map((part, i) => {
       if (part === "" || part.startsWith(" ")) return part;
-      const short = part.length <= 32;
-      const inner = esc(part)
-        .replace(short ? /$^/ : /([,=])/g, "$1<wbr>")
-        .replace(PLACEHOLDER, (m) => `<span class="ph">${m}</span>`)
-        .replace(/\?/g, "?<wbr>")
-        .replace(/&amp;/g, "&amp;<wbr>");
-      return short ? `<span class="nw">${inner}</span>` : inner;
+      const end = i === words.length - 1 ? closing : "";
+      if (part.length <= 32) return `<span class="nw">${wordHtml(part, false)}${end}</span>`;
+      if (!end) return wordHtml(part, true);
+      const cut = Math.max(...[..."/,=?&"].map((c) => part.lastIndexOf(c, part.length - 2))) + 1;
+      return `${wordHtml(part.slice(0, cut), true)}<wbr><span class="nw">${wordHtml(part.slice(cut), false)}${end}</span>`;
     })
     .join("");
   return raw(html);

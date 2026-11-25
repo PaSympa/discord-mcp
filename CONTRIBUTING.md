@@ -8,6 +8,7 @@ Thanks for your interest in contributing to Discord MCP Server!
 2. Build it with `defineTool` entries assembled by `defineModule([...])`, and default-export the result
 3. Add it to `allToolsets` in `src/tools/index.ts`; the key becomes its `DISCORD_MCP_TOOLSETS` name
 4. Update `README.md` (tool tables, counts, toolset list)
+5. For a new toolset, also give it a `label` and a `blurb` in `site/content.json`, or the site build fails, and add its name to the `DISCORD_MCP_TOOLSETS` description of both packages in `server.json`. `npm test` checks both
 
 ### Tool Module Structure
 
@@ -85,7 +86,7 @@ npm run bundle    # after a build: packs discord-mcp.mcpb for Claude Desktop
 npm run site      # after a build: renders the docs site into _site/
 ```
 
-CI runs `npm run lint`, `npm run format:check`, `npm run build` and `npm test` on Node 22 and 24. Run them before opening a pull request.
+CI runs `npm run lint`, `npm run format:check`, `npm run build` and `npm test` on Node 22, 24 and 26, the version the Docker image runs. Run them before opening a pull request.
 
 The docs site at https://pasympa.github.io/discord-mcp/ is generated from `README.md`, `site/content.json` and the tool definitions. `.github/workflows/pages.yml` rebuilds and deploys it on every push to `main`, so a merged change to the README or a tool shows up there without a release.
 

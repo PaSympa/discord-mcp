@@ -26,6 +26,8 @@
 - `discord_bulk_delete_messages`, `discord_bulk_add_role` and `discord_bulk_remove_role` return `stopped.retry_after_seconds` when Discord asks them to wait past the call's time budget, and the message says to wait that long before calling again. For messages older than 14 days, Discord allows about 40 single deletes, then asks for a pause of about 2 minutes
 - 32 parameters whose text states a Discord limit carry it in their schema, as `maxLength` or `maxItems`, and refuse a longer value before the call reaches Discord. Message text stops at 2000 characters, channel, thread, role, forum post and event names at 100, webhook names at 80, forum tag names at 50 (the text used to say 20, which Discord does not enforce), event descriptions at 1000, and embed `fields` at 25. Characters are counted in code points, as JSON Schema counts `maxLength`, and `discord_set_nickname` counts its 32 characters the same way. The optional text above the embeds of `discord_send_embed`, `discord_send_multiple_embeds`, `discord_send_dm_embed` and `discord_edit_dm_embed` stops at 2000 characters too
 - `discord_get_audit_log` advertises `action_type` as an integer from 1, without the list of event IDs it took from discord.js. That list grows with each discord-api-types release, so an npx install and the Docker image of the same version advertised different schemas. Any ID is still accepted, and the parameter's text names the common ones
+- CI also tests on Node 26, the version the Docker image runs. A test fails when the Dockerfile moves to a Node version CI does not test, or when CI stops testing the oldest version `engines` accepts
+- CONTRIBUTING lists the two files a new toolset also needs: its label in `site/content.json` and its name in the `DISCORD_MCP_TOOLSETS` description of both `server.json` packages. A test checks that `server.json` and the README name every toolset
 
 ### Fixed
 
@@ -36,6 +38,10 @@
 - A client that closes stderr no longer sends the server into an endless loop that used a full CPU core and answered no further requests. Contributed by [@Caisusandy](https://github.com/Caisusandy) in [#216](https://github.com/PaSympa/discord-mcp/pull/216)
 - With `DISCORD_ALLOWED_GUILDS` set, the seven `dm` tools refuse a user who is not a member of any listed guild, before a DM is opened or read. They used to reach any user, such as one the bot meets only in a server outside the list. The check needs no Server Members intent
 - `discord_create_thread` creates a standalone thread in an announcement channel, as an announcement thread. It used to refuse the channel and call it a thread. `private: true` is refused there, since Discord creates only public threads in an announcement channel. The refusal of a voice or stage channel names that kind instead of calling it a thread
+- On the site, the closing backslash of a shell command no longer wraps onto a line of its own on a phone, as it did in the Codex CLI block of the configuration page at 390 px. A word in a code block that is wider than the line now wraps inside it, and long variable names on the configuration page break after an underscore, so the guide and configuration pages no longer scroll sideways at 320 px
+- The home page's client setup block is a section named by its heading, so screen readers announce "Add it to your client"
+- `scripts/site-browser-check.mjs` runs to the end again. It checks the toolset builder on `/toolsets/`, where it moved, and covers the guide, recipes, configuration, troubleshooting and privacy pages
+- The release dates of 1.1.0 to 1.4.1 in this changelog: four said 2025 instead of 2026, 1.2.0 was released on 2026-03-21 and 1.4.1 on 2026-03-25
 
 ## [2.4.0] - 2026-11-15
 
@@ -265,7 +271,7 @@
 - Full DM toolset (6 new tools, 97 total): `discord_send_dm_embed`, `discord_edit_dm`, `discord_edit_dm_embed`, `discord_delete_dm`, `discord_read_dms`, `discord_reply_dm`
 - All DM tools take `user_id` directly and are self-contained in `dm.ts`
 
-## [1.4.1] - 2026-04-06
+## [1.4.1] - 2026-03-25
 
 ### Added
 
@@ -280,7 +286,7 @@
 
 - Removed `dist/` from git tracking (now in `.gitignore`)
 
-## [1.4.0] - 2025-03-25
+## [1.4.0] - 2026-03-25
 
 ### Added
 
@@ -297,7 +303,7 @@
 
 - `discord_list_bans` now handles empty ban lists gracefully
 
-## [1.3.0] - 2025-03-24
+## [1.3.0] - 2026-03-24
 
 ### Added
 
@@ -306,7 +312,7 @@
 - Invites: list, get, create, delete (4 tools)
 - `GuildScheduledEvents` and `GuildInvites` gateway intents
 
-## [1.2.0] - 2025-03-20
+## [1.2.0] - 2026-03-21
 
 ### Added
 
@@ -315,7 +321,7 @@
 - Docker support with multi-stage build
 - Glama badge for MCP server listing
 
-## [1.1.0] - 2025-03-18
+## [1.1.0] - 2026-03-18
 
 ### Added
 

@@ -710,8 +710,11 @@ kbd {
 .term-code .cm {
   color: var(--t-muted);
 }
+/* Whole on one line when it fits; a word wider than the line still wraps inside. */
 .term-code .nw {
-  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+  text-indent: 0;
 }
 .term a {
   color: var(--t-fg);

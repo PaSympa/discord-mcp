@@ -41,12 +41,12 @@ function hero(site) {
     <p class="lead">${md(site, site.readme.intro, UP)}</p>
     <div class="ocl hero-ocl" role="group" aria-label="One-click install">${oneClick(site, Object.keys(site.installLinks))}</div>
   </div>
-  <div class="setup" id="clients" aria-labelledby="setup-title">
+  <section class="setup" id="clients" aria-labelledby="setup-title">
     <h2 class="setup-title" id="setup-title">Add it to your client</h2>
     <nav class="tabs" id="client-tabs" aria-label="Clients">${tabs}</nav>
     <div class="panels">${site.clients.map((client) => clientPanel(site, client))}</div>
     <p class="setup-note">Replace <code>YOUR_BOT_TOKEN</code> with your bot's token, <a href="#quick-start">created in three steps</a>. The server runs on Node.js 22 or later.</p>
-  </div>
+  </section>
 </section>`;
 }
 

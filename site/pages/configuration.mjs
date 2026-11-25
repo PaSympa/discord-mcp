@@ -1,4 +1,4 @@
-import { tpl } from "../client/tpl.mjs";
+import { breakable, tpl } from "../client/tpl.mjs";
 import { docPage, docSection, UP } from "./docs.mjs";
 import { md, terminal } from "./parts.mjs";
 
@@ -20,7 +20,10 @@ const json = (value) =>
 const jsonConfig = (env, command = "npx", args = ["-y", PACKAGE]) =>
   json({ mcpServers: { discord: { command, args, env } } });
 
-/** A shell command with one flag and its variable per line, so neither wraps apart. */
+/**
+ * A shell command with one flag and its variable per line. On a narrow screen a line can
+ * still wrap, but its closing backslash stays with the text before it.
+ */
 const command = (start, flag) =>
   [
     start,
@@ -41,7 +44,7 @@ function variable(site, v, local) {
         ? setting("Plugin and bundle", v.plugin)
         : [setting("Claude Code plugin", v.plugin), setting("Claude Desktop bundle", v.bundle)];
   return tpl`<section class="env" id="${v.name}" aria-labelledby="${v.name}-h">
-  <h3 id="${v.name}-h"><code>${v.name}</code></h3>
+  <h3 id="${v.name}-h"><code>${breakable(v.name)}</code></h3>
   <p>${md(site, v.text, UP, local)}</p>
   <dl class="facts env-facts">
     <div><dt>Default</dt><dd>${md(site, v.fallback, UP, local)}</dd></div>

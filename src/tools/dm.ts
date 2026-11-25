@@ -20,7 +20,7 @@ const tools = [
   defineTool({
     name: "discord_send_dm",
     description:
-      "Send a private direct message to a user by their user ID. Use discord_send_message to post in a server channel instead. Requires the bot to share at least one server with the user, and the user must allow DMs from server members (otherwise Discord rejects the send). Returns the new message ID.",
+      "Send a private direct message to a user by their user ID. Use discord_send_message to post in a server channel instead. Requires the bot to share at least one server with the user, and the user must allow DMs from server members (otherwise Discord rejects the send). Returns the new message ID. Use discord_send_dm_embed for an embed, or discord_reply_dm to reply to a message. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
     annotations: {
       title: "Send DM",
       readOnlyHint: false,
@@ -45,7 +45,7 @@ const tools = [
   defineTool({
     name: "discord_send_dm_embed",
     description:
-      "Send a rich embed as a private direct message to a user. Use discord_send_dm for plain text, or discord_send_embed to post an embed in a channel. Requires the bot to share a server with the user, and the user must allow DMs from server members. Returns the new message ID.",
+      "Send a rich embed as a private direct message to a user. Use discord_send_dm for plain text, or discord_send_embed to post an embed in a channel. Requires the bot to share a server with the user, and the user must allow DMs from server members. Returns the new message ID. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
     annotations: {
       title: "Send DM embed",
       readOnlyHint: false,
@@ -74,7 +74,7 @@ const tools = [
   defineTool({
     name: "discord_edit_dm",
     description:
-      "Edit the text content of a DM message previously sent by this bot. Only the bot's own DM messages can be edited. Use discord_edit_dm_embed for embed messages. Returns a confirmation.",
+      "Edit the text content of a DM message previously sent by this bot. Only the bot's own DM messages can be edited. It changes the text and keeps any embed; discord_edit_dm_embed replaces the embed. Returns a confirmation. For a message in a server channel, use discord_edit_message. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
     annotations: {
       title: "Edit DM",
       readOnlyHint: false,
@@ -106,7 +106,7 @@ const tools = [
   defineTool({
     name: "discord_edit_dm_embed",
     description:
-      "Replace the embed on a DM message previously sent by this bot. Full replace, not merge: provided fields are applied and omitted fields are dropped. Omitting content, or passing an empty string, keeps the message's current text; this tool cannot clear it. Use discord_edit_dm to change only the text, or discord_edit_embed for a message in a server channel. Returns a confirmation.",
+      "Replace the embed on a DM message previously sent by this bot. Full replace, not merge: provided fields are applied and omitted fields are dropped. Omitting content, or passing an empty string, keeps the message's current text; this tool cannot clear it. Use discord_edit_dm to change only the text, or discord_edit_embed for a message in a server channel. Returns a confirmation. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
     annotations: {
       title: "Edit DM embed",
       readOnlyHint: false,
@@ -145,7 +145,7 @@ const tools = [
   defineTool({
     name: "discord_delete_dm",
     description:
-      "Permanently delete a DM message previously sent by this bot. IRREVERSIBLE. The bot can only delete its own DM messages, not the recipient's. Returns a confirmation.",
+      "Permanently delete a DM message previously sent by this bot. IRREVERSIBLE. The bot can only delete its own DM messages, not the recipient's. Returns a confirmation. For a message in a server channel, use discord_delete_message. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
     annotations: {
       title: "Delete DM",
       readOnlyHint: false,
@@ -174,7 +174,7 @@ const tools = [
   defineTool({
     name: "discord_read_dms",
     description:
-      "Read the most recent messages from the bot's DM conversation with a user, oldest-to-newest. Returns { messages: [...] } with id, author, content, embed count, timestamp. Read-only.",
+      "Read the most recent messages from the bot's DM conversation with a user, oldest-to-newest. Returns { messages: [...] } with id, author, content, embed count, timestamp. Read-only. For a server channel or thread, use discord_read_messages. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
     annotations: { title: "Read DMs", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       user_id: userId,
@@ -214,7 +214,7 @@ const tools = [
   defineTool({
     name: "discord_reply_dm",
     description:
-      "Reply to a specific message in a DM, attaching a quoted reply reference. Unlike the edit/delete DM tools, this works on the bot's messages and the user's alike, though Discord refuses some system messages as reply targets. Use discord_send_dm for a standalone DM with no reference. Returns the new reply's message ID.",
+      "Reply to a specific message in a DM, attaching a quoted reply reference. Unlike the edit/delete DM tools, this works on the bot's messages and the user's alike, though Discord refuses some system messages as reply targets. Use discord_send_dm for a standalone DM with no reference. Returns the new reply's message ID. For a message in a server channel, use discord_reply_message. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
     annotations: {
       title: "Reply to DM",
       readOnlyHint: false,

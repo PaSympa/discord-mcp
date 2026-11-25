@@ -73,14 +73,14 @@
 
 ## Expose only what you need
 
-The full set of 108 tools costs about 40k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
+The full set of 108 tools costs about 42k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
 
 | Profile              | `DISCORD_MCP_TOOLSETS`                           | Tools | Context     |
 | -------------------- | ------------------------------------------------ | ----- | ----------- |
-| Everything (default) | unset                                            | 108   | ~40k tokens |
-| Chat assistant       | `discovery,messages`                             | 27    | ~12k tokens |
-| Community manager    | `discovery,messages,forums,scheduled_events`     | 44    | ~18k tokens |
-| Moderator            | `discovery,members,moderation,roles,permissions` | 33    | ~11k tokens |
+| Everything (default) | unset                                            | 108   | ~42k tokens |
+| Chat assistant       | `discovery,messages`                             | 27    | ~13k tokens |
+| Community manager    | `discovery,messages,forums,scheduled_events`     | 44    | ~19k tokens |
+| Moderator            | `discovery,members,moderation,roles,permissions` | 33    | ~12k tokens |
 | Audit and stats      | `discovery,stats,moderation`                     | 6     | ~2k tokens  |
 
 ```json
@@ -92,7 +92,7 @@ The full set of 108 tools costs about 40k tokens of context when a client loads 
 
 Context sizes are measured on the `tools/list` response (bytes divided by 4). Toolsets: `discovery`, `messages`, `channels`, `permissions`, `members` (includes kick, ban and timeout), `roles`, `moderation` (the audit log), `screening`, `stats`, `forums`, `webhooks`, `scheduled_events`, `invites`, `dm`, `polls`. A toolset brings its whole module, destructive tools included; an unknown name stops the server at startup instead of exposing everything.
 
-Set `DISCORD_MCP_READ_ONLY=true` to keep only the 37 tools annotated `readOnlyHint: true`, about 15k tokens. It narrows `DISCORD_MCP_TOOLSETS` instead of replacing it: `discovery,messages` then exposes 11 tools, about 5k tokens. A selection with no read-only tool left, such as `channels` alone, stops the server at startup.
+Set `DISCORD_MCP_READ_ONLY=true` to keep only the 37 tools annotated `readOnlyHint: true`, about 15k tokens. It narrows `DISCORD_MCP_TOOLSETS` instead of replacing it: `discovery,messages` then exposes 11 tools, about 6k tokens. A selection with no read-only tool left, such as `channels` alone, stops the server at startup.
 
 ## Safety
 

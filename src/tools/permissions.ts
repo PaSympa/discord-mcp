@@ -34,7 +34,7 @@ const tools = [
   defineTool({
     name: "discord_get_channel_permissions",
     description:
-      "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Refuses a channel that Discord hides from the bot behind the placeholder name ___hidden___: Discord shows a placeholder in place of its real overwrites, so grant the bot View Channel on it first. Use discord_audit_permissions for a server-wide report across all channels.",
+      "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Refuses a channel that Discord hides from the bot behind the placeholder name ___hidden___: Discord shows a placeholder in place of its real overwrites. Reading such a channel requires the View Channel permission. Use discord_audit_permissions for a server-wide report across all channels.",
     annotations: { title: "Get channel permissions", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to inspect."),
@@ -60,7 +60,7 @@ const tools = [
   defineTool({
     name: "discord_set_role_permission",
     description:
-      "Add or update a per-channel permission overwrite for a role, allowing and/or denying specific permissions. Merges with the role's existing overwrite (does not reset it). Denying View Channel to @everyone on a channel also hides it from the bot, unless the bot has Administrator or a View Channel allow overwrite there, on its own member or on one of its roles. Grant that allow first, for example with discord_set_member_permission, then deny. Requires the Manage Roles permission. Use discord_set_member_permission to target a single member instead.",
+      "Add or update a per-channel permission overwrite for a role, allowing and/or denying specific permissions. Merges with the role's existing overwrite (does not reset it). Denying View Channel to @everyone on a channel also hides it from the bot, unless the bot has Administrator or a View Channel allow overwrite there, on its own member or on one of its roles. Grant that allow first, for example with discord_set_member_permission, then deny. Requires the Manage Roles permission. Use discord_set_member_permission to target a single member instead. To change a role's permissions across the whole server, use discord_edit_role.",
     annotations: {
       title: "Set role channel permission",
       readOnlyHint: false,
@@ -149,7 +149,7 @@ const tools = [
   defineTool({
     name: "discord_reset_channel_permissions",
     description:
-      "Remove ALL permission overwrites on a channel, so only role/server-level permissions apply. Does NOT re-sync with the category; use discord_lock_channel_permissions for that. IRREVERSIBLE: the cleared overwrites cannot be recovered. Requires the Manage Channels and Manage Roles permissions.",
+      "Remove ALL permission overwrites on a channel, so only role/server-level permissions apply. Does NOT re-sync with the category; use discord_lock_channel_permissions for that. IRREVERSIBLE: the cleared overwrites cannot be recovered. Requires the Manage Channels and Manage Roles permissions. To copy another channel's overwrites instead, use discord_copy_permissions.",
     annotations: {
       title: "Reset channel permissions",
       readOnlyHint: false,
@@ -176,7 +176,7 @@ const tools = [
   defineTool({
     name: "discord_copy_permissions",
     description:
-      "Replace the target channel's permission overwrites with a copy of the source channel's. The target's existing overwrites are overwritten. Requires the Manage Channels and Manage Roles permissions, and View Channel on the source: the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. To create a new channel with the same overwrites, use discord_clone_channel; to remove them all, use discord_reset_channel_permissions.",
+      "Replace the target channel's permission overwrites with a copy of the source channel's. The target's existing overwrites are overwritten. Requires the Manage Channels and Manage Roles permissions (and View Channel on the source): the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. To create a new channel with the same overwrites, use discord_clone_channel; to remove them all, use discord_reset_channel_permissions. To match the parent category instead, use discord_lock_channel_permissions.",
     annotations: {
       title: "Copy channel permissions",
       readOnlyHint: false,

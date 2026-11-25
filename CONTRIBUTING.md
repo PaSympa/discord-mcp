@@ -68,6 +68,9 @@ _lowest_-quality tool heavily, so one thin definition drags the whole server's g
 
 - **Description**: action statement + when to use it vs. similar tools + required Discord
   permissions + side effects / destructive behavior + what it returns.
+- **Cross references**: every tool a description names must name that tool back and say when
+  to use it. A tool with no neighbor to confuse it with goes on the short list in
+  `test/registry.test.ts`, which checks both rules.
 - **`annotations`**: set the MCP hints: `readOnlyHint` (true for pure reads), `destructiveHint`
   (true for delete/ban/prune/irreversible writes), `idempotentHint` (true if repeating the call
   changes nothing further), and `openWorldHint: true` (every tool calls the Discord API). Add a

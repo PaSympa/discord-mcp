@@ -69,6 +69,39 @@ test("every tool's inputSchema forbids unknown keys at every nesting level", () 
   }
 });
 
+/** The tools a description names, read like the site's crossReferencesOf. */
+function referencesOf({ name, description }: { name: string; description: string }) {
+  return new Set((description.match(/discord_[a-z_]+/g) ?? []).filter((ref) => ref !== name));
+}
+
+function allReferences(): Map<string, Set<string>> {
+  delete process.env.DISCORD_MCP_TOOLSETS;
+  const definitions = selectModules().flatMap((m) => m.definitions);
+  return new Map(definitions.map((d) => [d.name, referencesOf(d)]));
+}
+
+test("every tool a description names exists and names that tool back", () => {
+  const refs = allReferences();
+  const oneWay: string[] = [];
+  for (const [name, targets] of refs)
+    for (const target of targets) {
+      assert.ok(refs.has(target), `${name} names ${target}, which is not a tool`);
+      if (!refs.get(target)!.has(name)) oneWay.push(`${name} -> ${target}`);
+    }
+  assert.deepEqual(oneWay, [], "a tool named by another must say when to use that one instead");
+});
+
+test("every tool names a neighbor, apart from the few that have none to be confused with", () => {
+  const lonely = [...allReferences()].filter(([, targets]) => targets.size === 0).map(([n]) => n);
+  assert.deepEqual(lonely.sort(), [
+    "discord_edit_channel",
+    "discord_fetch_webhook_message",
+    "discord_get_audit_log",
+    "discord_list_guilds",
+    "discord_set_nickname",
+  ]);
+});
+
 test("hasTool reflects the registry", () => {
   assert.ok(hasTool("discord_list_guilds"));
   assert.ok(!hasTool("discord_nonexistent"));

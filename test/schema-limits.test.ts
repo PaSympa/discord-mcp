@@ -13,6 +13,7 @@ import webhooks from "../src/tools/webhooks.js";
 import scheduledEvents from "../src/tools/scheduledEvents.js";
 import dm from "../src/tools/dm.js";
 import moderation from "../src/tools/moderation.js";
+import members from "../src/tools/members.js";
 
 afterEach(() => mock.restoreAll());
 
@@ -27,6 +28,9 @@ function inputSchema(mod: ToolModule, tool: string): Schema {
   assert.ok(def, `${tool} not found`);
   return def.inputSchema as Schema;
 }
+
+/** A schema and, for a nullable or union field, each of its alternatives. */
+const variants = (s: Schema) => [s, ...(s.anyOf ?? [])];
 
 function schemaAt(schema: Schema, path: (string | number)[]): Schema {
   return path.reduce<Schema>((node, key) => {
@@ -94,6 +98,7 @@ const LIMITS: [ToolModule, string, (string | number)[], number][] = [
   [dm, "discord_edit_dm_embed", ["content"], 2000],
   [dm, "discord_edit_dm_embed", ["fields"], 25],
   [dm, "discord_reply_dm", ["content"], 2000],
+  [members, "discord_set_nickname", ["nickname"], 32],
 ];
 
 for (const [mod, tool, path, max] of LIMITS) {
@@ -103,7 +108,7 @@ for (const [mod, tool, path, max] of LIMITS) {
 
   test(`${where} advertises and enforces its limit of ${max}`, async () => {
     const node = schemaAt(inputSchema(mod, tool), path);
-    assert.equal(node[isList ? "maxItems" : "maxLength"], max);
+    assert.ok(variants(node).some((v) => v[isList ? "maxItems" : "maxLength"] === max));
     assert.match(String(node.description), new RegExp(`(max|up to) ${max}\\b`, "i"));
 
     const over = await issuesFor(mod, tool, argsWith(path, sized(max + 1)));
@@ -145,7 +150,6 @@ test("every limit a parameter's text announces is carried by its schema", () => 
     for (const def of mod.definitions)
       describedProperties(def.inputSchema as Schema, def.name, props);
 
-  const variants = (s: Schema) => [s, ...(s.anyOf ?? [])];
   let checked = 0;
   for (const [path, schema, text] of props) {
     const chars = /\bmax (\d+) characters\b/i.exec(text);

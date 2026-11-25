@@ -125,10 +125,119 @@ test("create_thread still creates a public standalone thread by default", async 
   const created = stubTextChannel();
   const result = await handler("discord_create_thread")({ channel_id: CHANNEL, name: "topic" });
   assert.equal(created.length, 1);
-  assert.equal(created[0].type, ChannelType.PublicThread);
-  assert.equal("invitable" in created[0], false, "invitable only applies to private threads");
+  // No type and no invitable: discord.js then sends a public thread, as the next tests show.
+  assert.deepEqual(created[0], { name: "topic", autoArchiveDuration: 1440 });
   assert.match(textOf(result), /^✅ Thread "topic" created \(id: 444444444444444444\)/);
 });
+
+const TEXT = "333333333333333337";
+const NEWS = "333333333333333334";
+const VOICE = "333333333333333335";
+const STAGE = "333333333333333336";
+const OPEN_THREAD = "444444444444444445";
+const NEW_THREAD = "444444444444444446";
+const threadMetadata = {
+  archived: false,
+  auto_archive_duration: 1440,
+  archive_timestamp: "2026-01-01T00:00:00.000Z",
+  locked: false,
+};
+
+/** Real discord.js channels, so the thread type sent comes from discord.js's own resolution. */
+(discord.guilds as unknown as { _add: (data: unknown) => unknown })._add({
+  id: GUILD,
+  name: "guild",
+  owner_id: "1",
+  roles: [],
+  emojis: [],
+  features: [],
+  stickers: [],
+  guild_scheduled_events: [],
+  channels: [
+    { id: TEXT, type: ChannelType.GuildText, name: "text", position: 0 },
+    { id: NEWS, type: ChannelType.GuildAnnouncement, name: "news", position: 1 },
+    { id: VOICE, type: ChannelType.GuildVoice, name: "voice", position: 2 },
+    { id: STAGE, type: ChannelType.GuildStageVoice, name: "stage", position: 3 },
+  ].map((c) => ({ ...c, permission_overwrites: [] })),
+  threads: [
+    {
+      id: OPEN_THREAD,
+      type: ChannelType.PublicThread,
+      guild_id: GUILD,
+      parent_id: TEXT,
+      name: "open",
+      thread_metadata: threadMetadata,
+    },
+  ],
+});
+
+/** Records each thread creation sent to Discord and answers it with the new thread. */
+function recordThreadPosts() {
+  const posts: { route: string; body: Record<string, unknown> }[] = [];
+  mock.method(
+    discord.rest,
+    "post",
+    async (route: string, { body }: { body: Record<string, unknown> }) => {
+      posts.push({ route, body });
+      const [, , parent_id] = route.split("/");
+      return {
+        ...body,
+        id: NEW_THREAD,
+        guild_id: GUILD,
+        parent_id,
+        thread_metadata: threadMetadata,
+      };
+    },
+  );
+  return posts;
+}
+
+for (const [parent, kind, type, typeName] of [
+  [TEXT, "a text channel", ChannelType.PublicThread, "a public thread"],
+  [NEWS, "an announcement channel", ChannelType.AnnouncementThread, "an announcement thread"],
+] as const) {
+  test(`create_thread sends Discord ${typeName} for a standalone thread in ${kind}`, async () => {
+    const posts = recordThreadPosts();
+    const result = await handler("discord_create_thread")({ channel_id: parent, name: "topic" });
+    assert.deepEqual(
+      posts.map((p) => [p.route, p.body.type]),
+      [[Routes.threads(parent), type]],
+    );
+    assert.equal(textOf(result), `✅ Thread "topic" created (id: ${NEW_THREAD}).`);
+  });
+}
+
+test("create_thread refuses a private thread in an announcement channel before reaching Discord", async () => {
+  const posts = recordThreadPosts();
+  for (const extra of [{}, { invitable: false, member_ids: [USER] }])
+    await assert.rejects(
+      handler("discord_create_thread")({ channel_id: NEWS, name: "pair", private: true, ...extra }),
+      new RegExp(
+        `^Error: Channel ${NEWS} is an announcement channel, where Discord creates public threads only\\. Omit private, or pass a text channel\\.$`,
+      ),
+      JSON.stringify(extra),
+    );
+  assert.deepEqual(posts, []);
+});
+
+for (const [channel, kind] of [
+  [OPEN_THREAD, "a thread"],
+  [VOICE, "a voice channel"],
+  [STAGE, "a stage channel"],
+] as const) {
+  test(`create_thread names ${kind} as a parent that cannot hold a standalone thread`, async () => {
+    const posts = recordThreadPosts();
+    for (const isPrivate of [false, true])
+      await assert.rejects(
+        handler("discord_create_thread")({ channel_id: channel, name: "x", private: isPrivate }),
+        new RegExp(
+          `^Error: Channel ${channel} is ${kind}\\. A standalone thread needs a text or announcement channel as its parent\\.$`,
+        ),
+        String(isPrivate),
+      );
+    assert.deepEqual(posts, []);
+  });
+}
 
 test("create_thread with private creates a private thread and passes invitable", async () => {
   const created = stubTextChannel();
@@ -445,7 +554,7 @@ test("create_thread adds member_ids to a public thread", async () => {
     name: "topic",
     member_ids: [USER],
   });
-  assert.equal(created[0].type, ChannelType.PublicThread);
+  assert.deepEqual(created[0], { name: "topic", autoArchiveDuration: 1440 });
   assert.deepEqual(created.added, [USER]);
   assert.match(textOf(result), /Added 1 member\./);
 });

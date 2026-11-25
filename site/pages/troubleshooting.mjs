@@ -17,6 +17,7 @@ export const QUOTES = {
   hidden:
     "are hidden from the bot and left out of matches, so a channel missing here may still exist.",
   allowList: "is not in the DISCORD_ALLOWED_GUILDS allow-list.",
+  dmAllowList: "is not a member of any guild in the DISCORD_ALLOWED_GUILDS allow-list.",
   unknownToolset: "Invalid DISCORD_MCP_TOOLSETS: unknown toolset(s)",
   noReadOnly: "DISCORD_MCP_READ_ONLY leaves no tool to expose",
 };
@@ -108,7 +109,7 @@ export function renderTroubleshooting(site) {
       item(
         "allow-list",
         "The guild is not in the allow-list",
-        tpl`${said("guild_id " + QUOTES.allowList)}${said("Guild 123456789012345678 " + QUOTES.allowList)}<p>The first form answers a <code>guild_id</code> argument, the second a channel, thread, webhook or invite that belongs to another server. <code>DISCORD_ALLOWED_GUILDS</code> is set and the call targets a server outside it. Add the server's ID to the list, or check that the ID is the one you meant. <a href="${UP}configuration/#DISCORD_ALLOWED_GUILDS">Configuration</a> covers the variable.</p>`,
+        tpl`${said("guild_id " + QUOTES.allowList)}${said("Guild 123456789012345678 " + QUOTES.allowList)}${said("User 123456789012345678 " + QUOTES.dmAllowList)}<p>The first form answers a <code>guild_id</code> argument, the second a channel, thread, webhook or invite that belongs to another server, the third a DM to a user who is not a member of any listed server. <code>DISCORD_ALLOWED_GUILDS</code> is set and the call goes outside it. Add the server's ID to the list, or check that the ID is the one you meant. <a href="${UP}configuration/#DISCORD_ALLOWED_GUILDS">Configuration</a> covers the variable.</p>`,
       ),
       readmeItem("empty-messages", "Messages come back with empty text"),
       readmeItem("finding-ids", "Finding IDs"),

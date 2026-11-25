@@ -57,14 +57,13 @@ import {
   snowflake,
   snowflakeSet,
   guildId,
+  channelId,
+  messageId,
   intIn,
   structured,
   messageAuthor,
   messageAuthorShape,
 } from "./define.js";
-
-const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
-const messageId = snowflake.describe("ID of the message.");
 
 /**
  * History paging cursors. Discord's `GET /channels/{id}/messages` accepts at most
@@ -655,7 +654,7 @@ const tools = [
     schema: z
       .object({
         channel_id: snowflake.describe(
-          "ID (snowflake) of the parent text channel. For a message-based thread, the channel containing message_id.",
+          "ID (snowflake) of the parent text or announcement channel. For a message-based thread, the channel containing message_id.",
         ),
         name: z.string().describe("Name of the thread to create (max 100 characters)."),
         message_id: snowflake
@@ -673,7 +672,7 @@ const tools = [
           .boolean()
           .default(false)
           .describe(
-            "Optional. True creates a standalone private thread, visible only to its members and to moderators; the bot joins it as its creator. Default false (public).",
+            "Optional. True creates a standalone private thread, visible only to its members and to moderators; the bot joins it as its creator. Not available in an announcement channel, whose threads are public. Default false (public).",
           ),
         invitable: z
           .boolean()
@@ -725,12 +724,22 @@ const tools = [
           ],
         };
       }
-      if (!(channel instanceof TextChannel)) {
+      if (!(channel instanceof TextChannel || channel instanceof NewsChannel)) {
+        const kind = channel.isThread()
+          ? "a thread"
+          : channel.type === ChannelType.GuildStageVoice
+            ? "a stage channel"
+            : "a voice channel";
         throw new Error(
-          `Standalone thread creation requires a parent TextChannel; ${channel_id} is itself a thread. Pass a message_id to start a thread from a message instead.`,
+          `Channel ${channel_id} is ${kind}. A standalone thread needs a text or announcement channel as its parent.`,
         );
       }
       if (isPrivate) {
+        // discord.js sends an announcement thread whatever the type, so private would be dropped silently.
+        if (channel instanceof NewsChannel)
+          throw new Error(
+            `Channel ${channel_id} is an announcement channel, where Discord creates public threads only. Omit private, or pass a text channel.`,
+          );
         const thread = await channel.threads.create({
           name,
           autoArchiveDuration: duration,
@@ -748,11 +757,7 @@ const tools = [
           ],
         };
       }
-      const thread = await channel.threads.create({
-        name,
-        autoArchiveDuration: duration,
-        type: ChannelType.PublicThread,
-      });
+      const thread = await channel.threads.create({ name, autoArchiveDuration: duration });
       const added = await addThreadMembers(thread, member_ids, batch);
       return {
         content: [

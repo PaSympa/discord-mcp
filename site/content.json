@@ -59,6 +59,10 @@
     "dm": {
       "label": "Direct messages",
       "blurb": "Send, read, edit and delete direct messages."
+    },
+    "polls": {
+      "label": "Polls",
+      "blurb": "Create native polls, read the votes and who cast them, and end a poll early."
     }
   },
   "clients": {

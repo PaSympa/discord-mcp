@@ -24,6 +24,7 @@ import webhooks from "./webhooks.js";
 import scheduledEvents from "./scheduledEvents.js";
 import invites from "./invites.js";
 import dm from "./dm.js";
+import polls from "./polls.js";
 
 /** Every toolset, keyed by the name used in the `DISCORD_MCP_TOOLSETS` env var. */
 const allToolsets: Record<string, ToolModule> = {
@@ -41,6 +42,7 @@ const allToolsets: Record<string, ToolModule> = {
   scheduled_events: scheduledEvents,
   invites,
   dm,
+  polls,
 };
 
 /**

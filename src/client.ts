@@ -1,18 +1,21 @@
 import "dotenv/config";
 import {
   Client,
+  DiscordAPIError,
   Events,
   GatewayIntentBits,
   GuildChannel,
   Options,
   PermissionFlagsBits,
   PermissionsBitField,
+  RESTJSONErrorCodes,
   type ChannelFlagsBitField,
   type Collection,
   type Guild,
   type GuildTextBasedChannel,
   type Role,
   type ThreadChannel,
+  type User,
 } from "discord.js";
 import { rejectOnBatchRateLimit } from "./batch.js";
 import { SWEEP } from "./constants.js";
@@ -169,6 +172,41 @@ export function isGuildAllowed(guildId: string): boolean {
 export function assertAllowedGuild(guildId: string | null | undefined): void {
   if (guildId && !isGuildAllowed(guildId))
     throw new Error(`Guild ${guildId} is not in the DISCORD_ALLOWED_GUILDS allow-list.`);
+}
+
+/**
+ * Looks the user up in each allowed guild the bot is in. The lookup needs no intent, and
+ * is forced past the member cache because nothing evicts a member who left while the
+ * Server Members intent is off. Any other error is thrown only if no guild confirms the
+ * user, so one failing guild neither blocks a member of another nor reads as a non-member.
+ */
+async function isAllowedGuildMember(userId: string): Promise<boolean> {
+  let failure: unknown;
+  for (const id of allowedGuilds()) {
+    const guild = discord.guilds.cache.get(id);
+    if (!guild) continue;
+    try {
+      await guild.members.fetch({ user: userId, force: true, cache: false });
+      return true;
+    } catch (err) {
+      const notMember =
+        err instanceof DiscordAPIError &&
+        (err.code === RESTJSONErrorCodes.UnknownMember ||
+          err.code === RESTJSONErrorCodes.UnknownUser);
+      if (!notMember) failure ??= err;
+    }
+  }
+  if (failure) throw failure;
+  return false;
+}
+
+/** Fetches a DM recipient, who must be a member of an allowed guild when the allow-list is set. */
+export async function fetchDmRecipient(userId: string): Promise<User> {
+  if (allowListActive() && !(await isAllowedGuildMember(userId)))
+    throw new Error(
+      `User ${userId} is not a member of any guild in the DISCORD_ALLOWED_GUILDS allow-list.`,
+    );
+  return discord.users.fetch(userId);
 }
 
 /** Fetches a channel and enforces the guild allow-list before returning it. */

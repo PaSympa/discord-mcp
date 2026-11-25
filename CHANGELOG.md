@@ -33,7 +33,7 @@
 
 ### Fixed
 
-- `discord_list_channels` leaves active threads out of the category grouping. A thread used to be listed under a key named after its parent channel, which could merge with a real category of the same name. Threads remain available through `discord_list_channel_threads`
+- `discord_list_channels` leaves active threads out of the category grouping. A thread used to be listed under a key named after its parent channel, which could merge with a real category of the same name. Threads remain available through `discord_list_channel_threads`. Contributed by [@prascli](https://github.com/prascli) in [#223](https://github.com/PaSympa/discord-mcp/pull/223)
 - `discord_set_member_permission` no longer fails with "Supplied parameter is not a User nor a Role" for a member missing from the bot's user cache, which is most members from startup and nearly all of them after the 10-minute cache sweep. It refuses a user who is not a member of the channel's server, and `discord_set_role_permission` refuses an ID that is not a role of that server instead of writing a member overwrite
 - `discord_create_event_invite` refuses a `channel_id` from a server outside `DISCORD_ALLOWED_GUILDS`, or from any server other than the event's. It used to create the invite in that channel
 - `discord_update_membership_screening` and `discord_lock_channel_permissions` are annotated `destructiveHint: true`. Passing `form_fields` to the first deletes any question field, and the second replaces all of the channel's permission overwrites

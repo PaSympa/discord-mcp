@@ -516,6 +516,23 @@ const list = async (guild_id: string) => {
   return result.structuredContent as Record<string, unknown>;
 };
 
+test("list_channels leaves active threads out of the category grouping", async () => {
+  stubChannelRefresh(GUILD);
+  assert.deepEqual(await list(GUILD), {
+    "No Category": [
+      { id: UNVIEWABLE, name: "secret", type: "GuildText" },
+      { id: TARGET, name: "target", type: "GuildText" },
+    ],
+    General: [
+      { id: READABLE, name: "readable", type: "GuildText" },
+      { id: NO_HISTORY, name: "no-history", type: "GuildText" },
+      { id: NO_HISTORY_FORUM, name: "no-history-forum", type: "GuildForum" },
+    ],
+    staff: [{ id: UNDER_UNVIEWABLE, name: "staff-chat", type: "GuildText" }],
+    "Hidden parent": [{ id: UNDER_HIDDEN, name: "under-hidden", type: "GuildText" }],
+  });
+});
+
 test("list_channels leaves obfuscated placeholders out", async () => {
   stubChannelRefresh(GUILD);
   const result = await list(GUILD);

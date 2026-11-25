@@ -38,7 +38,7 @@
     "allowed_guilds": {
       "type": "string",
       "title": "Allowed guilds",
-      "description": "Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected. Empty allows every guild.",
+      "description": "Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected, and the DM tools refuse a user who is not a member of any listed guild. Empty allows every guild.",
       "default": ""
     },
     "message_content": {

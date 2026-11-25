@@ -2,8 +2,15 @@ import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { ChannelType, GuildScheduledEventEntityType, Routes, TextChannel } from "discord.js";
+import {
+  ChannelType,
+  DiscordAPIError,
+  GuildScheduledEventEntityType,
+  Routes,
+  TextChannel,
+} from "discord.js";
 import { discord, fetchChannelChecked } from "../src/client.js";
+import dm from "../src/tools/dm.js";
 import webhooks from "../src/tools/webhooks.js";
 import scheduledEvents from "../src/tools/scheduledEvents.js";
 import messages from "../src/tools/messages.js";
@@ -291,4 +298,120 @@ test("create_thread refuses an announcement channel outside the allow-list befor
     new RegExp(`Guild ${FOREIGN} is not in the DISCORD_ALLOWED_GUILDS allow-list`),
   );
   assert.deepEqual(writes, []);
+});
+
+const RECIPIENT = "777777777777777777";
+const UNJOINED = "666666666666666666";
+const DM_MESSAGE = "888888888888888888";
+
+const DM_CALLS: Record<string, Record<string, unknown>> = {
+  discord_send_dm: { content: "x" },
+  discord_send_dm_embed: { description: "x" },
+  discord_edit_dm: { message_id: DM_MESSAGE, content: "x" },
+  discord_edit_dm_embed: { message_id: DM_MESSAGE, description: "x" },
+  discord_delete_dm: { message_id: DM_MESSAGE },
+  discord_read_dms: {},
+  discord_reply_dm: { message_id: DM_MESSAGE, content: "x" },
+};
+
+const dmCall = (tool: string) => dm.handlers.get(tool)!({ user_id: RECIPIENT, ...DM_CALLS[tool] });
+const readDms = () => dmCall("discord_read_dms");
+
+const unknown = (code: number) =>
+  new DiscordAPIError({ code, message: "Unknown" }, code, 404, "GET", "https://discord.com", {});
+
+/**
+ * Answers each guild member lookup from `answers` (a member, or the error Discord sends;
+ * Unknown Member by default) and records every other request and every recipient fetch.
+ */
+function stubDmGate(answers: Record<string, "member" | Error>) {
+  const lookups: string[] = [];
+  const other: string[] = [];
+  const fetched: string[] = [];
+  mock.method(discord.rest, "get", (async (route: string) => {
+    const [, kind, guild, part, user] = route.split("/");
+    if (kind !== "guilds" || part !== "members" || user !== RECIPIENT) {
+      other.push(`GET ${route}`);
+      throw new Error(`unexpected GET ${route}`);
+    }
+    lookups.push(guild);
+    const answer = answers[guild] ?? unknown(10007);
+    if (answer instanceof Error) throw answer;
+    return { user: { id: RECIPIENT, username: "recipient" }, roles: [], joined_at: null };
+  }) as never);
+  for (const method of ["put", "post", "patch", "delete"] as const)
+    mock.method(discord.rest, method, (async (route: string) => {
+      other.push(`${method.toUpperCase()} ${route}`);
+    }) as never);
+  const dmChannel = { messages: { fetch: async () => new Map() } };
+  mock.method(discord.users, "fetch", (async (id: string) => {
+    fetched.push(id);
+    return { id, username: "recipient", createDM: async () => dmChannel };
+  }) as never);
+  return { lookups, other, fetched };
+}
+
+const notMember = new RegExp(
+  `^Error: User ${RECIPIENT} is not a member of any guild in the DISCORD_ALLOWED_GUILDS allow-list\\.$`,
+);
+
+test("the DM allow-list tests cover every dm tool", () => {
+  assert.deepEqual(Object.keys(DM_CALLS).sort(), dm.definitions.map((d) => d.name).sort());
+});
+
+for (const tool of Object.keys(DM_CALLS)) {
+  test(`${tool} refuses a user outside every allowed guild before opening or reading a DM`, async () => {
+    process.env.DISCORD_ALLOWED_GUILDS = `${ALLOWED},${UNJOINED},${SECOND_ALLOWED}`;
+    const gate = stubDmGate({ [SECOND_ALLOWED]: unknown(10013), [FOREIGN]: "member" });
+    await assert.rejects(dmCall(tool), notMember);
+    assert.deepEqual(gate.lookups, [ALLOWED, SECOND_ALLOWED]);
+    assert.deepEqual(gate.fetched, []);
+    assert.deepEqual(gate.other, []);
+  });
+}
+
+test("the DM gate asks Discord even when the member is cached", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = ALLOWED;
+  const members = discord.guilds.cache.get(ALLOWED)!.members;
+  asAdder(members)._add({
+    user: { id: RECIPIENT, username: "left" },
+    roles: [],
+    joined_at: "2026-01-01T00:00:00.000Z",
+  });
+  assert.equal(members.cache.get(RECIPIENT)?.partial, false);
+  try {
+    const gate = stubDmGate({});
+    await assert.rejects(readDms(), notMember);
+    assert.deepEqual(gate.lookups, [ALLOWED]);
+  } finally {
+    members.cache.delete(RECIPIENT);
+  }
+});
+
+test("a DM tool reaches a member of a later allowed guild without caching the member", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = `${ALLOWED},${SECOND_ALLOWED}`;
+  const gate = stubDmGate({ [SECOND_ALLOWED]: "member" });
+  assert.ok(!(await readDms()).isError);
+  assert.deepEqual(gate.lookups, [ALLOWED, SECOND_ALLOWED]);
+  assert.deepEqual(gate.fetched, [RECIPIENT]);
+  assert.equal(discord.guilds.cache.get(SECOND_ALLOWED)!.members.cache.has(RECIPIENT), false);
+});
+
+test("a failed member lookup blocks the DM only when no other allowed guild confirms the user", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = `${ALLOWED},${SECOND_ALLOWED}`;
+  const outage = new Error("Service Unavailable");
+  let gate = stubDmGate({ [ALLOWED]: outage });
+  await assert.rejects(readDms(), /^Error: Service Unavailable$/);
+  assert.deepEqual(gate.fetched, []);
+  mock.restoreAll();
+  gate = stubDmGate({ [ALLOWED]: outage, [SECOND_ALLOWED]: "member" });
+  assert.ok(!(await readDms()).isError);
+  assert.deepEqual(gate.fetched, [RECIPIENT]);
+});
+
+test("without an allow-list, a DM tool looks up no member", async () => {
+  const gate = stubDmGate({});
+  assert.ok(!(await readDms()).isError);
+  assert.deepEqual(gate.lookups, []);
+  assert.deepEqual(gate.fetched, [RECIPIENT]);
 });

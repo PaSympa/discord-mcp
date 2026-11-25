@@ -55,7 +55,7 @@ export default defineModule(tools);
 ### Conventions
 
 - The zod `schema` is the single source of truth: it derives the advertised `inputSchema` and validates args before `handle` runs: no manual validation, no `as` casts
-- Reuse the shared fields from `define.ts`: `snowflake`, `guildId` (enforces `DISCORD_ALLOWED_GUILDS`), `intIn(min, max)` for bounded integers, `httpUrl` for http(s)-only URLs; embed inputs come from `embedFieldsShape` in `src/embeds.ts`
+- Reuse the shared fields from `define.ts`: `snowflake`, `guildId` (enforces `DISCORD_ALLOWED_GUILDS`), `intIn(min, max)` for bounded integers, `textUpTo(max)` for bounded text (not `z.string().max(n)`, which zod 4.3 counts in UTF-16 units), `messageText` for a message's text (2000 characters), `httpUrl` for http(s)-only URLs; embed inputs come from `embedFieldsShape` in `src/embeds.ts`
 - Resolve channels through `getTextChannel` / `getGuildChannel` / `fetchChannelChecked` from `client.ts`, never `discord.channels.fetch` directly, so the guild allow-list stays enforced centrally
 - Read tools declare an `outputSchema` (object root: wrap arrays as `{ items: [...] }`) and return via `structured(data)`, which emits matching text + `structuredContent`
 - Success messages start with `✅`; tool names are prefixed with `discord_`

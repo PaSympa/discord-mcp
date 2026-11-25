@@ -48,6 +48,7 @@ import {
   buildEmbed,
   embedFieldsShape,
   embedArraySchema,
+  embedContent,
   embedSummary,
   embedField,
 } from "../embeds.js";
@@ -60,6 +61,8 @@ import {
   channelId,
   messageId,
   intIn,
+  messageText,
+  textUpTo,
   structured,
   messageAuthor,
   messageAuthorShape,
@@ -468,7 +471,7 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
-      content: z.string().describe("Plain-text body of the message (max 2000 characters)."),
+      content: messageText.describe("Plain-text body of the message (max 2000 characters)."),
     }),
     handle: async ({ channel_id, content }) => {
       const channel = await getTextChannel(channel_id);
@@ -494,7 +497,7 @@ const tools = [
         "ID (snowflake) of the channel or thread containing the message.",
       ),
       message_id: messageId.describe("ID of the message to reply to."),
-      content: z.string().describe("Plain-text body of the reply (max 2000 characters)."),
+      content: messageText.describe("Plain-text body of the reply (max 2000 characters)."),
     }),
     handle: async ({ channel_id, message_id, content }) => {
       const channel = await getTextChannel(channel_id);
@@ -528,11 +531,9 @@ const tools = [
       message_id: messageId.describe(
         "ID of the message to edit. Must be a message authored by this bot.",
       ),
-      content: z
-        .string()
-        .describe(
-          "New plain-text content that fully replaces the existing content (max 2000 characters).",
-        ),
+      content: messageText.describe(
+        "New plain-text content that fully replaces the existing content (max 2000 characters).",
+      ),
     }),
     handle: async ({ channel_id, message_id, content }) => {
       const channel = await getTextChannel(channel_id);
@@ -656,7 +657,7 @@ const tools = [
         channel_id: snowflake.describe(
           "ID (snowflake) of the parent text or announcement channel. For a message-based thread, the channel containing message_id.",
         ),
-        name: z.string().describe("Name of the thread to create (max 100 characters)."),
+        name: textUpTo(100).describe("Name of the thread to create (max 100 characters)."),
         message_id: snowflake
           .optional()
           .describe(
@@ -968,12 +969,16 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
+      content: embedContent,
       ...embedFieldsShape,
     }),
-    handle: async ({ channel_id, ...embedArgs }) => {
+    handle: async ({ channel_id, content, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
       assertCanEmbed(channel);
-      const sent = await channel.send({ embeds: [buildEmbed(embedArgs)] });
+      const sent = await channel.send({
+        content: content || undefined,
+        embeds: [buildEmbed(embedArgs)],
+      });
       return {
         content: [{ type: "text", text: `✅ Embed sent (id: ${sent.id}) in #${channel.name}.` }],
       };
@@ -1026,7 +1031,9 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
-      content: z.string().optional().describe("Optional plain text shown above the embeds."),
+      content: messageText
+        .optional()
+        .describe("Optional plain text shown above the embeds (max 2000 characters)."),
       embeds: embedArraySchema.describe("Array of embed objects to send (max 10)."),
     }),
     handle: async ({ channel_id, content, embeds }) => {

@@ -57,6 +57,22 @@ export const guildId = snowflake
  */
 export const intIn = (min: number, max: number) => z.int().min(min).max(max);
 
+/**
+ * Text of at most `max` characters, advertised as `maxLength`. Counted in code points, as
+ * JSON Schema counts `maxLength`: zod 4.3, which package.json still accepts, counts UTF-16
+ * units in `.max()` and would refuse an emoji-heavy text the advertised schema allows.
+ */
+export const textUpTo = (max: number) =>
+  z
+    .string()
+    .refine((text) => text.length <= max || [...text].length <= max, {
+      message: `Must be at most ${max} characters.`,
+    })
+    .meta({ maxLength: max });
+
+/** A message's text: Discord caps message content at 2000 characters. */
+export const messageText = textUpTo(2000);
+
 /** Output fields naming who sent a message. Discord also sets a webhook ID on an app's reply to a command. */
 export const messageAuthorShape = { author_id: z.string(), webhook_id: z.string().optional() };
 

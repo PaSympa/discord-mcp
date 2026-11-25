@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { discord, fetchDmRecipient } from "../client.js";
-import { buildEmbed, embedFieldsShape } from "../embeds.js";
+import { buildEmbed, embedContent, embedFieldsShape } from "../embeds.js";
 import {
   defineTool,
   defineModule,
   snowflake,
   intIn,
+  messageText,
   structured,
   messageAuthor,
   messageAuthorShape,
@@ -29,7 +30,7 @@ const tools = [
     },
     schema: z.object({
       user_id: userId,
-      content: z.string().describe("Plain-text body of the DM (max 2000 characters)."),
+      content: messageText.describe("Plain-text body of the DM (max 2000 characters)."),
     }),
     handle: async ({ user_id, content }) => {
       const user = await fetchDmRecipient(user_id);
@@ -54,7 +55,7 @@ const tools = [
     },
     schema: z.object({
       user_id: userId,
-      content: z.string().optional().describe("Optional plain text shown above the embed."),
+      content: embedContent,
       ...embedFieldsShape,
     }),
     handle: async ({ user_id, content, ...embedArgs }) => {
@@ -84,11 +85,9 @@ const tools = [
     schema: z.object({
       user_id: userId,
       message_id: messageId,
-      content: z
-        .string()
-        .describe(
-          "New plain-text content that fully replaces the existing message (max 2000 characters).",
-        ),
+      content: messageText.describe(
+        "New plain-text content that fully replaces the existing message (max 2000 characters).",
+      ),
     }),
     handle: async ({ user_id, message_id, content }) => {
       const user = await fetchDmRecipient(user_id);
@@ -118,7 +117,9 @@ const tools = [
     schema: z.object({
       user_id: userId,
       message_id: messageId,
-      content: z.string().optional().describe("Optional new plain text shown above the embed."),
+      content: messageText
+        .optional()
+        .describe("Optional new plain text shown above the embed (max 2000 characters)."),
       ...embedFieldsShape,
     }),
     handle: async ({ user_id, message_id, content, ...embedArgs }) => {
@@ -224,7 +225,7 @@ const tools = [
     schema: z.object({
       user_id: userId,
       message_id: messageId,
-      content: z.string().describe("Plain-text body of the reply (max 2000 characters)."),
+      content: messageText.describe("Plain-text body of the reply (max 2000 characters)."),
     }),
     handle: async ({ user_id, message_id, content }) => {
       const user = await fetchDmRecipient(user_id);

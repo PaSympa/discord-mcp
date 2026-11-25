@@ -819,11 +819,32 @@ test("a parameter that accepts several types shows each type with its own rules"
     ['"null"', ""],
     ["null", ""],
   ]);
-  const [number, integer, ...rest] = rules("discord_get_audit_log", "action_<wbr>type");
-  assert.equal(number[0], "number:");
-  assert.match(number[1], /^one of \d+ values/);
-  assert.deepEqual(integer, ["integer:", "at least 1"]);
-  assert.deepEqual(rest, []);
+  assert.deepEqual(rules("discord_set_nickname", "nickname"), [
+    ["string:", "at most 32 characters"],
+    ["null", ""],
+  ]);
+});
+
+test("an enum of more than 10 values folds behind its count, a shorter one stays inline", async () => {
+  const { renderToolDetail } = await siteDetail();
+  const tool = catalog.tools.find((t) => t.name === "discord_get_audit_log")!;
+  const rulesOf = (count: number) => {
+    const values = Array.from({ length: count }, (_, i) => i + 1);
+    const inputSchema = { type: "object", properties: { kind: { type: "integer", enum: values } } };
+    const { body } = renderToolDetail(
+      { ...tool, definition: { ...tool.definition, inputSchema } },
+      { labels: {}, byName: new Map(), href: () => "" },
+    );
+    return /<div class="prules">([\s\S]*?)<\/div><\/td>/.exec(String(body))![1];
+  };
+  assert.match(
+    rulesOf(11),
+    /^<details><summary>one of 11 values<\/summary><span class="vals">(<code>\d+<\/code>){11}<\/span><\/details>$/,
+  );
+  assert.match(
+    rulesOf(10),
+    /^<span>one of <span class="vals">(<code>\d+<\/code>){10}<\/span><\/span>$/,
+  );
 });
 
 test("counts say 1 tool, never 1 tools, in the text screen readers get too", () => {

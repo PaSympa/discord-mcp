@@ -2,7 +2,15 @@ import { GuildMember } from "discord.js";
 import { z } from "zod";
 import { discord, serializePermissions } from "../client.js";
 import { MAX_FETCH_LIMIT, DEFAULTS } from "../constants.js";
-import { defineTool, defineModule, snowflake, guildId, intIn, structured } from "./define.js";
+import {
+  defineTool,
+  defineModule,
+  snowflake,
+  guildId,
+  intIn,
+  structured,
+  textUpTo,
+} from "./define.js";
 
 const roleRef = z.object({ id: z.string(), name: z.string() });
 const memberSummary = z.object({
@@ -249,9 +257,7 @@ const tools = [
     schema: z.object({
       guild_id: guildId,
       user_id: snowflake.describe("Discord user ID (snowflake) of the member."),
-      nickname: z
-        .string()
-        .max(32)
+      nickname: textUpTo(32)
         .nullable()
         .describe("New nickname (max 32 characters), or null to clear it."),
       reason: z.string().optional().describe("Optional reason recorded in the server audit log."),

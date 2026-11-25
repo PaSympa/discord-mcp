@@ -31,6 +31,8 @@
 - `discord_update_membership_screening` and `discord_lock_channel_permissions` are annotated `destructiveHint: true`. Passing `form_fields` to the first deletes any question field, and the second replaces all of the channel's permission overwrites
 - The stdio server exits within 5 seconds of its client closing stdin, after finishing the requests it can. An open Discord connection used to keep it running with no client, so processes piled up, for example after dropped SSH sessions. Reported by [@lzrong0203](https://github.com/lzrong0203) in [#83](https://github.com/PaSympa/discord-mcp/pull/83). Contributed by [@Caisusandy](https://github.com/Caisusandy) in [#216](https://github.com/PaSympa/discord-mcp/pull/216)
 - A client that closes stderr no longer sends the server into an endless loop that used a full CPU core and answered no further requests. Contributed by [@Caisusandy](https://github.com/Caisusandy) in [#216](https://github.com/PaSympa/discord-mcp/pull/216)
+- With `DISCORD_ALLOWED_GUILDS` set, the seven `dm` tools refuse a user who is not a member of any listed guild, before a DM is opened or read. They used to reach any user, such as one the bot meets only in a server outside the list. The check needs no Server Members intent
+- `discord_create_thread` creates a standalone thread in an announcement channel, as an announcement thread. It used to refuse the channel and call it a thread. `private: true` is refused there, since Discord creates only public threads in an announcement channel. The refusal of a voice or stage channel names that kind instead of calling it a thread
 
 ## [2.4.0] - 2026-11-15
 

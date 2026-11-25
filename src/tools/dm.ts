@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { discord } from "../client.js";
+import { discord, fetchDmRecipient } from "../client.js";
 import { buildEmbed, embedFieldsShape } from "../embeds.js";
 import {
   defineTool,
@@ -32,7 +32,7 @@ const tools = [
       content: z.string().describe("Plain-text body of the DM (max 2000 characters)."),
     }),
     handle: async ({ user_id, content }) => {
-      const user = await discord.users.fetch(user_id);
+      const user = await fetchDmRecipient(user_id);
       const sent = await user.send(content);
       return {
         content: [
@@ -58,7 +58,7 @@ const tools = [
       ...embedFieldsShape,
     }),
     handle: async ({ user_id, content, ...embedArgs }) => {
-      const user = await discord.users.fetch(user_id);
+      const user = await fetchDmRecipient(user_id);
       const sent = await user.send({
         content: content || undefined,
         embeds: [buildEmbed(embedArgs)],
@@ -91,7 +91,7 @@ const tools = [
         ),
     }),
     handle: async ({ user_id, message_id, content }) => {
-      const user = await discord.users.fetch(user_id);
+      const user = await fetchDmRecipient(user_id);
       const dm = await user.createDM();
       const msg = await dm.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
@@ -122,7 +122,7 @@ const tools = [
       ...embedFieldsShape,
     }),
     handle: async ({ user_id, message_id, content, ...embedArgs }) => {
-      const user = await discord.users.fetch(user_id);
+      const user = await fetchDmRecipient(user_id);
       const dm = await user.createDM();
       const msg = await dm.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
@@ -157,7 +157,7 @@ const tools = [
       message_id: messageId,
     }),
     handle: async ({ user_id, message_id }) => {
-      const user = await discord.users.fetch(user_id);
+      const user = await fetchDmRecipient(user_id);
       const dm = await user.createDM();
       const msg = await dm.messages.fetch({ message: message_id, cache: false });
       if (msg.author.id !== discord.user?.id)
@@ -194,7 +194,7 @@ const tools = [
       ),
     }),
     handle: async ({ user_id, limit }) => {
-      const user = await discord.users.fetch(user_id);
+      const user = await fetchDmRecipient(user_id);
       const dm = await user.createDM();
       const messages = await dm.messages.fetch({ limit, cache: false });
       const result = [...messages.values()]
@@ -227,7 +227,7 @@ const tools = [
       content: z.string().describe("Plain-text body of the reply (max 2000 characters)."),
     }),
     handle: async ({ user_id, message_id, content }) => {
-      const user = await discord.users.fetch(user_id);
+      const user = await fetchDmRecipient(user_id);
       const dm = await user.createDM();
       const target = await dm.messages.fetch({ message: message_id, cache: false });
       const sent = await target.reply(content);

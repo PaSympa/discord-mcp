@@ -85,7 +85,7 @@ npm run bundle    # after a build: packs discord-mcp.mcpb for Claude Desktop
 npm run site      # after a build: renders the docs site into _site/
 ```
 
-CI runs `npm run lint`, `npm run format:check`, `npm run build` and `npm test` on Node 22 and 24. Run them before opening a pull request.
+CI runs `npm run lint`, `npm run format:check`, `npm run build` and `npm test` on Node 22, 24 and 26, the version the Docker image runs. Run them before opening a pull request.
 
 The docs site at https://pasympa.github.io/discord-mcp/ is generated from `README.md`, `site/content.json` and the tool definitions. `.github/workflows/pages.yml` rebuilds and deploys it on every push to `main`, so a merged change to the README or a tool shows up there without a release.
 

@@ -48,6 +48,7 @@ import {
   buildEmbed,
   embedFieldsShape,
   embedArraySchema,
+  embedContent,
   embedSummary,
   embedField,
 } from "../embeds.js";
@@ -968,12 +969,16 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
+      content: embedContent,
       ...embedFieldsShape,
     }),
-    handle: async ({ channel_id, ...embedArgs }) => {
+    handle: async ({ channel_id, content, ...embedArgs }) => {
       const channel = await getTextChannel(channel_id);
       assertCanEmbed(channel);
-      const sent = await channel.send({ embeds: [buildEmbed(embedArgs)] });
+      const sent = await channel.send({
+        content: content || undefined,
+        embeds: [buildEmbed(embedArgs)],
+      });
       return {
         content: [{ type: "text", text: `✅ Embed sent (id: ${sent.id}) in #${channel.name}.` }],
       };
@@ -1026,7 +1031,9 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the target channel or thread."),
-      content: z.string().optional().describe("Optional plain text shown above the embeds."),
+      content: messageText
+        .optional()
+        .describe("Optional plain text shown above the embeds (max 2000 characters)."),
       embeds: embedArraySchema.describe("Array of embed objects to send (max 10)."),
     }),
     handle: async ({ channel_id, content, embeds }) => {

@@ -1,6 +1,6 @@
 import { EmbedBuilder, ColorResolvable } from "discord.js";
 import { z } from "zod";
-import { httpUrl } from "./tools/define.js";
+import { httpUrl, messageText } from "./tools/define.js";
 
 /**
  * Zod fields of a rich embed: spread into a tool's `z.object({...})` schema.
@@ -44,6 +44,11 @@ export const embedFieldsShape = {
   image_url: httpUrl.optional().describe("Large image shown below the embed body."),
   timestamp: z.boolean().optional().describe("If true, stamp the embed with the current time."),
 } as const;
+
+/** Optional text sent in the same message as one embed. */
+export const embedContent = messageText
+  .optional()
+  .describe("Optional plain text shown above the embed (max 2000 characters).");
 
 /** Schema for a single embed object (e.g. an item of `discord_send_multiple_embeds`). */
 export const embedObjectSchema = z.strictObject(embedFieldsShape);

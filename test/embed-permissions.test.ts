@@ -178,3 +178,22 @@ for (const tool of Object.keys(TOOLS)) {
     assert.ok(allowedRequests() > 0);
   });
 }
+
+test("discord_send_embed sends its content above the embed, and none when omitted", async () => {
+  const channel = discord.channels.cache.get(ALLOWED) as unknown as {
+    send: (payload: { content?: string; embeds: { data: unknown }[] }) => Promise<unknown>;
+  };
+  const send = mock.method(channel, "send", async () => ({ id: MESSAGE }));
+  const sendEmbed = messages.handlers.get("discord_send_embed")!;
+
+  await sendEmbed({ channel_id: ALLOWED, content: "text above", ...EMBED });
+  await sendEmbed({ channel_id: ALLOWED, ...EMBED });
+  await sendEmbed({ channel_id: ALLOWED, content: "", ...EMBED });
+
+  const payloads = send.mock.calls.map((c) => c.arguments[0]);
+  assert.deepEqual(
+    payloads.map((p) => p.content),
+    ["text above", undefined, undefined],
+  );
+  for (const p of payloads) assert.deepEqual(p.embeds[0].data, EMBED);
+});

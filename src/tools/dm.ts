@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { discord, fetchDmRecipient } from "../client.js";
-import { buildEmbed, embedFieldsShape } from "../embeds.js";
+import { buildEmbed, embedContent, embedFieldsShape } from "../embeds.js";
 import {
   defineTool,
   defineModule,
@@ -55,7 +55,7 @@ const tools = [
     },
     schema: z.object({
       user_id: userId,
-      content: z.string().optional().describe("Optional plain text shown above the embed."),
+      content: embedContent,
       ...embedFieldsShape,
     }),
     handle: async ({ user_id, content, ...embedArgs }) => {
@@ -117,7 +117,9 @@ const tools = [
     schema: z.object({
       user_id: userId,
       message_id: messageId,
-      content: z.string().optional().describe("Optional new plain text shown above the embed."),
+      content: messageText
+        .optional()
+        .describe("Optional new plain text shown above the embed (max 2000 characters)."),
       ...embedFieldsShape,
     }),
     handle: async ({ user_id, message_id, content, ...embedArgs }) => {

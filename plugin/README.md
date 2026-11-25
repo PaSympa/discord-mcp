@@ -27,7 +27,7 @@ Settings:
 
 - Toolsets: limit the tools to the areas you need, such as `discovery,messages`.
 - Read-only mode: expose only the tools that change nothing.
-- Allowed guilds: reject every call that targets a server ID you did not list, and every DM to a user who is not a member of a listed server.
+- Allowed guilds: reject every call that targets a server ID you did not list, and every DM to a user who is not a member of any listed server.
 - Message Content and Server Members intents: turn them off if they are off in the Developer Portal.
 
 If you already added discord-mcp with `claude mcp add`, remove that entry. Otherwise every tool loads twice.

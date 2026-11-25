@@ -1,9 +1,9 @@
 /**
  * Opens the generated site in headless Chrome and checks what the static tests cannot see:
  * layout from 320 to 1440 px in light and dark mode, console errors, failed requests, alt
- * text, keyboard focus, the menu, the search shortcut, the catalog search, the toolset
- * builder on /tools/ and /toolsets/, the 404 suggestions and the Copy buttons. _site/ is served under /discord-mcp/ with GitHub Pages'
- * 404 behavior.
+ * text, keyboard focus, the menu, the search shortcut, the catalog search and filters, the
+ * toolset builder on /toolsets/, the 404 suggestions and the Copy buttons. _site/ is served
+ * under /discord-mcp/ with GitHub Pages' 404 behavior.
  *
  * Run `npm run build && npm run site` first. Needs Chrome, so CI does not run it.
  * Usage: node scripts/site-browser-check.mjs [--chrome <path>] [--shots <dir>]
@@ -42,6 +42,16 @@ const TOOL_PAGES = [
   "discord_update_membership_screening",
 ];
 const TOOLSET_PAGES = ["channels", "messages", "moderation", "scheduled_events", "dm"];
+const DOC_PAGES = ["guide", "recipes", "configuration", "troubleshooting", "privacy"];
+// Copied as typed: a no-break space or a lost line would break the command in a shell.
+const CODEX_COMMAND = [
+  "codex mcp add discord \\",
+  "  --env DISCORD_TOKEN=YOUR_BOT_TOKEN \\",
+  "  --env DISCORD_MCP_TOOLSETS=discovery,messages \\",
+  "  --env DISCORD_MCP_READ_ONLY=true \\",
+  "  --env DISCORD_ALLOWED_GUILDS=YOUR_GUILD_ID \\",
+  "  -- npx -y @pasympa/discord-mcp",
+].join("\n");
 const SEARCHES = [
   ["ban a member", "discord_ban_member"],
   ["bulk_delete", "discord_bulk_delete_messages"],
@@ -94,6 +104,9 @@ const option = (name) => {
 };
 const shots = option("shots");
 if (!existsSync(join(SITE, "index.html"))) throw new Error("_site/ is missing: run npm run site.");
+const CATALOG = JSON.parse(readFileSync(join(SITE, "tools.json"), "utf8")).tools;
+const toolCount = (sets, readOnly = false) =>
+  CATALOG.filter((t) => sets.includes(t.toolset) && (!readOnly || t.risk === "read")).length;
 
 /** Serves _site/ under BASE like GitHub Pages: folders give index.html, misses give 404.html. */
 function serve() {
@@ -228,6 +241,19 @@ const OVERFLOW = `(() => {
   if (document.documentElement.scrollWidth > vw) out.push("page " + document.documentElement.scrollWidth + " > " + vw);
   const visible = (el) => el.getClientRects().length && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], dialog:not([open]), .vh");
   const what = (el) => el.tagName.toLowerCase() + "." + el.className + (el.closest("[data-set]") ? " in " + el.closest("[data-set]").dataset.set : "");
+  // A band from edge to edge of the viewport, like the line bar, widens its box on purpose.
+  const bleedsOnly = (el) => {
+    const r = el.getBoundingClientRect();
+    const past = [...el.querySelectorAll("*")].filter((c) => {
+      const b = c.getBoundingClientRect();
+      return visible(c) && (b.right > r.right + 1 || b.left < r.left - 1);
+    });
+    const outer = past.filter((c) => !past.some((p) => p !== c && p.contains(c)));
+    return outer.length > 0 && outer.every((c) => {
+      const b = c.getBoundingClientRect();
+      return Math.abs(b.left) <= 1 && Math.abs(b.right - vw) <= 1;
+    });
+  };
   for (const el of document.querySelectorAll("main *, header *, footer *")) {
     if (!visible(el)) continue;
     const r = el.getBoundingClientRect();
@@ -237,7 +263,7 @@ const OVERFLOW = `(() => {
     if (/auto|scroll|hidden|clip/.test(cs.overflowX)) {
       if (/^(table|pre|code|dl|ul|ol|div|p|section|figure)$/i.test(el.tagName))
         out.push(what(el) + " scrolls sideways (" + el.scrollWidth + " > " + el.clientWidth + ")");
-    } else if (!cs.display.startsWith("inline") && cs.display !== "contents")
+    } else if (!cs.display.startsWith("inline") && cs.display !== "contents" && !bleedsOnly(el))
       out.push(what(el) + " spills out of its box (" + el.scrollWidth + " > " + el.clientWidth + ")");
     if (out.length > 5) break;
   }
@@ -305,10 +331,31 @@ const CONTRAST = String.raw`(() => {
   return { checked, fails };
 })()`;
 
+// Runs in the page: shell lines whose closing " \" wrapped onto a line of its own, measured by
+// comparing the line box of the backslash with that of the character before the space.
+const LONE_BACKSLASH = String.raw`(() => {
+  const lone = [];
+  for (const line of document.querySelectorAll(".term-code .l")) {
+    if (!line.getClientRects().length || !line.textContent.endsWith(" \\")) continue;
+    const chars = [];
+    const walk = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    for (let node = walk.nextNode(); node; node = walk.nextNode())
+      for (let i = 0; i < node.data.length; i++) chars.push([node, i]);
+    const top = ([node, i]) => {
+      const range = document.createRange();
+      range.setStart(node, i);
+      range.setEnd(node, i + 1);
+      return range.getClientRects()[0]?.top;
+    };
+    if (Math.abs(top(chars.at(-1)) - top(chars.at(-3))) > 2) lone.push(line.textContent);
+  }
+  return lone;
+})()`;
+
 // Runs in the page: what Tab should reach, in document order, each with a stable key.
 const FOCUSABLES = `(() => {
   const all = [...document.querySelectorAll("a[href], button, input, select, textarea, summary, [tabindex]")];
-  const shown = (el) => el.getClientRects().length && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], dialog:not([open]), [inert]");
+  const shown = (el) => el.getClientRects().length && getComputedStyle(el).visibility !== "hidden" && !el.closest("[hidden], dialog:not([open]), [inert], details:not([open]) > :not(summary)");
   const keep = all.filter((el) => el.tabIndex >= 0 && !el.disabled && shown(el) && !(el.type === "radio" && !el.checked && document.querySelector('input[type=radio][name="' + el.name + '"]:checked')));
   keep.forEach((el, i) => el.setAttribute("data-k", String(i)));
   return keep.length;
@@ -424,9 +471,11 @@ async function main() {
     return false;
   };
   const click = async (selector) => {
-    await evaluate(
-      `document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: "center" })`,
+    const found = await evaluate(
+      `(() => { const el = document.querySelector(${JSON.stringify(selector)}); el?.scrollIntoView({ block: "center" }); return !!el; })()`,
     );
+    if (!found)
+      throw new Error(`Nothing matches ${selector} on ${await evaluate("location.pathname")}.`);
     const box = await evaluate(
       `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`,
     );
@@ -453,6 +502,7 @@ async function main() {
       ["toolsets", "toolsets/"],
       ...TOOL_PAGES.map((name) => [name, `tools/${name}/`]),
       ...TOOLSET_PAGES.map((name) => [`toolset-${name}`, `toolsets/${name}/`]),
+      ...DOC_PAGES.map((name) => [name, `${name}/`]),
       ["404", MISSPELLED[0][0]],
     ];
     for (const scheme of SCHEMES) {
@@ -495,10 +545,15 @@ async function main() {
           const seen = new Map();
           const noRing = [];
           const covered = [];
+          const unlisted = new Set();
           for (let i = 0; i < expected + 4 && seen.size < expected; i++) {
             await pressTab();
             const focus = await evaluate(FOCUSED);
-            if (!focus || focus.k === null) continue;
+            if (!focus) continue;
+            if (focus.k === null) {
+              unlisted.add(focus.what);
+              continue;
+            }
             if (!seen.has(focus.k)) {
               seen.set(focus.k, focus);
               counts.tabStops++;
@@ -509,7 +564,7 @@ async function main() {
           check(
             `${where}: Tab reaches all ${expected} interactive elements`,
             seen.size === expected,
-            { reached: seen.size, expected },
+            { reached: seen.size, expected, unlisted: [...unlisted].slice(0, 5) },
           );
           check(
             `${where}: focus is visible on every stop`,
@@ -527,6 +582,12 @@ async function main() {
             `${where}: nothing wider than the viewport, details open`,
             overflow.length === 0,
             overflow,
+          );
+          const lone = await evaluate(LONE_BACKSLASH);
+          check(
+            `${where}: no shell line wraps its closing backslash onto a line of its own`,
+            lone.length === 0,
+            lone,
           );
           const contrast = await evaluate(CONTRAST);
           counts.contrasts += contrast.checked;
@@ -586,80 +647,92 @@ async function main() {
           check(`404 for ${path} at ${width} px, ${scheme}: no error`, log.length === 0, log);
         }
 
-        // The same steps on both builders must give the same lines, counts and states.
-        const builderRuns = {};
-        for (const path of ["tools/", "toolsets/"]) {
-          await go(path);
-          const state = () =>
-            evaluate(`(() => {
-              const big = document.getElementById("b-tokens");
-              return {
-                env: [...document.querySelectorAll("#b-env .term-code .l")].map((l) => l.textContent).join("\\n"),
-                tools: big.dataset.tools,
-                tokens: big.dataset.tokens,
-                copy: document.querySelector("#b-env [data-copy-term]").disabled,
-                none: [...document.querySelectorAll("#ts-list .ts-row.none")].map((li) => li.dataset.set),
-                pressed: [...document.querySelectorAll("#presets [aria-pressed=true]")].map((b) => b.textContent),
-                hint: document.getElementById("b-hint").textContent,
-                bars: document.querySelectorAll("#ts-list .strip i").length,
-                shownBars: [...document.querySelectorAll("#ts-list .strip i")].filter((el) => el.getClientRects().length).map((el) => el.dataset.risk),
-                key: document.querySelector("#builder .strip-key").getClientRects().length > 0,
-                contrast: ${CONTRAST}.fails,
-              };
-            })()`);
-          const steps = [];
+        // The builder lives on /toolsets/ only since fbc1786.
+        await go("toolsets/");
+        const state = () =>
+          evaluate(`(() => {
+            const big = document.getElementById("b-tokens");
+            return {
+              env: [...document.querySelectorAll("#b-env .term-code .l")].map((l) => l.textContent).join("\\n"),
+              tools: big.dataset.tools,
+              tokens: big.dataset.tokens,
+              copy: document.querySelector("#b-env [data-copy-term]").disabled,
+              none: [...document.querySelectorAll("#ts-list .ts-row.none")].map((li) => li.dataset.set),
+              pressed: [...document.querySelectorAll("#presets [aria-pressed=true]")].map((b) => b.textContent),
+              hint: document.getElementById("b-hint").textContent,
+              bars: document.querySelectorAll("#ts-list .strip i").length,
+              shownBars: [...document.querySelectorAll("#ts-list .strip i")].filter((el) => el.getClientRects().length).map((el) => el.dataset.risk),
+              key: document.querySelector(".tsx-key").getClientRects().length > 0,
+              contrast: ${CONTRAST}.fails,
+            };
+          })()`);
+        const preset = (
+          await evaluate(`document.querySelector('#presets [data-preset="1"]').title`)
+        ).split(",");
+        const withChannels = [...preset, "channels"];
+        const steps = [];
+        await click('#presets [data-preset="1"]');
+        steps.push(await state());
+        await click("#line .switch");
+        steps.push(await state());
+        await click('#ts-list [data-set="channels"] label');
+        steps.push(await state());
+        await click("#line .switch");
+        await click('.seg input[value="json"] + span');
+        steps.push(await state());
+        for (const li of await evaluate(
+          `[...document.querySelectorAll("#ts-list .ts-row.on")].map((li) => li.dataset.set)`,
+        ))
+          await click(`#ts-list [data-set="${li}"] label`);
+        steps.push(await state());
+        counts.builds++;
+        check(
+          `the builder on /toolsets/ composes a toolset line at ${width} px, ${scheme}`,
+          steps.every((step, i) => {
+            const ro = i === 1 || i === 2;
+            return (
+              step.shownBars.length > 0 &&
+              (ro
+                ? step.shownBars.every((risk) => risk === "read")
+                : step.shownBars.length === step.bars) &&
+              step.key &&
+              step.contrast.length === 0
+            );
+          }) &&
+            steps[0].env === `DISCORD_MCP_TOOLSETS=${preset}` &&
+            steps[0].tools === String(toolCount(preset)) &&
+            steps[0].pressed.length === 1 &&
+            steps[1].env === `DISCORD_MCP_TOOLSETS=${preset}\nDISCORD_MCP_READ_ONLY=true` &&
+            steps[1].tools === String(toolCount(preset, true)) &&
+            steps[1].none.includes("channels") &&
+            steps[2].env === `DISCORD_MCP_TOOLSETS=${withChannels}\nDISCORD_MCP_READ_ONLY=true` &&
+            steps[2].tools === String(toolCount(withChannels, true)) &&
+            steps[3].env === `"DISCORD_MCP_TOOLSETS": "${withChannels}"` &&
+            steps[3].tools === String(toolCount(withChannels)) &&
+            steps[4].copy === true &&
+            steps[4].tools === "0" &&
+            log.length === 0,
+          { steps, log },
+        );
+
+        for (const readOnly of [false, true]) {
+          await go("toolsets/");
           await click('#presets [data-preset="1"]');
-          steps.push(await state());
-          await click("#builder .switch");
-          steps.push(await state());
-          await click('#ts-list [data-set="channels"] label');
-          steps.push(await state());
-          await click("#builder .switch");
-          await click('.seg input[value="json"] + span');
-          steps.push(await state());
-          for (const li of await evaluate(
-            `[...document.querySelectorAll("#ts-list .ts-row.on")].map((li) => li.dataset.set)`,
-          ))
-            await click(`#ts-list [data-set="${li}"] label`);
-          steps.push(await state());
-          builderRuns[path] = steps;
-          counts.builds++;
+          if (readOnly) await click("#line .switch");
+          const arrivedCat = loaded();
+          await click("#show-cat");
+          await arrivedCat;
+          const shown = await evaluate(`({
+            search: location.search,
+            count: document.getElementById("count").textContent,
+          })`);
           check(
-            `the builder on /${path} composes a toolset line at ${width} px, ${scheme}`,
-            steps.every((step, i) => {
-              const ro = i === 1 || i === 2;
-              return (
-                step.shownBars.length > 0 &&
-                (ro
-                  ? step.shownBars.every((risk) => risk === "read")
-                  : step.shownBars.length === step.bars) &&
-                step.key &&
-                step.contrast.length === 0
-              );
-            }) &&
-              steps[0].env === "DISCORD_MCP_TOOLSETS=discovery,messages" &&
-              steps[0].tools === "25" &&
-              steps[0].pressed.length === 1 &&
-              steps[1].env ===
-                "DISCORD_MCP_TOOLSETS=discovery,messages\nDISCORD_MCP_READ_ONLY=true" &&
-              steps[1].tools === "11" &&
-              steps[1].none.includes("channels") &&
-              steps[2].env ===
-                "DISCORD_MCP_TOOLSETS=discovery,messages,channels\nDISCORD_MCP_READ_ONLY=true" &&
-              steps[2].tools === "11" &&
-              steps[3].env === '"DISCORD_MCP_TOOLSETS": "discovery,messages,channels"' &&
-              steps[3].tools === "33" &&
-              steps[4].copy === true &&
-              steps[4].tools === "0" &&
-              log.length === 0,
-            { steps, log },
+            `the builder's catalog link lists its ${readOnly ? "read-only " : ""}tools at ${width} px, ${scheme}`,
+            shown.search === `?sets=${preset}${readOnly ? "&risk=read" : ""}` &&
+              shown.count === `Showing ${toolCount(preset, readOnly)} of ${CATALOG.length} tools`,
+            shown,
           );
         }
-        check(
-          `both builders answer the same steps the same way at ${width} px, ${scheme}`,
-          JSON.stringify(builderRuns["tools/"]) === JSON.stringify(builderRuns["toolsets/"]),
-          builderRuns,
-        );
 
         await go("tools/discord_ban_member/");
         if (width <= MENU_UP_TO) await click("#menu-btn");
@@ -685,7 +758,7 @@ async function main() {
         check(
           `a toolset entry opens its page, with its tool rows at ${width} px, ${scheme}`,
           setPage.path === `${BASE}toolsets/channels/` &&
-            setPage.rows === 8 &&
+            setPage.rows === toolCount(["channels"]) &&
             setPage.crumb === "../",
           setPage,
         );
@@ -703,8 +776,8 @@ async function main() {
 
         const copies = [
           ["", "#install .panel:not([hidden]) [data-copy-term]", null],
-          ["tools/", "#b-env [data-copy-term]", "DISCORD_MCP_TOOLSETS=all"],
           ["toolsets/", "#b-env [data-copy-term]", "DISCORD_MCP_TOOLSETS=all"],
+          ["configuration/", "#set-codex [data-copy-term]", CODEX_COMMAND],
           ["toolsets/channels/", "#tsp-line [data-copy-term]", "DISCORD_MCP_TOOLSETS=channels"],
           ["tools/discord_ban_member/", "[data-copy-text]", "discord_ban_member"],
         ];
@@ -724,7 +797,9 @@ async function main() {
           counts.copies++;
           check(
             `Copy on /${path} at ${width} px, ${scheme}`,
-            after.label === "Copied" && after.clip === expectedText,
+            after.label === "Copied" &&
+              after.clip === expectedText &&
+              /^[\x20-\x7e\n]*$/.test(after.clip),
             { label: after.label, clip: after.clip.slice(0, 80) },
           );
         }
@@ -804,8 +879,11 @@ async function main() {
               button: shown(button),
               expanded: button.getAttribute("aria-expanded"),
               links: [...document.querySelectorAll("#site-nav a")].filter(shown).length,
+              all: document.querySelectorAll("#site-nav a").length,
             };
           })()`);
+        // Wide headers show the GitHub icon instead of the menu's GitHub link.
+        const inline = (state) => state.all - 1;
         if (width <= MENU_UP_TO) {
           const closed = await menu();
           check(
@@ -817,7 +895,7 @@ async function main() {
           const open = await menu();
           check(
             `the menu opens with the site links ${at}`,
-            open.expanded === "true" && open.links === 5,
+            open.expanded === "true" && open.links === open.all && open.all > 0,
             open,
           );
           await evaluate(`document.getElementById("menu-btn").focus()`);
@@ -834,13 +912,15 @@ async function main() {
             after,
           );
 
+          // The menu has had no in-page link since 270374a: its links open other pages.
           await click("#menu-btn");
-          await click('#site-nav a[href="#install"]');
-          await sleep(150);
+          let arrivedPage = loaded();
+          await click('#site-nav a[href="recipes/"]');
+          await arrivedPage;
           const clicked = await menu();
           check(
-            `clicking an in-page menu link closes the menu ${at}`,
-            (await evaluate("location.hash")) === "#install" &&
+            `clicking a menu link opens its page, menu closed ${at}`,
+            (await evaluate("location.pathname")) === `${BASE}recipes/` &&
               clicked.expanded === "false" &&
               clicked.links === 0,
             clicked,
@@ -848,7 +928,8 @@ async function main() {
 
           await go("");
           await click("#menu-btn");
-          await evaluate(`document.querySelector('#site-nav a[href="#install"]').focus()`);
+          await evaluate(`document.querySelector('#site-nav a[href="guide/"]').focus()`);
+          arrivedPage = loaded();
           for (const type of ["keyDown", "keyUp"])
             await send("Input.dispatchKeyEvent", {
               type,
@@ -857,11 +938,11 @@ async function main() {
               windowsVirtualKeyCode: 13,
               text: type === "keyDown" ? "\r" : undefined,
             });
-          await sleep(150);
+          await arrivedPage;
           const entered = await menu();
           check(
-            `Enter on an in-page menu link closes the menu ${at}`,
-            (await evaluate("location.hash")) === "#install" &&
+            `Enter on a menu link opens its page, menu closed ${at}`,
+            (await evaluate("location.pathname")) === `${BASE}guide/` &&
               entered.expanded === "false" &&
               entered.links === 0,
             entered,
@@ -894,7 +975,11 @@ async function main() {
           );
         } else {
           const wide = await menu();
-          check(`the links show without a menu ${at}`, !wide.button && wide.links === 4, wide);
+          check(
+            `the links show without a menu ${at}`,
+            !wide.button && wide.links === inline(wide),
+            wide,
+          );
         }
         const currentLink = () =>
           evaluate(
@@ -908,7 +993,7 @@ async function main() {
             const open = { ...(await menu()), current: await currentLink() };
             check(
               `the menu opens on /${path} with the site links ${at}`,
-              open.expanded === "true" && open.links === 5 && open.current === want,
+              open.expanded === "true" && open.links === open.all && open.current === want,
               open,
             );
             await press("Escape", "Escape", 27);
@@ -922,7 +1007,7 @@ async function main() {
             const wide = { ...(await menu()), current: await currentLink() };
             check(
               `the links show without a menu on /${path} ${at}`,
-              !wide.button && wide.links === 4 && wide.current === want,
+              !wide.button && wide.links === inline(wide) && wide.current === want,
               wide,
             );
           }
@@ -942,12 +1027,9 @@ async function main() {
               tools: shown(".row-li").map((li) => li.dataset.tool),
             };
           })`);
-        const tokensOf = new Map(
-          JSON.parse(readFileSync(join(SITE, "tools.json"), "utf8")).tools.map((t) => [
-            t.name,
-            t.tokens,
-          ]),
-        );
+        const tokensOf = new Map(CATALOG.map((t) => [t.name, t.tokens]));
+        const setsWith = (risk) =>
+          new Set(CATALOG.filter((t) => t.risk === risk).map((t) => t.toolset)).size;
         const mixOk = (list) =>
           list.every((h) => {
             const n = (risk) => h.rows.split(",").filter((r) => r === risk).length;
@@ -959,57 +1041,43 @@ async function main() {
             const cost = sum < 1000 ? "~" + Math.round(sum) : "~" + (sum / 1000).toFixed(1) + "k";
             return h.same && h.text.endsWith(": " + text + ", " + cost + " tokens");
           });
-        await click("#builder .switch");
-        const switched = await heads();
+        await click('.chip[data-risk="read"]');
+        await sleep(150);
+        const readOnly = await heads();
+        await click('.chip[data-risk="read"]');
         await click('.chip[data-risk="destructive"]');
         await sleep(150);
         const pressed = await heads();
         check(
-          `the catalog headers show one bar per listed row with read-only mode on ${at}`,
-          switched.length === 14 &&
-            mixOk(switched) &&
-            pressed.length > 0 &&
+          `the catalog headers show one bar per listed row under a risk filter ${at}`,
+          readOnly.length === setsWith("read") &&
+            readOnly.every((h) => /^read(,read)*$/.test(h.rows)) &&
+            mixOk(readOnly) &&
+            pressed.length === setsWith("destructive") &&
             pressed.every((h) => /^destructive(,destructive)*$/.test(h.rows)) &&
             mixOk(pressed),
-          { switched: switched.filter((h) => !h.same), pressed: pressed.filter((h) => !h.same) },
+          { readOnly: readOnly.filter((h) => !h.same), pressed: pressed.filter((h) => !h.same) },
         );
 
+        // The panel's Add button left with the builder (da1263f); its toolset link remains.
         await go("tools/");
-        await click('#presets [data-preset="1"]');
-        await click("#show-sel");
-        await sleep(150);
-        const filtered = await evaluate(`document.getElementById("count").textContent`);
-        check(
-          `the builder's selection filters the catalog ${at}`,
-          filtered === "Showing 27 of 104 tools",
-          filtered,
-        );
-        await go("tools/");
-        await click('#presets [data-preset="1"]');
         await click('a.row[data-tool="discord_ban_member"]');
         await sleep(300);
-        const slot = () =>
-          evaluate(`({
-            loaded: document.querySelector("#dlg-head .loaded")?.textContent,
-            ticked: document.querySelector('#ts-list [data-set="members"] input').checked,
-            env: [...document.querySelectorAll("#b-env .term-code .l")].map((l) => l.textContent).join(" "),
-          })`);
-        const before = await slot();
-        await click('#dlg-head [data-add-set="members"]');
-        await sleep(150);
-        const added = await slot();
+        const banSet = CATALOG.find((t) => t.name === "discord_ban_member").toolset;
+        const crumb = await evaluate(
+          `document.querySelector("#dlg-head .crumb a")?.getAttribute("href") ?? null`,
+        );
+        const toToolset = loaded();
+        await click("#dlg-head .crumb a");
+        await toToolset;
         check(
-          `the panel's Add button adds the toolset to the builder ${at}`,
-          before.loaded?.startsWith("Not in your toolset line") &&
-            !before.ticked &&
-            added.loaded === "Loaded by your configuration" &&
-            added.ticked &&
-            added.env === "DISCORD_MCP_TOOLSETS=discovery,messages,members",
-          { before, added },
+          `the panel links the tool's toolset page ${at}`,
+          crumb === `../toolsets/${banSet}/` &&
+            (await evaluate("location.pathname")) === `${BASE}toolsets/${banSet}/`,
+          crumb,
         );
 
         for (const [path, list] of [
-          ["tools/", "#ts-list"],
           ["toolsets/", "#ts-list"],
           ["", ".pfs"],
         ]) {
@@ -1027,6 +1095,9 @@ async function main() {
         }
       }
     }
+  } catch (error) {
+    // A step that cannot run stops the rest; the checks before it still count.
+    check("every step ran", false, error.message);
   } finally {
     tab.ws.close();
     browser.ws.close();

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-11-25
+
 ### Added
 
 - A documentation site at https://pasympa.github.io/discord-mcp/: a guide from creating the bot to the first prompts, seven recipes, every configuration variable with its plugin and bundle setting, troubleshooting, a privacy page, the tool catalog and the toolset builder. It is generated from the README and the tool definitions, and `.github/workflows/pages.yml` deploys it on each push to `main`
@@ -15,6 +17,7 @@
 
 ### Changed
 
+- The plugin's `moderation-sweep` skill deletes the flagged message IDs with `message_ids`, reports `not_deletable`, and waits out `stopped.retry_after_seconds` before calling again with `remaining`. The plugin runs `@pasympa/discord-mcp@2.5.0`
 - `homepage` in `package.json`, `manifest.json` and `plugin.json`, and `websiteUrl` in `server.json` and the `initialize` response, point at the documentation site instead of the GitHub repository
 - The README links the full one-minute demo hosted on the site, which shows the new logo
 - The README says when the plugin's bot token takes effect. If you skip the prompt at install, the server stays off until you set the token with `/plugin configure discord-mcp@pasympa`, and Claude Code needs a restart after the token is set or changed

@@ -400,7 +400,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 | `discord_create_poll`      | Create a native poll with up to 10 answers       |
 | `discord_get_poll_results` | Read a poll's current question, answers, votes   |
 | `discord_end_poll`         | End a poll immediately instead of waiting it out |
-| `discord_get_poll_voters`  | List the users who voted for one answer          |
+| `discord_get_poll_voters`  | List the users who voted for one answer, by page |
 
 </details>
 

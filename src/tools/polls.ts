@@ -1,10 +1,30 @@
-import { PollLayoutType, type Poll } from "discord.js";
+import { DiscordAPIError, PollLayoutType, RESTJSONErrorCodes, type Poll } from "discord.js";
 import { z } from "zod";
 import { getTextChannel } from "../client.js";
-import { defineModule, defineTool, intIn, snowflake, structured } from "./define.js";
+import { DEFAULTS, MAX_FETCH_LIMIT } from "../constants.js";
+import {
+  channelId,
+  defineModule,
+  defineTool,
+  intIn,
+  messageId,
+  snowflake,
+  structured,
+} from "./define.js";
 
-const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
-const messageId = snowflake.describe("ID of the poll message.");
+const pollMessageId = messageId.describe("ID of the poll message.");
+
+/**
+ * discord.js drops an emoji it cannot parse without an error, reads at most 19 ID digits,
+ * and URL-decodes any "%". So only the forms it reads whole get through: a unicode emoji
+ * (at least one character beyond printable ASCII), or name:id, <:name:id> or <a:name:id>.
+ */
+const answerEmoji = z
+  .string()
+  .regex(
+    /^(?:[^:%\s]*[^\s!-~][^:%\s]*|<?(?:a?:)?\w{2,32}:\d{17,19}>?)$/,
+    "Must be a unicode emoji, or a custom emoji 'name:id' or '<:name:id>' with a 2-32 character name and a 17-19 digit ID.",
+  );
 
 const pollAnswerSummary = z.object({
   id: z.number(),
@@ -22,10 +42,10 @@ const pollSummary = z.object({
   resultsFinalized: z.boolean(),
 });
 
-/** Fetches the poll carried by a message. */
 async function getPoll(channel_id: string, message_id: string): Promise<Poll> {
   const channel = await getTextChannel(channel_id);
-  // `force` bypasses the message cache, which holds stale vote counts for polls the bot posted itself.
+  // A fetched clone shares the cached copy's Poll, and Poll#_patch keeps the count of any answer the payload omits.
+  channel.messages.cache.delete(message_id);
   const msg = await channel.messages.fetch({ message: message_id, cache: false, force: true });
   if (!msg.poll) throw new Error(`Message ${message_id} does not carry a poll.`);
   return msg.poll;
@@ -62,16 +82,15 @@ const tools = [
     },
     schema: z.object({
       channel_id: channelId.describe("ID (snowflake) of the target channel or thread."),
-      question: z.string().max(300).describe("Poll question (max 300 characters)."),
+      question: z.string().min(1).max(300).describe("Poll question (1–300 characters)."),
       answers: z
         .array(
           z.strictObject({
-            text: z.string().max(55).describe("Answer text (max 55 characters)."),
-            emoji: z
-              .string()
+            text: z.string().min(1).max(55).describe("Answer text (1–55 characters)."),
+            emoji: answerEmoji
               .optional()
               .describe(
-                "Optional unicode emoji or custom emoji 'name:id' shown next to the answer.",
+                "Optional unicode emoji, or custom emoji 'name:id' or '<:name:id>' ('<a:name:id>' if animated), shown next to the answer.",
               ),
           }),
         )
@@ -109,9 +128,9 @@ const tools = [
   defineTool({
     name: "discord_get_poll_results",
     description:
-      "Read a poll's current question, answers and vote counts. Vote counts update live as people vote; results are not final until the poll expires or discord_end_poll is called (resultsFinalized becomes true). Read-only.",
+      "Read a poll's current question, answers and vote counts. Counts update as people vote and are final once resultsFinalized is true, which Discord sets after the poll expires or discord_end_poll ends it. Requires the View Channel and Read Message History permissions. Read-only.",
     annotations: { title: "Get poll results", readOnlyHint: true, openWorldHint: true },
-    schema: z.object({ channel_id: channelId, message_id: messageId }),
+    schema: z.object({ channel_id: channelId, message_id: pollMessageId }),
     outputSchema: pollSummary,
     handle: async ({ channel_id, message_id }) => {
       return structured(summarizePoll(await getPoll(channel_id, message_id)));
@@ -120,7 +139,7 @@ const tools = [
   defineTool({
     name: "discord_end_poll",
     description:
-      "End a poll immediately instead of waiting for its duration to expire. Only the bot's own polls can be ended early. Irreversible: a poll cannot be reopened once ended. Returns the final results.",
+      "End a poll immediately instead of waiting for its duration to expire. Only the bot's own polls can be ended early. Irreversible: a poll cannot be reopened once ended. A poll that has already ended or expired is returned unchanged. Requires the View Channel and Read Message History permissions. Returns the results; resultsFinalized tells whether Discord has finished counting them.",
     annotations: {
       title: "End poll",
       readOnlyHint: false,
@@ -128,37 +147,72 @@ const tools = [
       idempotentHint: true,
       openWorldHint: true,
     },
-    schema: z.object({ channel_id: channelId, message_id: messageId }),
+    schema: z.object({ channel_id: channelId, message_id: pollMessageId }),
     outputSchema: pollSummary,
     handle: async ({ channel_id, message_id }) => {
       const poll = await getPoll(channel_id, message_id);
-      if (poll.resultsFinalized) return structured(summarizePoll(poll));
-      const ended = await poll.end();
-      return structured(summarizePoll(ended.poll ?? poll));
+      // Poll#end throws PollAlreadyExpired, without calling Discord, once the expiry is past.
+      const expired = poll.expiresTimestamp !== null && poll.expiresTimestamp <= Date.now();
+      if (poll.resultsFinalized || expired) return structured(summarizePoll(poll));
+      try {
+        const ended = await poll.end();
+        return structured(summarizePoll(ended.poll ?? poll));
+      } catch (error) {
+        if (!(error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.PollExpired))
+          throw error;
+        return structured(summarizePoll(await getPoll(channel_id, message_id)));
+      }
     },
   }),
   defineTool({
     name: "discord_get_poll_voters",
     description:
-      "List the users who voted for one specific answer of a poll. Returns { voters: [...] } with id and username. Use discord_get_poll_results first to find an answer's id. Read-only.",
+      "List the users who voted for one specific answer of a poll. Returns { voters: [...], hasMore, nextAfter } with id, username, bot flag, ordered by user ID. Returns 25 voters by default and at most 100 per call; while hasMore is true pass nextAfter back as `after` for the next page. A vote cast while paging is missed if the voter's ID sorts before the cursor. Use discord_get_poll_results first to find an answer's id. Requires the View Channel and Read Message History permissions. Read-only.",
     annotations: { title: "Get poll voters", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       channel_id: channelId,
-      message_id: messageId,
-      answer_id: z.int().describe("The answer's numeric id, from discord_get_poll_results."),
-      limit: intIn(1, 100).default(25).describe("Max voters to return (1–100). Default 25."),
+      message_id: pollMessageId,
+      answer_id: z
+        .int()
+        .min(1)
+        .describe("The answer's numeric id (1 or more), from discord_get_poll_results."),
+      limit: intIn(1, MAX_FETCH_LIMIT)
+        .default(DEFAULTS.LIMIT)
+        .describe("Max voters to return (1–100). Default 25."),
+      after: snowflake
+        .optional()
+        .describe(
+          "Pagination cursor: a user ID (snowflake). Pass the previous response's nextAfter to fetch the next page.",
+        ),
     }),
     outputSchema: z.object({
-      voters: z.array(z.object({ id: z.string(), username: z.string() })),
+      voters: z.array(z.object({ id: z.string(), username: z.string(), bot: z.boolean() })),
+      hasMore: z.boolean(),
+      nextAfter: z.string().nullable(),
     }),
-    handle: async ({ channel_id, message_id, answer_id, limit }) => {
+    handle: async ({ channel_id, message_id, answer_id, limit, after }) => {
       const poll = await getPoll(channel_id, message_id);
       const answer = poll.answers.get(answer_id);
       if (!answer)
         throw new Error(`Poll on message ${message_id} has no answer with id ${answer_id}.`);
-      const voters = await answer.voters.fetch({ limit });
+      const page = [
+        ...(
+          await answer.voters.fetch({ after, limit: Math.min(limit + 1, MAX_FETCH_LIMIT) })
+        ).values(),
+      ];
+      const voters = page.slice(0, limit);
+      const last = voters.at(-1);
+      // Discord serves at most 100 voters per call, so a full page of 100 needs a probe for more.
+      const more =
+        page.length > limit ||
+        (last !== undefined &&
+          voters.length === MAX_FETCH_LIMIT &&
+          (await answer.voters.fetch({ after: last.id, limit: 1 })).size > 0);
+      const nextAfter = more && last ? last.id : null;
       return structured({
-        voters: [...voters.values()].map((u) => ({ id: u.id, username: u.username })),
+        voters: voters.map((u) => ({ id: u.id, username: u.username, bot: u.bot })),
+        hasMore: nextAfter !== null,
+        nextAfter,
       });
     },
   }),

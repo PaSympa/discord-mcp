@@ -83,7 +83,7 @@ function codeLine(text) {
       if (part.length <= 32) return `<span class="nw">${wordHtml(part, false)}${end}</span>`;
       if (!end) return wordHtml(part, true);
       const cut = Math.max(...[..."/,=?&"].map((c) => part.lastIndexOf(c, part.length - 2))) + 1;
-      return `${wordHtml(part.slice(0, cut), true)}<wbr><span class="nw">${wordHtml(part.slice(cut), false)}${end}</span>`;
+      return `${wordHtml(part.slice(0, cut), true).replace(/<wbr>$/, "")}<wbr><span class="nw">${wordHtml(part.slice(cut), false)}${end}</span>`;
     })
     .join("");
   return raw(html);

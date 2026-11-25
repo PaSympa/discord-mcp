@@ -282,7 +282,7 @@ const tools = [
   defineTool({
     name: "discord_list_bans",
     description:
-      "List the users banned from the server, with their ban reasons. Returns { bans: [...], nextCursor }. A page holds up to 1000 bans; if nextCursor is non-null, pass it back as `after` to fetch the next page. Requires the Ban Members or View Audit Log permission. Read-only. Lift a ban with discord_unban_member.",
+      "List the users banned from the server, with their ban reasons. Returns { bans: [...], nextCursor }. A page holds up to 1000 bans; if nextCursor is non-null, pass it back as `after` to fetch the next page. Requires the Ban Members permission (or View Audit Log). Read-only. Lift a ban with discord_unban_member.",
     annotations: { title: "List bans", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,
@@ -373,7 +373,7 @@ const tools = [
   defineTool({
     name: "discord_prune_members",
     description:
-      "Remove members who have been inactive (no roles, not seen) for a number of days. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the count, then re-call with dry_run:false to actually remove them. Removal is irreversible (members must rejoin). Requires the Manage Server and Kick Members permissions (Administrator when the server has the PRUNE_REQUIRES_ADMIN feature). To remove specific members, use discord_kick_member.",
+      "Remove members who have been inactive (no roles, not seen) for a number of days. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the count, then re-call with dry_run:false to actually remove them. Removal is irreversible (members must rejoin). Requires the Manage Server and Kick Members permissions (or Administrator instead, on a server with the PRUNE_REQUIRES_ADMIN feature). To remove specific members, use discord_kick_member.",
     annotations: {
       title: "Prune inactive members",
       readOnlyHint: false,

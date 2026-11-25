@@ -462,7 +462,7 @@ const tools = [
   defineTool({
     name: "discord_send_message",
     description:
-      "Send a plain-text message to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission. Returns the new message ID. Use discord_send_multiple_embeds for text with embeds, discord_forward_message to share an existing message, discord_send_webhook_message to post as a webhook, discord_create_poll for a poll, or discord_send_dm for a DM; in a thread, discord_reply_to_forum does the same.",
+      "Send a plain-text message to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission. Returns the new message ID. Use discord_send_multiple_embeds for several embeds, discord_forward_message to share an existing message, discord_send_webhook_message to post as a webhook, discord_create_poll for a poll, or discord_send_dm for a DM; in a thread, discord_reply_to_forum does the same.",
     annotations: {
       title: "Send message",
       readOnlyHint: false,
@@ -550,7 +550,7 @@ const tools = [
   defineTool({
     name: "discord_add_reaction",
     description:
-      "Add a single emoji reaction to a message as the bot. Requires the Read Message History permission to look the message up, plus Add Reactions when no one has reacted with that emoji yet. Use discord_remove_reactions to undo. Idempotent: re-adding the bot's existing reaction has no effect.",
+      "Add a single emoji reaction to a message as the bot. Requires the Read Message History permission to look the message up (and Add Reactions for an emoji no one has reacted with yet). Use discord_remove_reactions to undo. Idempotent: re-adding the bot's existing reaction has no effect.",
     annotations: {
       title: "Add reaction",
       readOnlyHint: false,
@@ -645,7 +645,7 @@ const tools = [
   defineTool({
     name: "discord_create_thread",
     description:
-      "Create a thread, either branching from an existing message (pass message_id) or as a standalone thread in a text channel (omit message_id). Standalone creation requires a parent text channel and fails if channel_id is itself a thread. Requires the Create Public Threads permission (or Create Private Threads for a private thread), plus Read Message History when message_id is set. Returns the new thread's ID. Set private for a standalone thread that only its members and moderators see. member_ids adds people in the same call and needs Send Messages in Threads; discord_add_thread_member adds them later. In a forum channel, use discord_create_forum_post instead.",
+      "Create a thread, either branching from an existing message (pass message_id) or as a standalone thread in a text or announcement channel (omit message_id). Standalone creation fails if channel_id is a thread, a voice channel or a stage channel. Requires the Create Public Threads permission (or Create Private Threads for a private thread). Branching from a message requires the Read Message History permission. Returns the new thread's ID. Set private for a standalone thread in a text channel that only its members and moderators see. Adding people with member_ids requires the Send Messages in Threads permission; discord_add_thread_member adds them later. In a forum channel, use discord_create_forum_post instead.",
     annotations: {
       title: "Create thread",
       readOnlyHint: false,
@@ -771,7 +771,7 @@ const tools = [
   defineTool({
     name: "discord_add_thread_member",
     description:
-      "Add a member to a thread. This is how people join a private thread, which they cannot open otherwise; in a public thread it makes them follow it. Works on any thread, forum posts included. Adding someone already in the thread changes nothing. The member must be able to view the parent channel. If Discord refuses because the thread is archived, it is unarchived and the call retried, and it stays open afterwards. Unarchiving a locked thread needs Manage Threads. Requires the Send Messages in Threads permission. Returns a confirmation. Use discord_remove_thread_member to take someone out, or discord_create_thread with private set to create a private thread.",
+      "Add a member to a thread. This is how people join a private thread, which they cannot open otherwise; in a public thread it makes them follow it. Works on any thread, forum posts included. Adding someone already in the thread changes nothing. The member must be able to view the parent channel. If Discord refuses because the thread is archived, it is unarchived and the call retried, and it stays open afterwards. Unarchiving a locked thread requires the Manage Threads permission. Requires the Send Messages in Threads permission. Returns a confirmation. Use discord_remove_thread_member to take someone out, or discord_create_thread with private set to create a private thread.",
     annotations: {
       title: "Add thread member",
       readOnlyHint: false,
@@ -960,7 +960,7 @@ const tools = [
   defineTool({
     name: "discord_send_embed",
     description:
-      "Send a single rich embed (title, description, color, fields, author, footer, images, timestamp). Use discord_send_message for plain text, or discord_send_multiple_embeds to send several embeds at once. Requires the Send Messages and Embed Links permissions. Returns the new message ID. For a DM, use discord_send_dm_embed.",
+      "Send a single rich embed (title, description, color, fields, author, footer, images, timestamp). Set content to add plain text above the embed in the same message. Use discord_send_message for plain text, or discord_send_multiple_embeds to send several embeds at once. Requires the Send Messages and Embed Links permissions. Returns the new message ID. For a DM, use discord_send_dm_embed.",
     annotations: {
       title: "Send embed",
       readOnlyHint: false,
@@ -1465,7 +1465,7 @@ const tools = [
   defineTool({
     name: "discord_forward_message",
     description:
-      "Forward an existing message to another channel using Discord's native forward, which links back to the original message. The forward carries a snapshot of the content, embeds and attachments, without the original author. Works across text channels and threads. Discord forwards only regular messages, replies and command responses, not polls, and refuses a message whose content the bot cannot read (error 160014). Use discord_send_message to compose new content instead. Requires the View Channel and Read Message History permissions in the source channel and Send Messages in the target channel. Returns a confirmation. Use discord_crosspost_message to publish an announcement to following servers, or discord_follow_announcement_channel to repost a channel's future announcements.",
+      "Forward an existing message to another channel using Discord's native forward, which links back to the original message. The forward carries a snapshot of the content, embeds and attachments, without the original author. Works across text channels and threads. Discord forwards only regular messages, replies and command responses, not polls, and refuses a message whose content the bot cannot read (error 160014). Use discord_send_message to compose new content instead. Requires the View Channel and Read Message History permissions in the source channel (and Send Messages for the target channel). Returns a confirmation. Use discord_crosspost_message to publish an announcement to following servers, or discord_follow_announcement_channel to repost a channel's future announcements.",
     annotations: {
       title: "Forward message",
       readOnlyHint: false,

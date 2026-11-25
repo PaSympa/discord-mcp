@@ -56,7 +56,7 @@ const tools = [
   defineTool({
     name: "discord_delete_channel",
     description:
-      "Permanently delete a channel and all of its messages. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Deleting a category keeps its channels, which leave the category. A DM channel ID only closes the DM, which is reversible. Requires the Manage Channels permission, or Manage Threads for a thread. An optional reason is recorded in the audit log. discord_delete_forum_post also deletes a thread, but at once: use this tool to keep the dry run.",
+      "Permanently delete a channel and all of its messages. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Deleting a category keeps its channels, which leave the category. A DM channel ID only closes the DM, which is reversible. Requires the Manage Channels permission (or Manage Threads for a thread). An optional reason is recorded in the audit log. discord_delete_forum_post also deletes a thread, but at once: use this tool to keep the dry run.",
     annotations: {
       title: "Delete channel",
       readOnlyHint: false,
@@ -158,7 +158,7 @@ const tools = [
   defineTool({
     name: "discord_clone_channel",
     description:
-      "Create a copy of a channel, including its name, topic, and permission overwrites (but not its messages). Requires the Manage Channels permission, and View Channel on the source: the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns the cloned channel's name and ID. To give an existing channel the same overwrites, use discord_copy_permissions.",
+      "Create a copy of a channel, including its name, topic, and permission overwrites (but not its messages). Requires the Manage Channels permission (and View Channel on the source): the tool refuses a source the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns the cloned channel's name and ID. To give an existing channel the same overwrites, use discord_copy_permissions.",
     annotations: {
       title: "Clone channel",
       readOnlyHint: false,
@@ -247,7 +247,7 @@ const tools = [
   defineTool({
     name: "discord_lock_channel_permissions",
     description:
-      "Reset a channel's permission overwrites to exactly match its parent category (Discord's 'sync permissions'). The channel must be inside a category. Requires the Manage Channels and Manage Roles permissions, and View Channel on the category: the tool refuses a category the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. Use discord_reset_channel_permissions to remove every overwrite, or discord_copy_permissions to copy another channel's.",
+      "Reset a channel's permission overwrites to exactly match its parent category (Discord's 'sync permissions'). The channel must be inside a category. Requires the Manage Channels and Manage Roles permissions (and View Channel on the category): the tool refuses a category the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. Use discord_reset_channel_permissions to remove every overwrite, or discord_copy_permissions to copy another channel's.",
     annotations: {
       title: "Sync channel permissions",
       readOnlyHint: false,

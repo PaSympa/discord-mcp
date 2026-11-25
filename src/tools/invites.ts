@@ -48,7 +48,7 @@ const tools = [
   defineTool({
     name: "discord_list_invites",
     description:
-      "List all active invites across a server (code, url, channel, inviter, uses, expiry). Requires the Manage Server or View Audit Log permission; without Manage Server or Manage Channels, Discord omits invite metadata, so uses, max_uses and max_age read 0, temporary reads false and created_at null. Read-only. Use discord_list_channel_invites to scope to one channel. Look up one code with discord_get_invite, or revoke one with discord_delete_invite.",
+      "List all active invites across a server (code, url, channel, inviter, uses, expiry). Requires the Manage Server permission (or View Audit Log); without Manage Server or Manage Channels, Discord omits invite metadata, so uses, max_uses and max_age read 0, temporary reads false and created_at null. Read-only. Use discord_list_channel_invites to scope to one channel. Look up one code with discord_get_invite, or revoke one with discord_delete_invite.",
     annotations: { title: "List invites", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

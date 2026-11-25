@@ -79,7 +79,7 @@ const LIMITS: [ToolModule, string, (string | number)[], number][] = [
   [forums, "discord_create_forum_post", ["title"], 100],
   [forums, "discord_create_forum_post", ["content"], 2000],
   [forums, "discord_reply_to_forum", ["content"], 2000],
-  [forums, "discord_set_forum_tags", ["tags", 0, "name"], 20],
+  [forums, "discord_set_forum_tags", ["tags", 0, "name"], 50],
   [forums, "discord_update_forum_post", ["title"], 100],
   [webhooks, "discord_create_webhook", ["name"], 80],
   [webhooks, "discord_send_webhook_message", ["content"], 2000],

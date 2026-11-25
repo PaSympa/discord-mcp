@@ -46,7 +46,7 @@ async function getForumChannel(channelId: string, { force = false } = {}): Promi
 }
 
 const tagInput = z.strictObject({
-  name: textUpTo(20).describe("Tag label (max 20 characters)."),
+  name: textUpTo(50).describe("Tag label (max 50 characters)."),
   emoji_name: z
     .string()
     .min(1)

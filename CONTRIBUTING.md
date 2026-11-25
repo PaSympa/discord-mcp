@@ -8,6 +8,7 @@ Thanks for your interest in contributing to Discord MCP Server!
 2. Build it with `defineTool` entries assembled by `defineModule([...])`, and default-export the result
 3. Add it to `allToolsets` in `src/tools/index.ts`; the key becomes its `DISCORD_MCP_TOOLSETS` name
 4. Update `README.md` (tool tables, counts, toolset list)
+5. For a new toolset, also give it a `label` and a `blurb` in `site/content.json`, or the site build fails, and add its name to the `DISCORD_MCP_TOOLSETS` description of both packages in `server.json`. `npm test` checks both
 
 ### Tool Module Structure
 

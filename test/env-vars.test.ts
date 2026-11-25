@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { selectModules } from "../src/tools/index.js";
 
 const root = join(__dirname, "..");
 
@@ -29,7 +30,10 @@ function envReads(): Map<string, string> {
   return reads;
 }
 
-type Package = { registryType: string; environmentVariables?: { name: string }[] };
+type Package = {
+  registryType: string;
+  environmentVariables?: { name: string; description?: string }[];
+};
 type Manifest = {
   version: string;
   server: { mcp_config: { env?: Record<string, string> } };
@@ -137,4 +141,34 @@ test("the README Configuration table has a row for every env var src/ reads", ()
       `${name} is read in ${file} but has no row in the README Configuration table`,
     );
   }
+});
+
+/** Every toolset, from the startup error that an empty selection always raises. */
+function toolsetNames(): string[] {
+  process.env.DISCORD_MCP_TOOLSETS = ",";
+  try {
+    selectModules();
+  } catch (error) {
+    const known = /Known: all, ([\w, ]+)\./.exec(String(error));
+    if (known) return known[1].split(", ");
+  } finally {
+    delete process.env.DISCORD_MCP_TOOLSETS;
+  }
+  throw new Error("an empty DISCORD_MCP_TOOLSETS no longer names the known toolsets");
+}
+
+test("server.json and the README name every toolset, in the registry's order", () => {
+  const names = toolsetNames();
+  const listed = `${names.join(", ")}, or all.`;
+  for (const pkg of packages) {
+    const toolsets = pkg.environmentVariables?.find((v) => v.name === "DISCORD_MCP_TOOLSETS");
+    assert.ok(
+      toolsets?.description?.includes(listed),
+      `the server.json ${pkg.registryType} package's DISCORD_MCP_TOOLSETS should list ${listed}`,
+    );
+  }
+  const readme = readFileSync(join(root, "README.md"), "utf8");
+  const sentence = readme.split("Toolsets: `")[1]?.split(". ")[0] ?? "";
+  const inReadme = [...("`" + sentence).matchAll(/`([a-z_]+)`/g)].map((m) => m[1]);
+  assert.deepEqual(inReadme, names, "the README's Toolsets: sentence lists other toolsets");
 });

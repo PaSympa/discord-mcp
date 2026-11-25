@@ -1,0 +1,7 @@
+changelog:
+  exclude:
+    labels:
+      - release
+    authors:
+      - dependabot
+      - dependabot[bot]

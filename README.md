@@ -28,7 +28,7 @@
 
 <p align="center"><a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4">Watch the full one-minute demo</a>: a channel recap, a bug forum, the spam cleanup and an event.</p>
 
-<sub>Calls made live with Claude Code on a demo server; the panel summarizes their results. The Discord window shows real captures, except that the spot of each new message or post stays blank until it appears.</sub>
+<sub>Calls made live with Claude Code on a demo server, before 2.5.0: the recording deletes by count, where 2.5.0 deletes the message IDs from the preview. The panel summarizes their results. The Discord window shows real captures, except that the spot of each new message or post stays blank until it appears.</sub>
 
 ## What you can ask
 
@@ -237,7 +237,7 @@ npm install && npm run build
 }
 ```
 
-You can also put `DISCORD_TOKEN=YOUR_BOT_TOKEN` in a `.env` file at the project root; the server loads it on start.
+You can also put `DISCORD_TOKEN=YOUR_BOT_TOKEN` in a `.env` file in the folder your client starts the server from; the server loads it on start.
 
 </details>
 

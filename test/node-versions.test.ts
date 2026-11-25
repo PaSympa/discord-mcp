@@ -12,7 +12,8 @@ const tested = new Set((matrix?.[1] ?? "").split(",").map((v) => Number(v.trim()
 test("CI runs the tests on the Node.js the Docker image ships", () => {
   assert.ok(matrix, "ci.yml has no node-version matrix");
   // Dependabot bumps the base image, so a new major must reach the matrix in the same PR.
-  const images = [...read("Dockerfile").matchAll(/^FROM node:(\d+)/gm)].map((m) => Number(m[1]));
+  const from = /^FROM\s+(?:--\S+\s+)*node:(\d+)/gm;
+  const images = [...read("Dockerfile").matchAll(from)].map((m) => Number(m[1]));
   assert.ok(images.length > 0, "the Dockerfile has no node base image");
   for (const major of images)
     assert.ok(tested.has(major), `the Dockerfile runs Node ${major}, which ci.yml does not test`);

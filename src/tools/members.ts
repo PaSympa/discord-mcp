@@ -26,7 +26,7 @@ const tools = [
   defineTool({
     name: "discord_list_members",
     description:
-      "List members of a server with their roles, ordered by user ID. Returns { members: [...], nextCursor }. A page holds up to 1000 members; if nextCursor is non-null, pass it back as `after` to fetch the next page. Use discord_search_members to find specific members by name, or discord_get_member_info for one member's full details. Read-only.",
+      "List members of a server with their roles, ordered by user ID. Returns { members: [...], nextCursor }. A page holds up to 1000 members; if nextCursor is non-null, pass it back as `after` to fetch the next page. Use discord_search_members to find specific members by name, or discord_get_member_info for one member's full details. Read-only. Requires the Server Members privileged intent, enabled in the Developer Portal.",
     annotations: { title: "List members", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       guild_id: guildId,

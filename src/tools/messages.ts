@@ -462,7 +462,7 @@ const tools = [
   defineTool({
     name: "discord_send_message",
     description:
-      "Send a plain-text message to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission. Returns the new message ID. Use discord_send_multiple_embeds for several embeds, discord_forward_message to share an existing message, discord_send_webhook_message to post as a webhook, discord_create_poll for a poll, or discord_send_dm for a DM; in a thread, discord_reply_to_forum does the same.",
+      "Send a plain-text message to a channel or thread. For rich content (title, color, fields, images) use discord_send_embed; to attach a reply reference to an existing message use discord_reply_message. Requires the bot to have the Send Messages permission (or Send Messages in Threads for a thread). Returns the new message ID. Use discord_send_multiple_embeds for several embeds, discord_forward_message to share an existing message, discord_send_webhook_message to post as a webhook, discord_create_poll for a poll, or discord_send_dm for a DM; in a thread, discord_reply_to_forum does the same.",
     annotations: {
       title: "Send message",
       readOnlyHint: false,
@@ -485,7 +485,7 @@ const tools = [
   defineTool({
     name: "discord_reply_message",
     description:
-      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Send Messages and Read Message History permissions. Discord refuses some system messages as reply targets. Returns the new reply's message ID. In a DM, use discord_reply_dm; discord_reply_to_forum posts in a thread without a reply reference.",
+      "Reply to a specific message, attaching a reply reference so clients show it as a threaded reply. Use discord_send_message for a standalone message with no reference. Requires the Read Message History and Send Messages permissions (or Send Messages in Threads for a thread). Discord refuses some system messages as reply targets. Returns the new reply's message ID. In a DM, use discord_reply_dm; discord_reply_to_forum posts in a thread without a reply reference.",
     annotations: {
       title: "Reply to message",
       readOnlyHint: false,
@@ -960,7 +960,7 @@ const tools = [
   defineTool({
     name: "discord_send_embed",
     description:
-      "Send a single rich embed (title, description, color, fields, author, footer, images, timestamp). Set content to add plain text above the embed in the same message. Use discord_send_message for plain text, or discord_send_multiple_embeds to send several embeds at once. Requires the Send Messages and Embed Links permissions. Returns the new message ID. For a DM, use discord_send_dm_embed.",
+      "Send a single rich embed (title, description, color, fields, author, footer, images, timestamp). Set content to add plain text above the embed in the same message. Use discord_send_message for plain text, or discord_send_multiple_embeds to send several embeds at once. Requires the Embed Links and Send Messages permissions (or Send Messages in Threads for a thread). Returns the new message ID. For a DM, use discord_send_dm_embed.",
     annotations: {
       title: "Send embed",
       readOnlyHint: false,
@@ -1022,7 +1022,7 @@ const tools = [
   defineTool({
     name: "discord_send_multiple_embeds",
     description:
-      "Send up to 10 embeds in a single message, with optional text above them. Use discord_send_embed for a single embed. Requires the Send Messages and Embed Links permissions. Returns the new message ID. For text with no embed, use discord_send_message.",
+      "Send up to 10 embeds in a single message, with optional text above them. Use discord_send_embed for a single embed. Requires the Embed Links and Send Messages permissions (or Send Messages in Threads for a thread). Returns the new message ID. For text with no embed, use discord_send_message.",
     annotations: {
       title: "Send multiple embeds",
       readOnlyHint: false,
@@ -1267,7 +1267,7 @@ const tools = [
   defineTool({
     name: "discord_remove_reactions",
     description:
-      "Remove reactions from a message. With no emoji: removes ALL reactions. With emoji only: removes every reaction of that emoji. With emoji and user_id: removes that one user's reaction. user_id without emoji is rejected. Removing all reactions, every reaction of one emoji, or another user's reaction requires the Manage Messages permission. Use discord_add_reaction to add.",
+      "Remove reactions from a message. With no emoji: removes ALL reactions. With emoji only: removes every reaction of that emoji. With emoji and user_id: removes that one user's reaction. user_id without emoji is rejected. Requires the Read Message History permission to look the message up. Removing all reactions, every reaction of one emoji, or another user's reaction requires the Manage Messages permission. Use discord_add_reaction to add.",
     annotations: {
       title: "Remove reactions",
       readOnlyHint: false,

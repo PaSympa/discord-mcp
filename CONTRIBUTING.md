@@ -113,7 +113,7 @@ git push -u origin release/x.y.z
 
 `npm version` bumps all five files (`server.json`, `manifest.json` and `plugin.json` via the `version` lifecycle script in `scripts/sync-version.js`), commits, and creates the `vX.Y.Z` tag locally. Make sure `CHANGELOG.md` has an entry for the new version (commit it on the branch if not).
 
-Open a PR and **merge it with a merge commit** (not squash or rebase: the tagged commit must end up in `main`'s history). The plugin on `main` then pins a version npm does not have yet, so its installs fail until the release publishes it. Push the tag right away:
+Open a PR with the `release` label, which `.github/release.yml` leaves out of the generated release notes, and **merge it with a merge commit** (not squash or rebase: the tagged commit must end up in `main`'s history). The plugin on `main` then pins a version npm does not have yet, so its installs fail until the release publishes it. Push the tag right away:
 
 ```bash
 git push origin vX.Y.Z

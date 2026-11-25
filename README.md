@@ -13,7 +13,7 @@
 
 [![Install in VS Code](.github/assets/install-vscode.svg)](https://vscode.dev/redirect/mcp/install?name=discord&inputs=%5B%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22discord_token%22%2C%22description%22%3A%22Discord%20bot%20token%22%2C%22password%22%3Atrue%7D%5D&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40pasympa%2Fdiscord-mcp%22%5D%2C%22env%22%3A%7B%22DISCORD_TOKEN%22%3A%22%24%7Binput%3Adiscord_token%7D%22%7D%7D)
 [![Install in VS Code Insiders](.github/assets/install-vscode-insiders.svg)](https://insiders.vscode.dev/redirect/mcp/install?name=discord&inputs=%5B%7B%22type%22%3A%22promptString%22%2C%22id%22%3A%22discord_token%22%2C%22description%22%3A%22Discord%20bot%20token%22%2C%22password%22%3Atrue%7D%5D&config=%7B%22command%22%3A%22npx%22%2C%22args%22%3A%5B%22-y%22%2C%22%40pasympa%2Fdiscord-mcp%22%5D%2C%22env%22%3A%7B%22DISCORD_TOKEN%22%3A%22%24%7Binput%3Adiscord_token%7D%22%7D%7D&quality=insiders)
-[![Install in Cursor](.github/assets/install-cursor.svg)](https://cursor.com/en/install-mcp?name=discord&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBwYXN5bXBhL2Rpc2NvcmQtbWNwIl0sImVudiI6eyJESVNDT1JEX1RPS0VOIjoiWU9VUl9CT1RfVE9LRU4ifX0%3D)
+[![Install in Cursor](.github/assets/install-cursor.svg)](https://cursor.com/install-mcp?name=discord&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBwYXN5bXBhL2Rpc2NvcmQtbWNwIl0sImVudiI6eyJESVNDT1JEX1RPS0VOIjoiWU9VUl9CT1RfVE9LRU4ifX0%3D)
 [![Install in Claude Desktop](.github/assets/install-claude-desktop.svg)](https://github.com/PaSympa/discord-mcp/releases/latest/download/discord-mcp.mcpb)
 
 </div>
@@ -168,7 +168,7 @@ Use the **Install in VS Code** button: VS Code asks for the token and stores it 
 }
 ```
 
-See the [VS Code MCP docs](https://code.visualstudio.com/docs/copilot/chat/mcp-servers).
+See the [VS Code MCP docs](https://code.visualstudio.com/docs/agent-customization/mcp-servers).
 
 </details>
 
@@ -302,7 +302,7 @@ url = "http://127.0.0.1:3000/mcp"
 bearer_token_env_var = "DISCORD_MCP_HTTP_TOKEN"
 ```
 
-Or run `codex mcp add discord --url http://127.0.0.1:3000/mcp --bearer-token-env-var DISCORD_MCP_HTTP_TOKEN`. Codex reads the token from that variable in its own environment. See the [Codex MCP docs](https://developers.openai.com/codex/mcp).
+Or run `codex mcp add discord --url http://127.0.0.1:3000/mcp --bearer-token-env-var DISCORD_MCP_HTTP_TOKEN`. Codex reads the token from that variable in its own environment. See the [Codex MCP docs](https://learn.chatgpt.com/docs/extend/mcp).
 
 </details>
 

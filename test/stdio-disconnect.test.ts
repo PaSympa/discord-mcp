@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { join } from "node:path";
-import { test, type TestContext } from "node:test";
+import { describe, test, type TestContext } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
@@ -18,15 +18,14 @@ const INITIALIZE = request(1, "initialize", {
   clientInfo: { name: "test", version: "1" },
 });
 
+const ARGS = ["--import", "tsx", "--import", CONNECTED, "src/index.ts"];
+const OPTIONS = {
+  cwd: ROOT,
+  env: { ...process.env, DISCORD_TOKEN: "test", DISCORD_MCP_TRANSPORT: "stdio" },
+};
+
 async function startServer(t: TestContext) {
-  const child = spawn(
-    process.execPath,
-    ["--import", "tsx", "--import", CONNECTED, "src/index.ts"],
-    {
-      cwd: ROOT,
-      env: { ...process.env, DISCORD_TOKEN: "test", DISCORD_MCP_TRANSPORT: "stdio" },
-    },
-  );
+  const child = spawn(process.execPath, ARGS, OPTIONS);
   t.after(() => child.kill("SIGKILL"));
   child.stderr.resume();
   child.stdout.setEncoding("utf8");
@@ -35,55 +34,49 @@ async function startServer(t: TestContext) {
   return child;
 }
 
-test("exits once the client closes stdin", { timeout: 40_000 }, async (t) => {
-  const child = await startServer(t);
-  const exited = once(child, "exit", { signal: AbortSignal.timeout(15_000) });
-  child.stdin.end();
-  assert.deepEqual(await exited, [0, null]);
-});
+describe("stdio disconnect", { concurrency: true }, () => {
+  test("exits once the client closes stdin", { timeout: 40_000 }, async (t) => {
+    const child = await startServer(t);
+    const exited = once(child, "exit", { signal: AbortSignal.timeout(15_000) });
+    child.stdin.end();
+    assert.deepEqual(await exited, [0, null]);
+  });
 
-test("exits when stdin is the null device", { timeout: 40_000 }, async (t) => {
-  const child = spawn(
-    process.execPath,
-    ["--import", "tsx", "--import", CONNECTED, "src/index.ts"],
-    {
-      cwd: ROOT,
-      env: { ...process.env, DISCORD_TOKEN: "test", DISCORD_MCP_TRANSPORT: "stdio" },
-      stdio: "ignore",
-    },
-  );
-  t.after(() => child.kill("SIGKILL"));
-  const exited = once(child, "exit", { signal: AbortSignal.timeout(20_000) });
-  assert.deepEqual(await exited, [0, null]);
-});
+  test("exits when stdin is the null device", { timeout: 40_000 }, async (t) => {
+    const child = spawn(process.execPath, ARGS, { ...OPTIONS, stdio: "ignore" });
+    t.after(() => child.kill("SIGKILL"));
+    const exited = once(child, "exit", { signal: AbortSignal.timeout(20_000) });
+    assert.deepEqual(await exited, [0, null]);
+  });
 
-test("exits once every pipe to the client is broken", { timeout: 40_000 }, async (t) => {
-  const child = await startServer(t);
-  const exited = once(child, "exit", { signal: AbortSignal.timeout(15_000) });
-  child.stdout.destroy();
-  child.stderr.destroy();
-  child.stdin.destroy();
-  assert.deepEqual(await exited, [0, null]);
-});
+  test("exits once every pipe to the client is broken", { timeout: 40_000 }, async (t) => {
+    const child = await startServer(t);
+    const exited = once(child, "exit", { signal: AbortSignal.timeout(15_000) });
+    child.stdout.destroy();
+    child.stderr.destroy();
+    child.stdin.destroy();
+    assert.deepEqual(await exited, [0, null]);
+  });
 
-test("answers a request still in flight when stdin closes", { timeout: 40_000 }, async (t) => {
-  const child = await startServer(t);
-  const answered = once(child.stdout, "data", { signal: AbortSignal.timeout(10_000) });
-  const exited = once(child, "exit", { signal: AbortSignal.timeout(15_000) });
-  child.stdin.end(request(2, "tools/call", { name: "discord_list_guilds" }));
-  const [line] = await answered;
-  assert.equal(JSON.parse(line).id, 2);
-  assert.match(line, /simulated login failure/);
-  assert.deepEqual(await exited, [0, null]);
-});
+  test("answers a request still in flight when stdin closes", { timeout: 40_000 }, async (t) => {
+    const child = await startServer(t);
+    const answered = once(child.stdout, "data", { signal: AbortSignal.timeout(10_000) });
+    const exited = once(child, "exit", { signal: AbortSignal.timeout(15_000) });
+    child.stdin.end(request(2, "tools/call", { name: "discord_list_guilds" }));
+    const [line] = await answered;
+    assert.equal(JSON.parse(line).id, 2);
+    assert.match(line, /simulated login failure/);
+    assert.deepEqual(await exited, [0, null]);
+  });
 
-test("keeps serving a client that closes only stderr", { timeout: 40_000 }, async (t) => {
-  const child = await startServer(t);
-  child.stderr.destroy();
-  await delay(6_500);
-  const answered = once(child.stdout, "data", { signal: AbortSignal.timeout(5_000) });
-  child.stdin.write(request(2, "ping"));
-  const [line] = await answered;
-  assert.equal(JSON.parse(line).id, 2);
-  assert.equal(child.exitCode, null);
+  test("keeps serving a client that closes only stderr", { timeout: 40_000 }, async (t) => {
+    const child = await startServer(t);
+    child.stderr.destroy();
+    await delay(6_500);
+    const answered = once(child.stdout, "data", { signal: AbortSignal.timeout(5_000) });
+    child.stdin.write(request(2, "ping"));
+    const [line] = await answered;
+    assert.equal(JSON.parse(line).id, 2);
+    assert.equal(child.exitCode, null);
+  });
 });

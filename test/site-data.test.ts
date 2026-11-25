@@ -111,6 +111,20 @@ test("permissions come from requires-the-X-permission clauses, with the subject 
       },
     ],
   );
+  assert.deepEqual(
+    permissionsOf(
+      "Requires the Embed Links and Send Messages permissions (or Send Messages in Threads for a thread).",
+    ),
+    [
+      only("Embed Links"),
+      only("Send Messages"),
+      {
+        name: "Send Messages in Threads",
+        condition: "for a thread",
+        alternativeTo: "Send Messages",
+      },
+    ],
+  );
   assert.deepEqual(permissionsOf("Requires the Manage Channels permission (or Manage Server)."), [
     only("Manage Channels"),
     { name: "Manage Server", condition: null, alternativeTo: "Manage Channels" },

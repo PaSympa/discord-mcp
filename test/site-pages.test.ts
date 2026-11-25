@@ -819,11 +819,10 @@ test("a parameter that accepts several types shows each type with its own rules"
     ['"null"', ""],
     ["null", ""],
   ]);
-  const [number, integer, ...rest] = rules("discord_get_audit_log", "action_<wbr>type");
-  assert.equal(number[0], "number:");
-  assert.match(number[1], /^one of \d+ values/);
-  assert.deepEqual(integer, ["integer:", "at least 1"]);
-  assert.deepEqual(rest, []);
+  assert.deepEqual(rules("discord_set_nickname", "nickname"), [
+    ["string:", "at most 32 characters"],
+    ["null", ""],
+  ]);
 });
 
 test("counts say 1 tool, never 1 tools, in the text screen readers get too", () => {

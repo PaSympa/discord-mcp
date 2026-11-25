@@ -89,7 +89,7 @@ test("read-only mode keeps exactly the readOnlyHint tools, each with its own han
     const expected = modules
       .flatMap((m) => m.definitions)
       .filter((d) => d.annotations?.readOnlyHint === true);
-    assert.equal(definitions.length, 35, "update this pin when adding or removing a read tool");
+    assert.equal(definitions.length, 37, "update this pin when adding or removing a read tool");
     assert.deepEqual(sortedNames(definitions), sortedNames(expected));
     assert.deepEqual([...handlers.keys()].sort(), sortedNames(definitions));
     for (const mod of modules) {
@@ -129,7 +129,7 @@ test("a read-only server lists only read tools, and every listed tool is callabl
   const client = await connectedClient();
   const { tools } = await client.listTools();
   await client.close();
-  assert.equal(tools.length, 35);
+  assert.equal(tools.length, 37);
   assert.ok(tools.every((t) => t.annotations?.readOnlyHint === true));
   const listed = new Set(tools.map((t) => t.name));
   withEnv({}, () => {

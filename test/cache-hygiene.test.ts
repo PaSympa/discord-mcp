@@ -160,7 +160,7 @@ test("every message fetch declines the cache", () => {
   // Single-message fetches are read-once: nothing in the repo reads messages.cache
   // back, and a cached copy freezes the reaction snapshot until the sweeper runs.
   // fetchPins fills the same message cache.
-  for (const file of ["messages.ts", "dm.ts", "forums.ts"]) {
+  for (const file of ["messages.ts", "dm.ts", "forums.ts", "polls.ts"]) {
     const src = readFileSync(join(__dirname, "..", "src", "tools", file), "utf8");
     for (const hit of src.matchAll(/\.messages\.fetch(?:Pins)?\(/g)) {
       const call = src.slice(hit.index, hit.index + 160);

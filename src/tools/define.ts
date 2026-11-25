@@ -13,6 +13,9 @@ export const snowflake = z
   .string()
   .regex(/^\d{17,20}$/, "Must be a Discord snowflake ID (17-20 digits).");
 
+export const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
+export const messageId = snowflake.describe("ID of the message.");
+
 const MAX_SNOWFLAKE = 2n ** 64n - 1n;
 const digitsOnly = (id: string) => /^\d+$/.test(id);
 

@@ -966,7 +966,7 @@ async function main() {
         const pressed = await heads();
         check(
           `the catalog headers show one bar per listed row with read-only mode on ${at}`,
-          switched.length === 14 &&
+          switched.length === 15 &&
             mixOk(switched) &&
             pressed.length > 0 &&
             pressed.every((h) => /^destructive(,destructive)*$/.test(h.rows)) &&
@@ -981,7 +981,7 @@ async function main() {
         const filtered = await evaluate(`document.getElementById("count").textContent`);
         check(
           `the builder's selection filters the catalog ${at}`,
-          filtered === "Showing 27 of 104 tools",
+          filtered === "Showing 27 of 108 tools",
           filtered,
         );
         await go("tools/");

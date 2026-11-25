@@ -57,14 +57,13 @@ import {
   snowflake,
   snowflakeSet,
   guildId,
+  channelId,
+  messageId,
   intIn,
   structured,
   messageAuthor,
   messageAuthorShape,
 } from "./define.js";
-
-const channelId = snowflake.describe("ID (snowflake) of the channel or thread.");
-const messageId = snowflake.describe("ID of the message.");
 
 /**
  * History paging cursors. Discord's `GET /channels/{id}/messages` accepts at most

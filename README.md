@@ -18,7 +18,7 @@
 
 </div>
 
-**discord-mcp** connects Claude, Codex, Cursor, VS Code and any other MCP client to your Discord server through your own bot. Ask in plain language: your assistant reads channels, answers, moderates, and manages roles, channels, forums and events, with 104 tools behind it.
+**discord-mcp** connects Claude, Codex, Cursor, VS Code and any other MCP client to your Discord server through your own bot. Ask in plain language: your assistant reads channels, answers, moderates, and manages roles, channels, forums and events, with 108 tools behind it.
 
 ## See it in action
 
@@ -48,7 +48,7 @@
 2. **Invite it to your server.** Replace `YOUR_CLIENT_ID` with the Application ID from **General Information**, then open the link:
 
    ```
-   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=2270896177900791
+   https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&scope=bot&permissions=2833846131322103
    ```
 
    It requests the permissions most tools use. Remove the ones you do not need in the authorization screen.
@@ -73,11 +73,11 @@
 
 ## Expose only what you need
 
-The full set of 104 tools costs about 39k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
+The full set of 108 tools costs about 40k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
 
 | Profile              | `DISCORD_MCP_TOOLSETS`                           | Tools | Context     |
 | -------------------- | ------------------------------------------------ | ----- | ----------- |
-| Everything (default) | unset                                            | 104   | ~39k tokens |
+| Everything (default) | unset                                            | 108   | ~40k tokens |
 | Chat assistant       | `discovery,messages`                             | 27    | ~12k tokens |
 | Community manager    | `discovery,messages,forums,scheduled_events`     | 44    | ~18k tokens |
 | Moderator            | `discovery,members,moderation,roles,permissions` | 33    | ~11k tokens |
@@ -90,9 +90,9 @@ The full set of 104 tools costs about 39k tokens of context when a client loads 
 }
 ```
 
-Context sizes are measured on the `tools/list` response (bytes divided by 4). Toolsets: `discovery`, `messages`, `channels`, `permissions`, `members` (includes kick, ban and timeout), `roles`, `moderation` (the audit log), `screening`, `stats`, `forums`, `webhooks`, `scheduled_events`, `invites`, `dm`. A toolset brings its whole module, destructive tools included; an unknown name stops the server at startup instead of exposing everything.
+Context sizes are measured on the `tools/list` response (bytes divided by 4). Toolsets: `discovery`, `messages`, `channels`, `permissions`, `members` (includes kick, ban and timeout), `roles`, `moderation` (the audit log), `screening`, `stats`, `forums`, `webhooks`, `scheduled_events`, `invites`, `dm`, `polls`. A toolset brings its whole module, destructive tools included; an unknown name stops the server at startup instead of exposing everything.
 
-Set `DISCORD_MCP_READ_ONLY=true` to keep only the 35 tools annotated `readOnlyHint: true`, about 14k tokens. It narrows `DISCORD_MCP_TOOLSETS` instead of replacing it: `discovery,messages` then exposes 11 tools, about 5k tokens. A selection with no read-only tool left, such as `channels` alone, stops the server at startup.
+Set `DISCORD_MCP_READ_ONLY=true` to keep only the 37 tools annotated `readOnlyHint: true`, about 15k tokens. It narrows `DISCORD_MCP_TOOLSETS` instead of replacing it: `discovery,messages` then exposes 11 tools, about 5k tokens. A selection with no read-only tool left, such as `channels` alone, stops the server at startup.
 
 ## Safety
 
@@ -347,7 +347,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 
 ## Tools
 
-104 tools in 14 toolsets. Each one documents its permissions, side effects and return shape in its description.
+108 tools in 15 toolsets. Each one documents its permissions, side effects and return shape in its description.
 
 <details>
 <summary><strong>Discovery</strong> (4 tools)</summary>
@@ -389,6 +389,18 @@ The intent flags only change what the bot requests when it connects. Requesting 
 | `discord_search_guild_messages`   | Search across every channel using Discord's search index |
 | `discord_crosspost_message`       | Publish a message to announcement channel followers      |
 | `discord_forward_message`         | Forward a message to another channel                     |
+
+</details>
+
+<details>
+<summary><strong>Polls</strong> (4 tools)</summary>
+
+| Tool                       | Description                                      |
+| -------------------------- | ------------------------------------------------ |
+| `discord_create_poll`      | Create a native poll with up to 10 answers       |
+| `discord_get_poll_results` | Read a poll's current question, answers, votes   |
+| `discord_end_poll`         | End a poll immediately instead of waiting it out |
+| `discord_get_poll_voters`  | List the users who voted for one answer, by page |
 
 </details>
 

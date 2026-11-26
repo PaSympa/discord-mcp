@@ -6,12 +6,13 @@ import { request, type IncomingHttpHeaders, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
+  Client,
   StreamableHTTPClientTransport,
-  StreamableHTTPError,
-} from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+  ProtocolError,
+  ProtocolErrorCode,
+  SdkHttpError,
+} from "@modelcontextprotocol/client";
 import { exposureWarning, readHttpConfig, startHttpServer } from "../src/http.js";
 import { createServer } from "../src/server.js";
 import { getAllDefinitions, selectTools } from "../src/tools/index.js";
@@ -429,7 +430,8 @@ test("SDK clients initialize, list the tools and call them over HTTP with the to
       );
       await assert.rejects(
         () => client.callTool({ name: "discord_nonexistent", arguments: {} }),
-        (err: unknown) => err instanceof McpError && err.code === ErrorCode.InvalidParams,
+        (err: unknown) =>
+          err instanceof ProtocolError && err.code === ProtocolErrorCode.InvalidParams,
       );
       await client.close();
     }),
@@ -441,7 +443,7 @@ test("SDK clients initialize, list the tools and call them over HTTP with the to
   });
   await assert.rejects(
     () => wrong.connect(transport),
-    (err: unknown) => err instanceof StreamableHTTPError && err.code === 401,
+    (err: unknown) => err instanceof SdkHttpError && err.status === 401,
   );
 });
 

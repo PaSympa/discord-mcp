@@ -1783,7 +1783,8 @@ test("the privacy page matches what the site, the plugin and the server do", () 
   // A new runtime dependency may reach a new host: review the privacy page with it.
   const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8"));
   assert.deepEqual(Object.keys(pkg.dependencies).sort(), [
-    "@modelcontextprotocol/sdk",
+    "@modelcontextprotocol/node",
+    "@modelcontextprotocol/server",
     "discord.js",
     "dotenv",
     "zod",

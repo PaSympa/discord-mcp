@@ -10,8 +10,8 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
-import type { Server as McpServer } from "@modelcontextprotocol/sdk/server/index.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
+import type { Server as McpServer } from "@modelcontextprotocol/server";
 
 const MCP_PATH = "/mcp";
 const LOCALHOST_NAMES = ["localhost", "127.0.0.1", "[::1]"];
@@ -166,7 +166,7 @@ export function startHttpServer(
     }
 
     const server = createMcpServer();
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     transport.onerror = (err) => console.error(`MCP HTTP transport error: ${err.message}`);
     res.on("close", () => {
       void transport.close();

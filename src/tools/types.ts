@@ -13,6 +13,9 @@ export interface ToolAnnotations {
   openWorldHint?: boolean;
 }
 
+/** A JSON Schema with an object root: the SDK types tool schemas with the literal `type: "object"`. */
+export type ObjectSchema = { type: "object"; [key: string]: unknown };
+
 /**
  * Schema definition for a single MCP tool: its name, purpose, and expected input.
  * `outputSchema` is the JSON Schema (object root) of the tool's `structuredContent`,
@@ -21,8 +24,8 @@ export interface ToolAnnotations {
 export interface ToolDefinition {
   name: string;
   description: string;
-  inputSchema: Record<string, unknown>;
-  outputSchema?: Record<string, unknown>;
+  inputSchema: ObjectSchema;
+  outputSchema?: ObjectSchema;
   annotations?: ToolAnnotations;
 }
 

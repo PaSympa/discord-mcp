@@ -1,10 +1,4 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import {
-  CallToolRequestSchema,
-  ErrorCode,
-  ListToolsRequestSchema,
-  McpError,
-} from "@modelcontextprotocol/sdk/types.js";
+import { ProtocolError, ProtocolErrorCode, Server } from "@modelcontextprotocol/server";
 
 import { ensureConnected } from "./client.js";
 import { formatToolError } from "./errors.js";
@@ -32,19 +26,23 @@ export function createServer(version: string): Server {
     { capabilities: { tools: {} } },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async (req) => {
+  server.setRequestHandler("tools/list", async (req) => {
     if (req.params?.cursor !== undefined)
-      throw new McpError(ErrorCode.InvalidParams, "Invalid cursor: tools/list is not paginated.");
+      throw new ProtocolError(
+        ProtocolErrorCode.InvalidParams,
+        "Invalid cursor: tools/list is not paginated.",
+      );
     return { tools: getAllDefinitions() };
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
+  server.setRequestHandler("tools/call", async (req, ctx) => {
     const { name, arguments: args = {} } = req.params;
-    if (!hasTool(name)) throw new McpError(ErrorCode.InvalidParams, `Unknown tool: ${name}`);
+    if (!hasTool(name))
+      throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Unknown tool: ${name}`);
 
     try {
       await ensureConnected();
-      return await handleTool(name, args, { signal: extra.signal });
+      return await handleTool(name, args, { signal: ctx.mcpReq.signal });
     } catch (err: unknown) {
       return {
         content: [{ type: "text", text: `❌ Error: ${formatToolError(err)}` }],

@@ -2,9 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import {
+  Client,
+  InMemoryTransport,
+  ProtocolError,
+  ProtocolErrorCode,
+} from "@modelcontextprotocol/client";
 import { ZodError, z } from "zod";
 import { DiscordAPIError } from "discord.js";
 import { createServer } from "../src/server.js";
@@ -22,7 +25,7 @@ test("unknown tool is a JSON-RPC InvalidParams protocol error, not a tool result
   const client = await connectedClient();
   await assert.rejects(
     () => client.callTool({ name: "discord_nonexistent", arguments: {} }),
-    (err: unknown) => err instanceof McpError && err.code === ErrorCode.InvalidParams,
+    (err: unknown) => err instanceof ProtocolError && err.code === ProtocolErrorCode.InvalidParams,
   );
   await client.close();
 });
@@ -44,7 +47,7 @@ test("tools/list serves every definition and rejects unexpected cursors", async 
   assert.equal(tools.length, 108, "update this pin when adding/removing tools");
   await assert.rejects(
     () => client.listTools({ cursor: "bogus" }),
-    (err: unknown) => err instanceof McpError && err.code === ErrorCode.InvalidParams,
+    (err: unknown) => err instanceof ProtocolError && err.code === ProtocolErrorCode.InvalidParams,
   );
   await client.close();
 });
@@ -119,7 +122,6 @@ test("a client cancellation aborts the signal the tool's requests carry", async 
       name: "discord_bulk_delete_messages",
       arguments: { channel_id: channel.id, message_ids: recent.map((m) => m.id), dry_run: false },
     },
-    undefined,
     { signal: controller.signal },
   );
   const signal = await requestSignal;

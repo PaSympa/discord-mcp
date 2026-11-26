@@ -2,6 +2,7 @@ import { z } from "zod";
 import { isGuildAllowed } from "../client.js";
 import { MAX_FETCH_LIMIT } from "../constants.js";
 import type {
+  ObjectSchema,
   ToolModule,
   ToolDefinition,
   ToolResult,
@@ -93,8 +94,8 @@ export const httpUrl = z.url({ protocol: /^https?$/ }).meta({ pattern: "^https?:
  * `io: "input"` emits the input view (so `.default()`s stay optional); the `$schema`
  * key zod adds is stripped because MCP `inputSchema` is a bare object schema.
  */
-function toInputSchema(schema: z.ZodType): Record<string, unknown> {
-  const json = z.toJSONSchema(schema, { io: "input" }) as Record<string, unknown>;
+function toInputSchema(schema: z.ZodType): ObjectSchema {
+  const json = z.toJSONSchema(schema, { io: "input" }) as ObjectSchema;
   delete json.$schema;
   return json;
 }
@@ -104,8 +105,8 @@ function toInputSchema(schema: z.ZodType): Record<string, unknown> {
  * `io: "output"` emits the post-parse view; the `$schema` key is stripped (bare object
  * schema). MCP requires an object root, so the schema must be a `z.object({...})`.
  */
-function toOutputSchema(schema: z.ZodType): Record<string, unknown> {
-  const json = z.toJSONSchema(schema, { io: "output" }) as Record<string, unknown>;
+function toOutputSchema(schema: z.ZodType): ObjectSchema {
+  const json = z.toJSONSchema(schema, { io: "output" }) as ObjectSchema;
   delete json.$schema;
   return json;
 }
@@ -154,8 +155,8 @@ interface RegisteredTool {
   name: string;
   description: string;
   annotations?: ToolAnnotations;
-  inputSchema: Record<string, unknown>;
-  outputSchema?: Record<string, unknown>;
+  inputSchema: ObjectSchema;
+  outputSchema?: ObjectSchema;
   run(args: Record<string, unknown>, ctx?: ToolContext): Promise<ToolResult>;
 }
 

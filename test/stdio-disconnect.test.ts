@@ -58,6 +58,21 @@ describe("stdio disconnect", { concurrency: true }, () => {
     assert.deepEqual(await exited, [0, null]);
   });
 
+  test(
+    "exits once stdin closes after a broken stdout, however much was sent",
+    { timeout: 40_000 },
+    async (t) => {
+      const child = await startServer(t);
+      child.stdout.destroy();
+      child.stdin.write(request(2, "ping"));
+      await delay(500);
+      child.stdin.write(request(3, "ping").repeat(25_000));
+      const exited = once(child, "exit", { signal: AbortSignal.timeout(15_000) });
+      child.stdin.end();
+      assert.deepEqual(await exited, [0, null]);
+    },
+  );
+
   test("answers a request still in flight when stdin closes", { timeout: 40_000 }, async (t) => {
     const child = await startServer(t);
     const answered = once(child.stdout, "data", { signal: AbortSignal.timeout(10_000) });

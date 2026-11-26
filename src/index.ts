@@ -44,7 +44,13 @@ async function main() {
   const input = new PassThrough();
   process.stdin.pipe(input, { end: false });
   const transport = new StdioServerTransport(input, process.stdout);
-  await createServer(version).connect(transport);
+  const server = createServer(version);
+  // It also closes on a stdout error and stops reading: stdin must still drain for its EOF to arrive.
+  server.onclose = () => {
+    process.stdin.unpipe(input);
+    process.stdin.resume();
+  };
+  await server.connect(transport);
   console.error(`Discord MCP Server v${version} running on stdio.`);
 }
 

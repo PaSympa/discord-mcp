@@ -437,6 +437,26 @@ test("a real call reports progress after each member it changes or Discord refus
   ]);
 });
 
+test("a falsy progress token, 0 or an empty string, still gets progress, echoed unchanged", async () => {
+  stubDiscord(GUILD);
+  const args = {
+    guild_id: GUILD,
+    role_id: roleId(GUILD, HELPERS),
+    user_ids: [NO_ROLE, ...OTHERS],
+    dry_run: false,
+  };
+  const without = await callWithProgress("discord_bulk_add_role", args, { token: false });
+  for (const progressToken of [0, ""]) {
+    const call = await callWithProgress("discord_bulk_add_role", args, { progressToken });
+    assert.deepEqual(
+      call.progress,
+      [1, 2, 3, 4].map((n) => [n, 4]),
+      `progressToken ${JSON.stringify(progressToken)}`,
+    );
+    assert.deepEqual(call.result, without.result);
+  }
+});
+
 test("a remove reports progress out of the members who hold the role", async () => {
   stubDiscord(GUILD);
   const args = {

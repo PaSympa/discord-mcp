@@ -15,13 +15,18 @@ type Sent = JSONRPCMessage & {
  * `[progress, total]` pairs the server sent, checked against the request's token, before the
  * response and strictly increasing. It reads what the server sends, not what the client hands
  * to `onprogress`: the SDK client can drop a notification read with the response
- * (typescript-sdk #3018). `token: false` sends no progress token; `failNotifications` makes
- * every notification send reject, as a closed transport would.
+ * (typescript-sdk #3018). `token: false` sends no progress token, and `progressToken` sends
+ * that one in `_meta` instead of the client's own; `failNotifications` makes every
+ * notification send reject, as a closed transport would.
  */
 export async function callWithProgress(
   name: string,
   args: Record<string, unknown>,
-  { token = true, failNotifications = false } = {},
+  {
+    token = true,
+    progressToken,
+    failNotifications = false,
+  }: { token?: boolean; progressToken?: string | number; failNotifications?: boolean } = {},
 ) {
   mock.method(discord, "isReady", () => true as never);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -39,12 +44,15 @@ export async function callWithProgress(
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   sent.length = 0;
   try {
-    const result = await client.callTool(
-      { name, arguments: args },
-      token ? { onprogress: () => {} } : undefined,
-    );
+    const result =
+      progressToken === undefined
+        ? await client.callTool(
+            { name, arguments: args },
+            token ? { onprogress: () => {} } : undefined,
+          )
+        : await client.callTool({ name, arguments: args, _meta: { progressToken } });
     const response = sent.findIndex((m) => "result" in m);
-    const call = sent[response].id;
+    const call = progressToken ?? sent[response].id;
     const progress: [number, number][] = [];
     sent.forEach((m, i) => {
       if (m.method !== "notifications/progress") return;

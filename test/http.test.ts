@@ -508,19 +508,22 @@ test("a batch's progress notifications reach the client in the call's own SSE st
       .map((line) => JSON.parse(line.slice("data: ".length)));
   };
   try {
-    const withToken = await events({ progressToken: "batch-1" });
-    assert.deepEqual(
-      withToken.slice(0, -1),
-      [1, 2, 3].map((progress) => ({
-        jsonrpc: "2.0",
-        method: "notifications/progress",
-        params: { progressToken: "batch-1", progress, total: 3 },
-      })),
-    );
     const without = await events({});
     assert.equal(without.length, 1, "no notification without a progress token");
-    assert.deepEqual(withToken.at(-1), without[0]);
     assert.deepEqual(without[0].result.structuredContent.deleted, old.map((m) => m.id).reverse());
+    for (const progressToken of ["batch-1", 0, ""]) {
+      const withToken = await events({ progressToken });
+      assert.deepEqual(
+        withToken.slice(0, -1),
+        [1, 2, 3].map((progress) => ({
+          jsonrpc: "2.0",
+          method: "notifications/progress",
+          params: { progressToken, progress, total: 3 },
+        })),
+        `progressToken ${JSON.stringify(progressToken)}`,
+      );
+      assert.deepEqual(withToken.at(-1), without[0]);
+    }
   } finally {
     for (const m of mocks) m.mock.restore();
   }

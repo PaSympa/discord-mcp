@@ -4,7 +4,7 @@
 
 ### Added
 
-- `discord_bulk_add_role`, `discord_bulk_remove_role`, `discord_bulk_delete_messages` and `discord_create_thread` with `member_ids` send MCP progress notifications when the client passes a `progressToken`, over stdio and HTTP. A notification follows each member or message, counted out of all those the call changes, and a bulk delete request counts all its messages at once. Progress is for display only: the 40-second time budget and `remaining` work as before
+- `discord_bulk_add_role`, `discord_bulk_remove_role`, `discord_bulk_delete_messages` and `discord_create_thread` with `member_ids` send MCP progress notifications when the client passes a `progressToken`, over stdio and HTTP. A notification follows each member or message, counted out of all those the call acts on, Discord's refusals included, and a bulk delete request counts all its messages at once. Progress is for display only: the 40-second time budget and `remaining` work as before
 
 ### Changed
 

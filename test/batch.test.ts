@@ -27,6 +27,26 @@ test("runBatch stops at the deadline and returns the items it did not start", as
   });
 });
 
+test("runBatch reports progress after each item done or failed, and none for the item a stop hits", async () => {
+  const reports: [number, number][] = [];
+  const result = await runBatch(
+    ["a", "b", "c", "d"],
+    async (item) => {
+      if (item === "b") throw apiError(10007, "Unknown Member");
+      if (item === "d") throw apiError(50013, "Missing Permissions");
+    },
+    { progress: (handled, total) => reports.push([handled, total]) },
+  );
+  assert.deepEqual(reports, [
+    [1, 4],
+    [2, 4],
+    [3, 4],
+  ]);
+  assert.deepEqual(result.done, ["a", "c"]);
+  assert.deepEqual(result.remaining, ["d"]);
+  assert.equal(result.stopped?.code, 50013);
+});
+
 test("the REST client uses the batch rate-limit hook", () => {
   assert.equal(discord.rest.options.rejectOnRateLimit, rejectOnBatchRateLimit);
 });

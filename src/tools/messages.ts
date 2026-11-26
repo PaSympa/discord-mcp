@@ -68,6 +68,7 @@ import {
   messageAuthor,
   messageAuthorShape,
 } from "./define.js";
+import type { ToolContext } from "./types.js";
 
 /**
  * History paging cursors. Discord's `GET /channels/{id}/messages` accepts at most
@@ -275,7 +276,7 @@ const THREAD_MEMBER_STOP_CODES = new Set<number>([
 async function addThreadMembers(
   thread: AnyThreadChannel,
   userIds: string[],
-  options: { deadline: number; signal?: AbortSignal },
+  options: Pick<ToolContext, "signal" | "progress"> & { deadline: number },
 ): Promise<string> {
   const unique = [...new Set(userIds)];
   if (unique.length === 0) return "";
@@ -708,9 +709,9 @@ const tools = [
         invitable,
         member_ids = [],
       },
-      { signal },
+      { signal, progress },
     ) => {
-      const batch = { deadline: Date.now() + BATCH_BUDGET_MS, signal };
+      const batch = { deadline: Date.now() + BATCH_BUDGET_MS, signal, progress };
       const channel = await getTextChannel(channel_id);
       const duration = auto_archive_duration;
       if (message_id) {
@@ -889,7 +890,7 @@ const tools = [
         .describe("IDs this call did not reach. Call again with them as message_ids."),
       stopped: batchStopSchema("lookup_limit").optional(),
     }),
-    handle: async ({ channel_id, count, message_ids, dry_run }, { signal }) => {
+    handle: async ({ channel_id, count, message_ids, dry_run }, { signal, progress }) => {
       const deadline = Date.now() + BATCH_BUDGET_MS;
       const channel = await getTextChannel(channel_id);
       assertCanReadHistory(channel);
@@ -936,6 +937,7 @@ const tools = [
             )
           : undefined;
       const inBulk = bulk?.done.length ? recent : [];
+      if (inBulk.length) progress?.(inBulk.length, deletable.length);
       // A bulk request refused for one of its IDs fails them all, so they go one by one.
       const singles: BatchResult<string> = bulk?.stopped
         ? { done: [], failed: [], remaining: [...recent, ...older], stopped: bulk.stopped }
@@ -943,7 +945,10 @@ const tools = [
             inBulk.length ? older : [...recent, ...older],
             (id, itemSignal) =>
               discord.rest.delete(Routes.channelMessage(channel.id, id), { signal: itemSignal }),
-            options,
+            {
+              ...options,
+              progress: progress && ((n) => progress(inBulk.length + n, deletable.length)),
+            },
           );
       const stopped = singles.stopped ?? lookup.stopped;
       return structured({

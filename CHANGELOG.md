@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The server runs on the MCP TypeScript SDK v2 packages, `@modelcontextprotocol/server` 2.4 and `@modelcontextprotocol/node` 2.1, instead of `@modelcontextprotocol/sdk` 1.32. It keeps the low-level server, the stdio transport and the stateless HTTP transport, and `tools/list` is unchanged. Two error responses change on the wire. The `Unknown tool` and `Invalid cursor` errors keep code `-32602` but lose their `MCP error -32602: ` prefix. A `tools/call` whose `params` fail the MCP schema, such as missing `params`, a missing or non-string `name`, or `arguments` that is not an object, now gets `-32602` with `Invalid tools/call request: ` before the validation issues, instead of `-32603` with the bare issues. Other methods keep their error codes. When several requests arrive in one stdio read or one HTTP batch, their responses can come in a different order than before, with the same content. Requests sent one after another are answered in the same order as before, and JSON-RPC clients match responses by `id`. The production dependency tree drops from 118 installed packages to 32, without express, ajv or cors. The v2 packages are licensed Apache-2.0, where `@modelcontextprotocol/sdk` was MIT
+- On stdio, once the server can no longer write to stdout, it stops reading requests instead of handling requests whose answers it cannot send. Tool calls still running at that point are cancelled through their abort signal, where they used to run to the end. It still exits once the client closes stdin, after the 5-second grace period
+- In HTTP mode, a request body that is not valid JSON or not JSON-RPC is logged with the text of its 400 reply, as before. The SDK's parse error, which can quote the body, is not logged
+
 ### Fixed
 
 - `discord_timeout_member`, `discord_edit_embed`, `discord_edit_dm_embed`, `discord_edit_webhook_message` and `discord_set_forum_tags` are annotated `idempotentHint: false`. Repeating the same call moves a timeout's end or an embed's `timestamp` to the new time, and recreates under a new ID a forum tag whose name has a leading or trailing space, since Discord trims the name

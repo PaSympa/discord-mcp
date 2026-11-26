@@ -4,12 +4,12 @@
  * Streamable HTTP server in `http.ts`. Server construction lives in `server.ts` (testable
  * via in-memory transport); the Discord client in `client.ts`.
  */
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { readFileSync } from "fs";
 import type { Server } from "http";
 import type { AddressInfo } from "net";
 import { join } from "path";
-import { finished } from "stream";
+import { PassThrough, finished } from "stream";
 import { discord } from "./client.js";
 import { createServer } from "./server.js";
 
@@ -37,12 +37,20 @@ function selectTransport(): "stdio" | "http" {
 
 async function main() {
   if (selectTransport() === "http") return serveHttp();
-  // The SDK ignores stdin EOF. Closing the transport here would drop pending responses.
   finished(process.stdin, { writable: false }, () =>
     setTimeout(shutdown, DISCONNECT_GRACE_MS).unref(),
   );
-  const transport = new StdioServerTransport();
-  await createServer(version).connect(transport);
+  // The SDK transport closes on stdin EOF and drops the requests in flight: it reads a copy that never ends.
+  const input = new PassThrough();
+  process.stdin.pipe(input, { end: false });
+  const transport = new StdioServerTransport(input, process.stdout);
+  const server = createServer(version);
+  // It also closes on a stdout error and stops reading: stdin must still drain for its EOF to arrive.
+  server.onclose = () => {
+    process.stdin.unpipe(input);
+    process.stdin.resume();
+  };
+  await server.connect(transport);
   console.error(`Discord MCP Server v${version} running on stdio.`);
 }
 

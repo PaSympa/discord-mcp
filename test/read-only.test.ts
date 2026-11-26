@@ -2,9 +2,12 @@ import "./env-setup.js";
 import "./read-only-env.js";
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import {
+  Client,
+  InMemoryTransport,
+  ProtocolError,
+  ProtocolErrorCode,
+} from "@modelcontextprotocol/client";
 import { discord } from "../src/client.js";
 import { createServer } from "../src/server.js";
 import { hasTool, readOnlyMode, selectModules, selectTools } from "../src/tools/index.js";
@@ -157,8 +160,8 @@ test("a read-only server refuses a write tool as unknown, before any Discord cal
           arguments: { channel_id: "123456789012345678", content: "must not be sent" },
         }),
       (err: unknown) =>
-        err instanceof McpError &&
-        err.code === ErrorCode.InvalidParams &&
+        err instanceof ProtocolError &&
+        err.code === ProtocolErrorCode.InvalidParams &&
         err.message.includes("Unknown tool: discord_send_message"),
     );
     assert.equal(login.mock.callCount(), 0, "the refused write must not reach the Discord client");

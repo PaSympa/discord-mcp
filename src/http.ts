@@ -10,8 +10,8 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
-import type { Server as McpServer } from "@modelcontextprotocol/sdk/server/index.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
+import type { Server as McpServer } from "@modelcontextprotocol/server";
 
 const MCP_PATH = "/mcp";
 const LOCALHOST_NAMES = ["localhost", "127.0.0.1", "[::1]"];
@@ -166,8 +166,8 @@ export function startHttpServer(
     }
 
     const server = createMcpServer();
-    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-    transport.onerror = (err) => console.error(`MCP HTTP transport error: ${err.message}`);
+    const transport = new NodeStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    transport.onerror = (err) => console.error(`MCP HTTP transport error: ${logText(err)}`);
     res.on("close", () => {
       void transport.close();
       void server.close();
@@ -201,6 +201,16 @@ function refuse(
   // Connection: close stops a refused client from streaming a body that nothing reads.
   res.writeHead(status, { ...headers, "Content-Type": "application/json", Connection: "close" });
   res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32000, message }, id: null }));
+}
+
+/**
+ * For a malformed body the SDK hands over the raw JSON.parse or zod error, which can quote the
+ * body and its tool arguments: log the text the client gets back instead.
+ */
+function logText(err: Error): string {
+  if (err instanceof SyntaxError) return "Parse error: Invalid JSON";
+  if (err.name === "ZodError") return "Parse error: Invalid JSON-RPC message";
+  return err.message;
 }
 
 function sha256(value: string): Buffer {

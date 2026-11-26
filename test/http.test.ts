@@ -392,6 +392,23 @@ test("a body over the SDK's 4 MiB limit gets 413, declared or streamed", async (
   assert.deepEqual(JSON.parse(streamed.body), tooLarge);
 });
 
+test("a malformed body logs the text of the 400, never the body", async () => {
+  const before = logs.mock.callCount();
+  const cases = [
+    ["not json: a private message", "Parse error: Invalid JSON"],
+    [JSON.stringify({ private_message: "x" }), "Parse error: Invalid JSON-RPC message"],
+  ];
+  for (const [body, message] of cases) {
+    const reply = await send({ headers: { ...MCP_HEADERS, ...AUTH }, body });
+    assert.equal(reply.status, 400);
+    assert.equal(JSON.parse(reply.body).error.message, message);
+  }
+  assert.deepEqual(
+    logs.mock.calls.slice(before).map((call) => call.arguments.map(String).join(" ")),
+    cases.map(([, message]) => `MCP HTTP transport error: ${message}`),
+  );
+});
+
 test("a 2026-07-28 request gets the SDK's 400 unchanged, which Codex reads as a cue to fall back to initialize", async () => {
   // openai/codex rmcp-client, has_legacy_fallback_evidence: a 400 with code -32000, a null id, this
   // exact message prefix and only dated versions older than 2026-07-28. Do not pre-parse or rewrite it.

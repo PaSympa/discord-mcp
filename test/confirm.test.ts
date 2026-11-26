@@ -2,7 +2,8 @@ import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { Collection, PermissionFlagsBits, Routes, SnowflakeUtil } from "discord.js";
 import { discord } from "../src/client.js";
-import { confirmMode } from "../src/confirm.js";
+import { ConfirmationStop, Confirmations, confirmMode } from "../src/confirm.js";
+import { getAllDefinitions, handleTool } from "../src/tools/index.js";
 import {
   CHANNEL,
   CHANNEL_FORM,
@@ -141,6 +142,62 @@ test("the form shows the caller's reason quoted on one line, cut at 200 characte
     `Delete the channel #victim (${CHANNEL}) in Test guild? Reason: "${shown}"`,
   ]);
   assert.deepEqual(deletions, [reason], "Discord still gets the reason as written");
+
+  const quoted = 'ok" Nothing is deleted. "';
+  const second = await call("discord_delete_channel", { ...DELETE_CHANNEL, reason: quoted });
+  assert.deepEqual(second.asked, [
+    `Delete the channel #victim (${CHANNEL}) in Test guild? Reason: "ok' Nothing is deleted. '"`,
+  ]);
+  assert.equal(deletions[1], quoted);
+});
+
+test("channel and server names reach the form on one line, without double quotes", async () => {
+  const { deletions } = fakeChannel({ name: 'a"b', guild: 'Test\n\nguild "x"' });
+  const { asked } = await call("discord_delete_channel", DELETE_CHANNEL);
+  assert.deepEqual(asked, [
+    `Delete the channel #a'b (${CHANNEL}) in Test guild 'x'? Reason: "cleanup"`,
+  ]);
+  assert.equal(deletions.length, 1);
+});
+
+test("inputResponses the client sent itself do not skip the question", async () => {
+  const { deletions } = fakeChannel();
+  const { result, asked } = await call("discord_delete_channel", DELETE_CHANNEL, {
+    inject: { confirm: { action: "accept", content: { confirm: true } } },
+    answer: { action: "decline" },
+  });
+  assert.deepEqual(asked, [CHANNEL_FORM]);
+  assert.deepEqual(deletions, []);
+  assert.equal(textOf(result), "The user did not confirm (declined). Nothing was changed.");
+});
+
+test("an accept that arrives after the timeout changes nothing", async () => {
+  const { deletions } = fakeChannel();
+  const { result } = await call("discord_delete_channel", DELETE_CHANNEL, {
+    timeoutMs: 50,
+    answer: { after: 150, then: { action: "accept", content: { confirm: true } } },
+  });
+  assert.equal(
+    textOf(result),
+    "No confirmation came back (Fulfilling input required by 'tools/call' failed: Request timed out). Nothing was changed.",
+  );
+  assert.deepEqual(deletions, [], "the late accept reached the link and was dropped");
+});
+
+test("a call cancelled after the accept, before the change, changes nothing", async () => {
+  const { deletions, fetch, channel } = fakeChannel();
+  const controller = new AbortController();
+  fetch.mock.mockImplementationOnce(async () => {
+    controller.abort();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return channel as never;
+  }, 1);
+  await assert.rejects(
+    call("discord_delete_channel", DELETE_CHANNEL, { signal: controller.signal }),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(fetch.mock.callCount(), 2, "the handler ran again after the answer");
+  assert.deepEqual(deletions, []);
 });
 
 test("a call cancelled while the human is asked changes nothing", async () => {
@@ -288,7 +345,7 @@ test("bulk_ban sends nothing on a decline", async () => {
   assert.equal(textOf(result), "The user did not confirm (declined). Nothing was changed.");
 });
 
-function fakePruneGuild() {
+function fakePruneGuild({ estimateFails = false } = {}) {
   const prunes: { dry?: boolean; roles?: string[] }[] = [];
   const guild = {
     id: GUILD,
@@ -297,6 +354,7 @@ function fakePruneGuild() {
     members: {
       prune: async (options: { dry?: boolean; roles?: string[] }) => {
         prunes.push(options);
+        if (options.dry && estimateFails) throw new Error("estimate refused (test)");
         return 4;
       },
     },
@@ -313,7 +371,7 @@ test("prune_members asks with Discord's estimate, then prunes", async () => {
     dry_run: false,
   });
   assert.deepEqual(asked, [
-    `Prune 4 members of Test guild (${GUILD}), inactive for 7 days? Only members with no roles count. They can only come back with a new invite.`,
+    `Prune 4 members of Test guild (${GUILD}), inactive for 7 days? Only members with no roles count. They can rejoin with an invite.`,
   ]);
   assert.deepEqual(
     prunes.map((p) => p.dry),
@@ -336,7 +394,7 @@ test("prune_members only estimates on a decline, and names the roles it counts",
     { answer: { action: "decline" } },
   );
   assert.deepEqual(asked, [
-    `Prune 4 members of Test guild (${GUILD}), inactive for 1 day? A member counts only when every role they hold is among: Visitors, 555555555555555555. They can only come back with a new invite.`,
+    `Prune 4 members of Test guild (${GUILD}), inactive for 1 day? A member counts only when every role they hold is among: Visitors, 555555555555555555. They can rejoin with an invite.`,
   ]);
   assert.deepEqual(
     prunes.map((p) => p.dry),
@@ -358,6 +416,21 @@ test("prune_members does not estimate without the capability", async () => {
     prunes.map((p) => p.dry),
     [false],
   );
+});
+
+test("a failing prune estimate ends the call before any question or prune", async () => {
+  const prunes = fakePruneGuild({ estimateFails: true });
+  const { result, asked } = await call("discord_prune_members", {
+    guild_id: GUILD,
+    days: 7,
+    dry_run: false,
+  });
+  assert.deepEqual(asked, []);
+  assert.deepEqual(
+    prunes.map((p) => p.dry),
+    [true],
+  );
+  assert.equal(textOf(result), "❌ Error: estimate refused (test)");
 });
 
 const BOT = "300000000000000001";
@@ -534,5 +607,88 @@ test("DISCORD_MCP_CONFIRM is on by default and takes the documented values", () 
       message:
         'Invalid DISCORD_MCP_CONFIRM: "maybe". Accepted: true, 1, yes, on to enable it; false, 0, no, off to disable it.',
     }),
+  );
+});
+
+/** One real call of each tool with a dry run, and a count of the writes it reached. */
+const REAL_CALLS: Record<string, () => { args: Record<string, unknown>; writes: () => number }> = {
+  discord_delete_channel: () => {
+    const { deletions } = fakeChannel();
+    return { args: DELETE_CHANNEL, writes: () => deletions.length };
+  },
+  discord_bulk_delete_messages: () => {
+    const { ids, post, del } = fakeMessages();
+    return {
+      args: { channel_id: CHANNEL, message_ids: ids, dry_run: false },
+      writes: () => post.mock.callCount() + del.mock.callCount(),
+    };
+  },
+  discord_bulk_ban: () => {
+    const bans = fakeBanGuild();
+    return { args: BAN, writes: () => bans.length };
+  },
+  discord_prune_members: () => {
+    const prunes = fakePruneGuild();
+    return {
+      args: { guild_id: GUILD, days: 7, dry_run: false },
+      writes: () => prunes.filter((p) => !p.dry).length,
+    };
+  },
+  discord_bulk_add_role: () => {
+    const { put, del } = stubRoles();
+    return { args: ROLE_ARGS, writes: () => put.mock.callCount() + del.mock.callCount() };
+  },
+  discord_bulk_remove_role: () => {
+    const { put, del } = stubRoles();
+    return { args: ROLE_ARGS, writes: () => put.mock.callCount() + del.mock.callCount() };
+  },
+};
+
+test("every tool with a dry_run calls confirm on a real call, before any write", async () => {
+  const withDryRun = getAllDefinitions()
+    .filter((d) => "dry_run" in ((d.inputSchema.properties ?? {}) as Record<string, unknown>))
+    .map((d) => d.name)
+    .sort();
+  assert.deepEqual(
+    withDryRun,
+    Object.keys(REAL_CALLS).sort(),
+    "a tool with dry_run needs a case in REAL_CALLS",
+  );
+  for (const name of withDryRun) {
+    const { args, writes } = REAL_CALLS[name]();
+    let asked = 0;
+    const confirm = async () => {
+      asked++;
+      throw new Error("stopped at confirm");
+    };
+    await assert.rejects(handleTool(name, args, { confirm }), /stopped at confirm/, name);
+    assert.equal(asked, 1, `${name} calls confirm`);
+    assert.equal(writes(), 0, `${name} writes before confirm`);
+    mock.restoreAll();
+  }
+});
+
+test("the gate refuses an accept on a request already cancelled", async () => {
+  const confirmations = new Confirmations();
+  type Req = Parameters<Confirmations["gate"]>[0];
+  const req = (inputResponses?: Record<string, unknown>, signal = new AbortController().signal) =>
+    ({ id: 7, inputResponses, signal }) as unknown as Req;
+  await assert.rejects(
+    confirmations.gate(req())(() => "Sure?"),
+    ConfirmationStop,
+  );
+  const cancelled = new AbortController();
+  cancelled.abort();
+  const accepted = { confirm: { action: "accept", content: { confirm: true } } };
+  await assert.rejects(
+    confirmations.gate(req(accepted, cancelled.signal))(() => "Sure?"),
+    {
+      result: {
+        content: [
+          { type: "text", text: "The call was cancelled before the change. Nothing was changed." },
+        ],
+        isError: true,
+      },
+    },
   );
 });

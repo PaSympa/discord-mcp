@@ -5,6 +5,7 @@ import { MAX_FETCH_LIMIT, DEFAULTS } from "../constants.js";
 import {
   defineTool,
   defineModule,
+  formText,
   snowflake,
   guildId,
   intIn,
@@ -372,7 +373,7 @@ const tools = [
         const messages = delete_message_seconds
           ? ` Their messages from the last ${plural(delete_message_seconds, "second")} are deleted too.`
           : "";
-        return `Ban ${plural(user_ids.length, "user")} from ${guild.name} (${guild.id})?${messages}${reasonLine(reason)}`;
+        return `Ban ${plural(user_ids.length, "user")} from ${formText(guild.name)} (${guild.id})?${messages}${reasonLine(reason)}`;
       });
       const result = await guild.members.bulkBan(user_ids, {
         deleteMessageSeconds: delete_message_seconds,
@@ -414,11 +415,11 @@ const tools = [
       if (!dry_run)
         await confirm?.(async () => {
           const estimate = await guild.members.prune({ days, dry: true, roles });
-          const names = roles?.map((id) => guild.roles.cache.get(id)?.name ?? id);
+          const names = roles?.map((id) => formText(guild.roles.cache.get(id)?.name ?? id));
           const counted = names?.length
             ? ` A member counts only when every role they hold is among: ${names.join(", ")}.`
             : " Only members with no roles count.";
-          return `Prune ${plural(estimate, "member")} of ${guild.name} (${guild.id}), inactive for ${plural(days, "day")}?${counted} They can only come back with a new invite.${reasonLine(reason)}`;
+          return `Prune ${plural(estimate, "member")} of ${formText(guild.name)} (${guild.id}), inactive for ${plural(days, "day")}?${counted} They can rejoin with an invite.${reasonLine(reason)}`;
         });
       const pruned = await guild.members.prune({
         days,

@@ -65,11 +65,16 @@ function firstText(result: Result): string {
 export class Confirmations {
   private readonly asking = new Set<RequestId>();
 
-  /** The `confirm` of one run of the handler of request `req`. */
+  /**
+   * The `confirm` of one run of the handler of request `req`, built when the run starts.
+   * Only an answer to a question this server asked counts: a client can put
+   * `inputResponses` in its own tools/call. At level B a retry is a new request, so this
+   * check must then move to the request state.
+   */
   gate(req: ServerContext["mcpReq"]): NonNullable<ToolContext["confirm"]> {
-    this.asking.delete(req.id);
+    const asked = this.asking.delete(req.id);
     return async (message) => {
-      if (req.inputResponses === undefined) {
+      if (!asked) {
         const confirm = inputRequired.elicit({
           message: await message(),
           requestedSchema: CONFIRM_SCHEMA,

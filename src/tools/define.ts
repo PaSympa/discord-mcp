@@ -85,17 +85,22 @@ export function messageAuthor(authorId: string, webhookId: string | null | undef
 /** `n` and the noun, plural unless `n` is 1: "1 member", "3 members". */
 export const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
-const MAX_REASON_SHOWN = 200;
+const MAX_SHOWN = 200;
 
 /**
- * The audit log reason as the end of a confirmation message, or nothing without one. The
- * caller writes it: quoted on one line and cut short, it cannot pass for the server's text.
+ * A name or a reason as a confirmation message shows it: on one line, with double quotes
+ * turned into single ones, cut at 200 characters. The model writes the reason and can name
+ * a channel or a role: without this, either could pass for the server's own text.
  */
+export function formText(text: string): string {
+  const chars = [...text.replace(/\s+/g, " ").trim().replaceAll('"', "'")];
+  return chars.length > MAX_SHOWN ? `${chars.slice(0, MAX_SHOWN).join("")}...` : chars.join("");
+}
+
+/** The audit log reason as the end of a confirmation message, quoted, or nothing without one. */
 export function reasonLine(reason: string | undefined): string {
-  const chars = [...(reason?.replace(/\s+/g, " ").trim() ?? "")];
-  if (!chars.length) return "";
-  const shown = chars.slice(0, MAX_REASON_SHOWN).join("");
-  return ` Reason: "${shown}${chars.length > MAX_REASON_SHOWN ? "..." : ""}"`;
+  const shown = formText(reason ?? "");
+  return shown ? ` Reason: "${shown}"` : "";
 }
 
 /**

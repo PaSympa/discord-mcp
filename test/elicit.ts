@@ -16,14 +16,16 @@ export const CHANNEL = "333333333333333333";
 export const FORM: ClientCapabilities = { elicitation: { form: {} } };
 const CONFIRMED: ElicitResult = { action: "accept", content: { confirm: true } };
 
-export type Answer = ElicitResult | "hang" | "throw";
+/** An answer, no answer, an error, or an answer sent `after` ms. */
+export type Answer = ElicitResult | "hang" | "throw" | { after: number; then: ElicitResult };
 type Sent = JSONRPCMessage & { method?: string; params?: { progress?: number } };
 
 /**
  * Calls a tool through the MCP server on an in-memory link, from a client that declares
  * `capabilities` and answers each confirmation with `answer`. `onAsk` runs when the form
- * arrives, before the answer. Returns the result, the forms the client got and the
- * progress values the server sent.
+ * arrives, before the answer. `inject` goes into the tools/call params as the client's own
+ * `inputResponses`. Returns the result, the forms the client got and the progress values
+ * the server sent.
  */
 export async function call(
   name: string,
@@ -34,12 +36,14 @@ export async function call(
     timeoutMs = CONFIRM_TIMEOUT_MS,
     onAsk = () => {},
     signal,
+    inject,
   }: {
     capabilities?: ClientCapabilities;
     answer?: Answer;
     timeoutMs?: number;
     onAsk?: () => void;
     signal?: AbortSignal;
+    inject?: Record<string, unknown>;
   } = {},
 ) {
   mock.method(discord, "isReady", () => true as never);
@@ -50,6 +54,15 @@ export async function call(
     sent.push(message as Sent);
     return send(message, options);
   };
+  if (inject) {
+    const clientSend = clientTransport.send.bind(clientTransport);
+    clientTransport.send = (message, options) => {
+      const out = message as Sent & { params?: Record<string, unknown> };
+      if (out.method === "tools/call") out.params = { ...out.params, inputResponses: inject };
+      return clientSend(message, options);
+    };
+  }
+  const late: Promise<unknown>[] = [];
   const server = createServer("0.0.0-test", { confirmTimeoutMs: timeoutMs });
   const client = new Client({ name: "test", version: "0.0.0" }, { capabilities });
   const forms: { message: string; requestedSchema: unknown }[] = [];
@@ -63,6 +76,13 @@ export async function call(
       onAsk();
       if (answer === "hang") return new Promise<never>(() => {});
       if (answer === "throw") throw new Error("boom");
+      if ("after" in answer) {
+        const sending = new Promise<ElicitResult>((resolve) =>
+          setTimeout(() => resolve(answer.then), answer.after),
+        );
+        late.push(sending);
+        return sending;
+      }
       return answer;
     });
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -78,6 +98,11 @@ export async function call(
       .map((m) => m.params!.progress);
     return { result, asked: forms.map((f) => f.message), forms, progress };
   } finally {
+    if (late.length) {
+      // A late answer still reaches the server before the link closes.
+      await Promise.all(late);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
     await client.close();
   }
 }
@@ -85,17 +110,17 @@ export async function call(
 export const textOf = (result: { content: { text: string }[] }) => result.content[0]?.text;
 
 /** A guild channel whose `delete` records its reason. */
-export function fakeChannel() {
+export function fakeChannel({ name = "victim", guild = "Test guild" } = {}) {
   const deletions: unknown[] = [];
   const channel = {
     id: CHANNEL,
-    name: "victim",
+    name,
     guildId: GUILD,
-    guild: { name: "Test guild" },
+    guild: { name: guild },
     delete: async (reason: unknown) => void deletions.push(reason),
   };
   const fetch = mock.method(discord.channels, "fetch", async () => channel as never);
-  return { deletions, fetch };
+  return { deletions, fetch, channel };
 }
 
 export const DELETE_CHANNEL = { channel_id: CHANNEL, dry_run: false, reason: "cleanup" };

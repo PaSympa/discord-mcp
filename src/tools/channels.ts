@@ -4,6 +4,7 @@ import { discord, getGuildChannel, fetchChannelChecked, assertCanCopyFrom } from
 import {
   defineTool,
   defineModule,
+  formText,
   snowflake,
   guildId,
   intIn,
@@ -97,8 +98,8 @@ const tools = [
         };
       }
       await confirm?.(() => {
-        const server = "guild" in channel ? ` in ${channel.guild.name}` : "";
-        return `Delete the channel #${channelName} (${channel.id})${server}?${reasonLine(reason)}`;
+        const server = "guild" in channel ? ` in ${formText(channel.guild.name)}` : "";
+        return `Delete the channel #${formText(channelName ?? channel.id)} (${channel.id})${server}?${reasonLine(reason)}`;
       });
       await channel.delete(reason);
       return { content: [{ type: "text", text: `✅ Channel #${channelName} deleted.` }] };

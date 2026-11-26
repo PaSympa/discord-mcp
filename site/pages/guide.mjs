@@ -53,6 +53,7 @@ export function renderGuide(site) {
     title: "Add it to your client",
     intro: tpl`<p id="quick-start">Most clients start the server with <code>npx</code> and read the same entry. Node.js 22 or later runs it; nothing else to install. Put your bot token in place of <code>YOUR_BOT_TOKEN</code>.</p>
 ${terminal({ code: site.quickConfig, lang: "json", title: "MCP config", copyLabel: "Copy the MCP config" })}
+<p>You can also install it once with <code>npm i -g @pasympa/discord-mcp</code>, which adds a <code>discord-mcp</code> command. In the entry, set <code>"command": "discord-mcp"</code> and remove <code>args</code>. If the client does not find it, use the full path that <code>which discord-mcp</code> prints (<code>where discord-mcp</code> on Windows). Updates are then manual: run <code>npm i -g @pasympa/discord-mcp</code> again after a release.</p>
 <p>Open your client below for where the entry goes, or for a one-click install. A client that reaches the server by URL is under <a href="#remote-clients-over-http">remote clients</a>.</p>`,
     body: tpl`<div class="clients">${clientIds.map((c) =>
       clientPanel(site, c, { up: UP, id: c.docId, collapsed: true, local, quickConfig: false }),

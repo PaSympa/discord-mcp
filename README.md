@@ -71,6 +71,8 @@
 
 `npx` downloads and runs the server (Node.js 22 or later); nothing else to install. Per-client instructions are under [Clients](#clients).
 
+You can also install it once with `npm i -g @pasympa/discord-mcp`, which adds a `discord-mcp` command. In the config, set `"command": "discord-mcp"` and remove `args`. If the client does not find it, use the full path that `which discord-mcp` prints (`where discord-mcp` on Windows). Updates are then manual: run `npm i -g @pasympa/discord-mcp` again after a release.
+
 ## Expose only what you need
 
 The full set of 108 tools costs about 42k tokens of context when a client loads them all. Most assistants need a fraction of it: set `DISCORD_MCP_TOOLSETS` to the toolsets you want.
@@ -124,7 +126,13 @@ Set `DISCORD_MCP_READ_ONLY=true` to keep only the 37 tools annotated `readOnlyHi
 <details>
 <summary><strong>Claude Code</strong></summary>
 
-**Plugin.** In a Claude Code session, run `/plugin marketplace add PaSympa/discord-mcp`, then `/plugin install discord-mcp@pasympa`. Claude Code asks for the bot token and stores it as a secret, not in `settings.json`. If you skip that prompt, the server stays off until you set the token with `/plugin configure discord-mcp@pasympa`, which also changes the other settings. Restart Claude Code after setting or changing the token. The plugin also brings two skills, `/discord-mcp:channel-digest` and `/discord-mcp:moderation-sweep`. They read without a permission prompt, and nothing that changes Discord happens before you approve it.
+Anthropic's official `discord` plugin for Claude Code is a [channel](https://code.claude.com/docs/en/channels), in research preview. It lets you chat with your running Claude Code session from Discord. discord-mcp does something else: it gives any MCP client tools to administer and moderate a Discord server.
+
+**Plugin.** In a Claude Code session, run `/plugin install discord-mcp --marketplace PaSympa/discord-mcp`. Claude Code adds the `pasympa` marketplace after you confirm, then opens the plugin for you to install. It asks for the bot token and stores it as a secret, not in `settings.json`. If you skip that prompt, the server stays off until you set the token with `/plugin configure discord-mcp@pasympa`, which also changes the other settings. Restart Claude Code after setting or changing the token. The plugin also brings two skills, `/discord-mcp:channel-digest` and `/discord-mcp:moderation-sweep`. They read without a permission prompt, and nothing that changes Discord happens before you approve it.
+
+**From your shell.** `claude plugin install discord-mcp --marketplace PaSympa/discord-mcp` installs the plugin without starting a session. It does not ask for the token: set it with `/plugin configure discord-mcp@pasympa` in a session, then restart Claude Code.
+
+The one-command install needs Claude Code 2.1.275 or later in a session, and 2.1.292 or later from the shell. On an older version, run `/plugin marketplace add PaSympa/discord-mcp`, then `/plugin install discord-mcp@pasympa`.
 
 **Without the plugin.** You can also add the server with `claude mcp add`, as before. Keep only one of the two, or every tool loads twice.
 

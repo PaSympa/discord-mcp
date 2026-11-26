@@ -15,11 +15,14 @@ Not affiliated with or endorsed by Discord. This plugin is not the Discord chann
 In a Claude Code session:
 
 ```text
-/plugin marketplace add PaSympa/discord-mcp
-/plugin install discord-mcp@pasympa
+/plugin install discord-mcp --marketplace PaSympa/discord-mcp
 ```
 
+Claude Code adds the `pasympa` marketplace after you confirm, then opens the plugin for you to install. This needs Claude Code 2.1.275 or later. On an older version, run `/plugin marketplace add PaSympa/discord-mcp`, then `/plugin install discord-mcp@pasympa`.
+
 Then enter the bot token when Claude Code asks. Claude Code stores it in your system's secure credential store, not in `settings.json`. If you skip that prompt, the server stays off until you set the token.
+
+From your shell, `claude plugin install discord-mcp --marketplace PaSympa/discord-mcp` installs the plugin without starting a session (Claude Code 2.1.292 or later). It does not ask for the token: set it as below.
 
 To set or change the token and the other settings, run `/plugin configure discord-mcp@pasympa`. If you installed the plugin from another marketplace, use that marketplace's name in place of `pasympa`. Restart Claude Code after you set or change the token.
 

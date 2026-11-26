@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `discord_timeout_member`, `discord_edit_embed`, `discord_edit_dm_embed`, `discord_edit_webhook_message` and `discord_set_forum_tags` are annotated `idempotentHint: false`. Repeating the same call moves a timeout's end or an embed's `timestamp` to the new time, and recreates under a new ID a forum tag whose name has a leading or trailing space, since Discord trims the name
+
 ## [2.5.0] - 2026-11-25
 
 ### Added

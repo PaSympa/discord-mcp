@@ -993,7 +993,7 @@ const tools = [
       title: "Edit embed",
       readOnlyHint: false,
       destructiveHint: false,
-      idempotentHint: true,
+      idempotentHint: false,
       openWorldHint: true,
     },
     schema: z.object({

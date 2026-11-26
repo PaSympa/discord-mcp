@@ -389,7 +389,7 @@ const tools = [
       title: "Set forum tags",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: true,
+      idempotentHint: false,
       openWorldHint: true,
     },
     schema: z.object({

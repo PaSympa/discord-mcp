@@ -111,7 +111,7 @@ const tools = [
       title: "Edit DM embed",
       readOnlyHint: false,
       destructiveHint: false,
-      idempotentHint: true,
+      idempotentHint: false,
       openWorldHint: true,
     },
     schema: z.object({

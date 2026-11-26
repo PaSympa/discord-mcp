@@ -67,6 +67,11 @@ function firstText(result: Result): string {
 export class Confirmations {
   private readonly asking = new WeakSet<AbortSignal>();
 
+  /** Whether the request with this signal asked and still waits for its answer. */
+  waits(signal: AbortSignal): boolean {
+    return this.asking.has(signal);
+  }
+
   /**
    * The `confirm` of one run of the handler of request `req`, built when the run starts.
    * Only an answer to a question this server asked counts: a client can put

@@ -82,6 +82,22 @@ export function messageAuthor(authorId: string, webhookId: string | null | undef
   return { author_id: authorId, ...(webhookId ? { webhook_id: webhookId } : {}) };
 }
 
+/** `n` and the noun, plural unless `n` is 1: "1 member", "3 members". */
+export const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+
+const MAX_REASON_SHOWN = 200;
+
+/**
+ * The audit log reason as the end of a confirmation message, or nothing without one. The
+ * caller writes it: quoted on one line and cut short, it cannot pass for the server's text.
+ */
+export function reasonLine(reason: string | undefined): string {
+  const chars = [...(reason?.replace(/\s+/g, " ").trim() ?? "")];
+  if (!chars.length) return "";
+  const shown = chars.slice(0, MAX_REASON_SHOWN).join("");
+  return ` Reason: "${shown}${chars.length > MAX_REASON_SHOWN ? "..." : ""}"`;
+}
+
 /**
  * An http(s)-only URL. Bare `z.url()` accepts any WHATWG scheme (javascript:,
  * ftp:, mailto:…) that Discord rejects for clickable/image links. The protocol

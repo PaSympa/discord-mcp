@@ -1,7 +1,15 @@
 import { ChannelType, NewsChannel } from "discord.js";
 import { z } from "zod";
 import { discord, getGuildChannel, fetchChannelChecked, assertCanCopyFrom } from "../client.js";
-import { defineTool, defineModule, snowflake, guildId, intIn, textUpTo } from "./define.js";
+import {
+  defineTool,
+  defineModule,
+  snowflake,
+  guildId,
+  intIn,
+  reasonLine,
+  textUpTo,
+} from "./define.js";
 
 /** Tool definitions for guild channels: lifecycle, layout, following, and permission sync. */
 const tools = [
@@ -74,7 +82,7 @@ const tools = [
           "If true (default), only reports which channel would be deleted without deleting it. Set false to actually delete.",
         ),
     }),
-    handle: async ({ channel_id, reason, dry_run }) => {
+    handle: async ({ channel_id, reason, dry_run }, { confirm }) => {
       const channel = await fetchChannelChecked(channel_id);
       if (!channel) throw new Error("Channel not found.");
       const channelName = "name" in channel ? channel.name : channel.id;
@@ -88,6 +96,10 @@ const tools = [
           ],
         };
       }
+      await confirm?.(() => {
+        const server = "guild" in channel ? ` in ${channel.guild.name}` : "";
+        return `Delete the channel #${channelName} (${channel.id})${server}?${reasonLine(reason)}`;
+      });
       await channel.delete(reason);
       return { content: [{ type: "text", text: `✅ Channel #${channelName} deleted.` }] };
     },

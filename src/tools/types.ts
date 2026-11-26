@@ -47,10 +47,17 @@ export interface ToolResult {
  * Per-call context. `signal` aborts when the client cancels the request. `progress`
  * reports how many items of `total` a batch has handled; it never throws, and `progress`
  * must grow with each report.
+ *
+ * `confirm` is present when the client can ask its user, and the tools with a dry run call
+ * it before a real change. It throws to stop the handler, the first time to ask: the SDK
+ * then runs the handler again with the answer, and `confirm` returns only if the user
+ * confirmed. So nothing that changes Discord may run before it, and what runs before it
+ * runs twice. `message` is built only on the run that asks.
  */
 export interface ToolContext {
   signal?: AbortSignal;
   progress?: (progress: number, total: number) => void;
+  confirm?: (message: () => string | Promise<string>) => Promise<void>;
 }
 
 /** Validates and executes a single tool call, returning its result. */

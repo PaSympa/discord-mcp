@@ -529,6 +529,45 @@ test("a batch's progress notifications reach the client in the call's own SSE st
   }
 });
 
+test("over HTTP a client that declares form elicitation is not asked: a real call runs as before", async () => {
+  const deletions: unknown[] = [];
+  const channel = {
+    id: "333333333333333333",
+    name: "victim",
+    guildId: "111111111111111111",
+    delete: async (reason: unknown) => void deletions.push(reason),
+  };
+  const mocks = [
+    mock.method(discord, "isReady", () => true as never),
+    mock.method(discord.channels, "fetch", async () => channel as never),
+  ];
+  const client = new Client(
+    { name: "http-test", version: "0.0.0" },
+    { capabilities: { elicitation: { form: {} } } },
+  );
+  const asked: unknown[] = [];
+  client.setRequestHandler("elicitation/create", async (req) => {
+    asked.push(req.params);
+    return { action: "decline" };
+  });
+  try {
+    const url = new URL(`http://127.0.0.1:${port}/mcp`);
+    await client.connect(
+      new StreamableHTTPClientTransport(url, { requestInit: { headers: AUTH } }),
+    );
+    const result = await client.callTool({
+      name: "discord_delete_channel",
+      arguments: { channel_id: channel.id, dry_run: false, reason: "cleanup" },
+    });
+    assert.deepEqual(asked, []);
+    assert.deepEqual(deletions, ["cleanup"]);
+    assert.deepEqual(result.content, [{ type: "text", text: "✅ Channel #victim deleted." }]);
+  } finally {
+    await client.close();
+    for (const m of mocks) m.mock.restore();
+  }
+});
+
 test("no log line carries the bearer token", () => {
   assert.ok(logs.mock.callCount() > 0);
   for (const call of logs.mock.calls) {
@@ -596,6 +635,14 @@ test(
       [
         { DISCORD_MCP_TRANSPORT: " HTTP ", DISCORD_MCP_HTTP_TOKEN: bot, DISCORD_TOKEN: bot },
         /DISCORD_MCP_HTTP_TOKEN must differ from DISCORD_TOKEN/,
+      ],
+      [
+        {
+          DISCORD_MCP_TRANSPORT: "http",
+          DISCORD_MCP_HTTP_TOKEN: TOKEN,
+          DISCORD_MCP_CONFIRM: "ask",
+        },
+        /Invalid DISCORD_MCP_CONFIRM: "ask"\. Accepted: true, 1, yes, on to enable it; false, 0, no, off to disable it\./,
       ],
     ];
     await Promise.all(

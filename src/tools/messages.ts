@@ -67,6 +67,7 @@ import {
   fetchPageAfter,
   messageAuthor,
   messageAuthorShape,
+  plural,
 } from "./define.js";
 import type { ToolContext } from "./types.js";
 
@@ -890,7 +891,7 @@ const tools = [
         .describe("IDs this call did not reach. Call again with them as message_ids."),
       stopped: batchStopSchema("lookup_limit").optional(),
     }),
-    handle: async ({ channel_id, count, message_ids, dry_run }, { signal, progress }) => {
+    handle: async ({ channel_id, count, message_ids, dry_run }, { signal, progress, confirm }) => {
       const deadline = Date.now() + BATCH_BUDGET_MS;
       const channel = await getTextChannel(channel_id);
       assertCanReadHistory(channel);
@@ -919,6 +920,12 @@ const tools = [
           not_found: lookup.notFound,
           remaining: lookup.unreached,
           ...(lookup.stopped ? { stopped: lookup.stopped } : {}),
+        });
+      if (deletable.length)
+        await confirm?.(() => {
+          const older = deletable.filter((m) => toDelete(m).older_than_14_days).length;
+          const note = older ? `, including ${older} older than 14 days` : "";
+          return `Delete ${plural(deletable.length, "message")} in #${channel.name} (${channel.id})${note}? This cannot be undone.`;
         });
       const cutoff = Date.now() - FOURTEEN_DAYS_MS + BULK_AGE_MARGIN_MS;
       const recent = deletable.filter((m) => m.createdTimestamp > cutoff).map((m) => m.id);

@@ -48,6 +48,12 @@
           "default": "false"
         },
         {
+          "name": "DISCORD_MCP_CONFIRM",
+          "description": "Set to false to stop asking the user to confirm a dry_run: false call to the six tools that preview by default. The server asks only over stdio, and only a client that supports form elicitation. Any value other than true/false, 1/0, yes/no or on/off stops the server at startup.",
+          "format": "boolean",
+          "default": "true"
+        },
+        {
           "name": "DISCORD_ALLOWED_GUILDS",
           "description": "Comma-separated guild IDs the server may act on. Calls that target any other guild are rejected, and the DM tools refuse a user who is not a member of any listed guild. Unset allows every guild.",
           "format": "string",
@@ -123,6 +129,12 @@
           "description": "Set to true to expose only the read-only tools of the selected toolsets: write tools are neither listed nor callable. Any value other than true/false, 1/0, yes/no or on/off stops the server at startup.",
           "format": "boolean",
           "default": "false"
+        },
+        {
+          "name": "DISCORD_MCP_CONFIRM",
+          "description": "Set to false to stop asking the user to confirm a dry_run: false call to the six tools that preview by default. The server asks only over stdio, and only a client that supports form elicitation. Any value other than true/false, 1/0, yes/no or on/off stops the server at startup.",
+          "format": "boolean",
+          "default": "true"
         },
         {
           "name": "DISCORD_ALLOWED_GUILDS",

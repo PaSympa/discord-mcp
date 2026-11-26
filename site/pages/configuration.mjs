@@ -64,7 +64,7 @@ export function renderConfiguration(site) {
   const vars = docSection({
     id: "variables",
     title: "Environment variables",
-    intro: tpl`<p>The server reads its settings from environment variables when it starts. Only <code>DISCORD_TOKEN</code> is required. An invalid toolset, read-only, transport or HTTP value stops the server at startup, with a message that names the variable, rather than running with a setting you did not ask for.</p>`,
+    intro: tpl`<p>The server reads its settings from environment variables when it starts. Only <code>DISCORD_TOKEN</code> is required. An invalid toolset, read-only, confirmation, transport or HTTP value stops the server at startup, with a message that names the variable, rather than running with a setting you did not ask for.</p>`,
     body: tpl`${main.map((v) => variable(site, v, local))}
 <div class="doc-callout" id="intent-flags" role="note">${notes.map((n) => tpl`<p>${md(site, n, UP, local)}</p>`)}</div>`,
   });

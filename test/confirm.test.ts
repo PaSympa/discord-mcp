@@ -180,22 +180,26 @@ type Raw = {
 };
 const CHANNEL_A = "333333333333333301";
 const CHANNEL_B = "333333333333333302";
-const ACCEPTED = { inputResponses: { confirm: { action: "accept", content: { confirm: true } } } };
+const CONFIRMED = { action: "accept", content: { confirm: true } };
+const ACCEPTED = { inputResponses: { confirm: CONFIRMED } };
 const TIMED_OUT =
   "No confirmation came back (Fulfilling input required by 'tools/call' failed: Request timed out). Nothing was changed.";
 
 /**
- * A client on a raw in-memory link that can send two tools/call with the same ID, as a
- * non-conformant client could. It answers the first form with an accept when
- * `acceptFirst` is set, and a channel's `delete` waits for `holdDelete`.
+ * A client on a raw in-memory link that can send two tools/call with the same ID, or a
+ * second initialize, as a non-conformant client could. It answers the first form with
+ * `answerFirst` when set, after an initialize without capabilities when `reinitFirst` is
+ * set. A channel's `delete` waits for `holdDelete`.
  */
 async function rawSession({
   timeoutMs,
-  acceptFirst = false,
+  answerFirst,
+  reinitFirst = false,
   holdDelete,
 }: {
   timeoutMs: number;
-  acceptFirst?: boolean;
+  answerFirst?: object;
+  reinitFirst?: boolean;
   holdDelete?: Promise<void>;
 }) {
   mock.method(discord, "isReady", () => true as never);
@@ -222,25 +226,33 @@ async function rawSession({
   const send = (message: object) => client.send({ jsonrpc: "2.0", ...message } as JSONRPCMessage);
   const received: Raw[] = [];
   const listeners: (() => void)[] = [];
+  const initialize = (id: number, capabilities: object) =>
+    send({
+      id,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-11-25",
+        capabilities,
+        clientInfo: { name: "raw", version: "0" },
+      },
+    });
   let asks = 0;
   client.onmessage = (message) => {
     const m = message as Raw;
     received.push(m);
-    if (m.method === "elicitation/create" && asks++ === 0 && acceptFirst)
-      void send({ id: m.id, result: { action: "accept", content: { confirm: true } } });
+    if (m.method === "elicitation/create" && asks++ === 0 && answerFirst)
+      void (async () => {
+        if (reinitFirst) {
+          await initialize(50, {});
+          await sleep(20);
+        }
+        await send({ id: m.id, result: answerFirst });
+      })();
     for (const listener of listeners) listener();
   };
   await createServer("0.0.0-test", { confirmTimeoutMs: timeoutMs }).connect(server);
   await client.start();
-  await send({
-    id: 1,
-    method: "initialize",
-    params: {
-      protocolVersion: "2025-11-25",
-      capabilities: { elicitation: { form: {} } },
-      clientInfo: { name: "raw", version: "0" },
-    },
-  });
+  await initialize(1, { elicitation: { form: {} } });
   await send({ method: "notifications/initialized" });
   return {
     deletions,
@@ -319,7 +331,7 @@ test("no offset between two calls with the same ID lets the second skip its ques
 test("a same-ID call during the first call's accepted change leaves the first result alone", async () => {
   let release!: () => void;
   const holdDelete = new Promise<void>((resolve) => (release = resolve));
-  const session = await rawSession({ timeoutMs: 100, acceptFirst: true, holdDelete });
+  const session = await rawSession({ timeoutMs: 100, answerFirst: CONFIRMED, holdDelete });
   session.deleteChannel(CHANNEL_A);
   await session.deleting;
   session.deleteChannel(CHANNEL_B);
@@ -331,6 +343,32 @@ test("a same-ID call during the first call's accepted change leaves the first re
   assert.deepEqual(texts, ["✅ Channel #c01 deleted.", TIMED_OUT]);
   assert.deepEqual(session.deletions, [CHANNEL_A]);
 });
+
+for (const [label, answer, text, deleted] of [
+  [
+    "decline",
+    { action: "decline" },
+    "The user did not confirm (declined). Nothing was changed.",
+    [],
+  ],
+  [
+    "accept with confirm false",
+    { action: "accept", content: { confirm: false } },
+    "The user did not confirm (confirm was not true). Nothing was changed.",
+    [],
+  ],
+  ["accept", CONFIRMED, "✅ Channel #c01 deleted.", [CHANNEL_A]],
+] as const) {
+  test(`an initialize without capabilities while the form is shown, then ${label}, keeps the answer's outcome`, async () => {
+    const session = await rawSession({ timeoutMs: 200, answerFirst: answer, reinitFirst: true });
+    session.deleteChannel(CHANNEL_A);
+    const [result] = await session.texts(1);
+    await session.close();
+    assert.equal(session.asks(), 1);
+    assert.equal(result, text);
+    assert.deepEqual(session.deletions, deleted);
+  });
+}
 
 test("inputResponses the client sent itself do not skip the question", async () => {
   const { deletions } = fakeChannel();
@@ -454,6 +492,21 @@ test("bulk_delete_messages deletes nothing on a decline", async () => {
   assert.equal(result.structuredContent, undefined);
 });
 
+test("bulk_delete_messages does not ask when no message it was given can be deleted", async () => {
+  const { post, del } = fakeMessages();
+  const elsewhere = ["444444444444444441", "444444444444444442"];
+  const { result, asked } = await call("discord_bulk_delete_messages", {
+    channel_id: CHANNEL,
+    message_ids: elsewhere,
+    dry_run: false,
+  });
+  assert.deepEqual(asked, []);
+  assert.equal(post.mock.callCount() + del.mock.callCount(), 0);
+  const content = result.structuredContent as { deleted: string[]; not_found: string[] };
+  assert.deepEqual(content.deleted, []);
+  assert.deepEqual(content.not_found, elsewhere);
+});
+
 test("the 40 s budget of bulk_delete_messages starts after the answer", async () => {
   const { ids, post, del } = fakeMessages();
   const now = Date.now;
@@ -573,6 +626,17 @@ test("prune_members only estimates on a decline, and names the roles it counts",
     [true],
   );
   assert.equal(textOf(result), "The user did not confirm (declined). Nothing was changed.");
+});
+
+test("a prune_members dry run asks nothing, even with the capability", async () => {
+  const prunes = fakePruneGuild();
+  const { result, asked } = await call("discord_prune_members", { guild_id: GUILD, days: 7 });
+  assert.deepEqual(asked, []);
+  assert.deepEqual(
+    prunes.map((p) => p.dry),
+    [true],
+  );
+  assert.equal(textOf(result), "🔍 Dry run: 4 members would be pruned (7 days inactive).");
 });
 
 test("prune_members does not estimate without the capability", async () => {

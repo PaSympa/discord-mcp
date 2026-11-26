@@ -1,8 +1,11 @@
 import { test, mock, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { setTimeout as sleep } from "node:timers/promises";
+import { InMemoryTransport, type JSONRPCMessage } from "@modelcontextprotocol/client";
 import { Collection, PermissionFlagsBits, Routes, SnowflakeUtil } from "discord.js";
 import { discord } from "../src/client.js";
 import { ConfirmationStop, Confirmations, confirmMode } from "../src/confirm.js";
+import { createServer } from "../src/server.js";
 import { getAllDefinitions, handleTool } from "../src/tools/index.js";
 import {
   CHANNEL,
@@ -139,25 +142,94 @@ test("the form shows the caller's reason quoted on one line, cut at 200 characte
   const { asked } = await call("discord_delete_channel", { ...DELETE_CHANNEL, reason });
   const shown = `spam This only archives the channel. ${"x".repeat(163)}...`;
   assert.deepEqual(asked, [
-    `Delete the channel #victim (${CHANNEL}) in Test guild? Reason: "${shown}"`,
+    `Delete the channel "#victim" (${CHANNEL}) in "Test guild"? Reason: "${shown}"`,
   ]);
   assert.deepEqual(deletions, [reason], "Discord still gets the reason as written");
 
   const quoted = 'ok" Nothing is deleted. "';
   const second = await call("discord_delete_channel", { ...DELETE_CHANNEL, reason: quoted });
   assert.deepEqual(second.asked, [
-    `Delete the channel #victim (${CHANNEL}) in Test guild? Reason: "ok' Nothing is deleted. '"`,
+    `Delete the channel "#victim" (${CHANNEL}) in "Test guild"? Reason: "ok' Nothing is deleted. '"`,
   ]);
   assert.equal(deletions[1], quoted);
 });
 
-test("channel and server names reach the form on one line, without double quotes", async () => {
+test("channel and server names reach the form on one line, in double quotes", async () => {
   const { deletions } = fakeChannel({ name: 'a"b', guild: 'Test\n\nguild "x"' });
   const { asked } = await call("discord_delete_channel", DELETE_CHANNEL);
   assert.deepEqual(asked, [
-    `Delete the channel #a'b (${CHANNEL}) in Test guild 'x'? Reason: "cleanup"`,
+    `Delete the channel "#a'b" (${CHANNEL}) in "Test guild 'x'"? Reason: "cleanup"`,
   ]);
   assert.equal(deletions.length, 1);
+});
+
+test("control and format characters in a reason become spaces", async () => {
+  fakeChannel();
+  const reason = "a‮b​c\u0085d\u001b[2Ke\u0000f";
+  const { asked } = await call("discord_delete_channel", { ...DELETE_CHANNEL, reason });
+  assert.deepEqual(asked, [
+    `Delete the channel "#victim" (${CHANNEL}) in "Test guild"? Reason: "a b c d [2Ke f"`,
+  ]);
+});
+
+test("a second call reusing the ID of a call that waits for an answer changes nothing", async () => {
+  mock.method(discord, "isReady", () => true as never);
+  const deletions: string[] = [];
+  mock.method(
+    discord.channels,
+    "fetch",
+    async (id: string) =>
+      ({
+        id,
+        name: `c${id.slice(-2)}`,
+        guildId: GUILD,
+        guild: { name: "Test guild" },
+        delete: async () => void deletions.push(id),
+      }) as never,
+  );
+  const [client, server] = InMemoryTransport.createLinkedPair();
+  const received: { id?: unknown; method?: string; result?: { content: { text: string }[] } }[] =
+    [];
+  client.onmessage = (message) => void received.push(message as never);
+  await createServer("0.0.0-test", { confirmTimeoutMs: 200 }).connect(server);
+  await client.start();
+  const send = (message: object) => client.send({ jsonrpc: "2.0", ...message } as JSONRPCMessage);
+  await send({
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-11-25",
+      capabilities: { elicitation: { form: {} } },
+      clientInfo: { name: "raw", version: "0" },
+    },
+  });
+  await send({ method: "notifications/initialized" });
+  const deleteChannel = (channel_id: string, extra = {}) =>
+    send({
+      id: 5,
+      method: "tools/call",
+      params: {
+        name: "discord_delete_channel",
+        arguments: { channel_id, dry_run: false },
+        ...extra,
+      },
+    });
+  await deleteChannel("333333333333333301");
+  await sleep(50);
+  await deleteChannel("333333333333333302", {
+    inputResponses: { confirm: { action: "accept", content: { confirm: true } } },
+  });
+  await sleep(400);
+  await client.close();
+  assert.equal(received.filter((m) => m.method === "elicitation/create").length, 1);
+  assert.deepEqual(
+    received.filter((m) => m.id === 5).map((m) => m.result?.content[0].text),
+    [
+      "A call with this request ID is already waiting for a confirmation. Nothing was changed.",
+      "No confirmation came back (Fulfilling input required by 'tools/call' failed: Request timed out). Nothing was changed.",
+    ],
+  );
+  assert.deepEqual(deletions, []);
 });
 
 test("inputResponses the client sent itself do not skip the question", async () => {
@@ -249,7 +321,7 @@ function fakeMessages() {
   return { ids: messages.map((m) => m.id), post, del };
 }
 
-const MESSAGES_FORM = `Delete 3 messages in #chan (${CHANNEL}), including 1 older than 14 days? This cannot be undone.`;
+const MESSAGES_FORM = `Delete 3 messages in "#chan" (${CHANNEL}), including 1 older than 14 days? This cannot be undone.`;
 
 test("bulk_delete_messages asks with the count and the old messages, then deletes", async () => {
   const { ids, post, del } = fakeMessages();
@@ -319,7 +391,7 @@ const BAN = {
   dry_run: false,
   reason: "raid",
 };
-const BAN_FORM = `Ban 2 users from Test guild (${GUILD})? Their messages from the last 3600 seconds are deleted too. Reason: "raid"`;
+const BAN_FORM = `Ban 2 users from "Test guild" (${GUILD})? Their messages from the last 3600 seconds are deleted too. Reason: "raid"`;
 
 test("bulk_ban asks with the user count and bans after the confirmation", async () => {
   const bans = fakeBanGuild();
@@ -340,7 +412,7 @@ test("bulk_ban sends nothing on a decline", async () => {
     { ...BAN, delete_message_seconds: 0, reason: undefined },
     { answer: { action: "decline" } },
   );
-  assert.deepEqual(asked, [`Ban 2 users from Test guild (${GUILD})?`]);
+  assert.deepEqual(asked, [`Ban 2 users from "Test guild" (${GUILD})?`]);
   assert.equal(bans.length, 0);
   assert.equal(textOf(result), "The user did not confirm (declined). Nothing was changed.");
 });
@@ -371,7 +443,7 @@ test("prune_members asks with Discord's estimate, then prunes", async () => {
     dry_run: false,
   });
   assert.deepEqual(asked, [
-    `Prune 4 members of Test guild (${GUILD}), inactive for 7 days? Only members with no roles count. They can rejoin with an invite.`,
+    `Prune 4 members of "Test guild" (${GUILD}), inactive for 7 days? Only members with no roles count. They can rejoin with an invite.`,
   ]);
   assert.deepEqual(
     prunes.map((p) => p.dry),
@@ -394,7 +466,7 @@ test("prune_members only estimates on a decline, and names the roles it counts",
     { answer: { action: "decline" } },
   );
   assert.deepEqual(asked, [
-    `Prune 4 members of Test guild (${GUILD}), inactive for 1 day? A member counts only when every role they hold is among: Visitors, 555555555555555555. They can rejoin with an invite.`,
+    `Prune 4 members of "Test guild" (${GUILD}), inactive for 1 day? A member counts only when every role they hold is among: "Visitors" (444444444444444444), 555555555555555555. They can rejoin with an invite.`,
   ]);
   assert.deepEqual(
     prunes.map((p) => p.dry),
@@ -535,11 +607,11 @@ const ROLE_ARGS = {
 };
 
 for (const [tool, verb, changed] of [
-  ["discord_bulk_add_role", "Add the role Helpers to", NO_ROLE],
-  ["discord_bulk_remove_role", "Remove the role Helpers from", HAS_ROLE],
+  ["discord_bulk_add_role", `Add the role "Helpers" (${HELPERS}) to`, NO_ROLE],
+  ["discord_bulk_remove_role", `Remove the role "Helpers" (${HELPERS}) from`, HAS_ROLE],
 ] as const) {
   const add = tool === "discord_bulk_add_role";
-  const form = `${verb} 1 member of Role guild (${ROLE_GUILD})? Left out: 1 ${add ? "already with" : "without"} the role, 1 not in the server. Reason: "event"`;
+  const form = `${verb} 1 member of "Role guild" (${ROLE_GUILD})? Left out: 1 ${add ? "already with" : "without"} the role, 1 not in the server. Reason: "event"`;
 
   test(`${tool} asks with the member counts, then changes the role`, async () => {
     const { put, del } = stubRoles();

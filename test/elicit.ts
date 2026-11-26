@@ -124,4 +124,4 @@ export function fakeChannel({ name = "victim", guild = "Test guild" } = {}) {
 }
 
 export const DELETE_CHANNEL = { channel_id: CHANNEL, dry_run: false, reason: "cleanup" };
-export const CHANNEL_FORM = `Delete the channel #victim (${CHANNEL}) in Test guild? Reason: "cleanup"`;
+export const CHANNEL_FORM = `Delete the channel "#victim" (${CHANNEL}) in "Test guild"? Reason: "cleanup"`;

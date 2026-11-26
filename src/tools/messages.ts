@@ -67,7 +67,7 @@ import {
   fetchPageAfter,
   messageAuthor,
   messageAuthorShape,
-  formText,
+  quoted,
   plural,
 } from "./define.js";
 import type { ToolContext } from "./types.js";
@@ -926,7 +926,7 @@ const tools = [
         await confirm?.(() => {
           const older = deletable.filter((m) => toDelete(m).older_than_14_days).length;
           const note = older ? `, including ${older} older than 14 days` : "";
-          return `Delete ${plural(deletable.length, "message")} in #${formText(channel.name)} (${channel.id})${note}? This cannot be undone.`;
+          return `Delete ${plural(deletable.length, "message")} in ${quoted(`#${channel.name}`)} (${channel.id})${note}? This cannot be undone.`;
         });
       const cutoff = Date.now() - FOURTEEN_DAYS_MS + BULK_AGE_MARGIN_MS;
       const recent = deletable.filter((m) => m.createdTimestamp > cutoff).map((m) => m.id);

@@ -14,7 +14,7 @@ import {
   snowflake,
   snowflakeSet,
   guildId,
-  formText,
+  quoted,
   plural,
   reasonLine,
   structured,
@@ -145,9 +145,9 @@ function bulkRoleTool(tool: { name: string; title: string; description: string; 
             notMember.length && `${notMember.length} not in the server`,
           ].filter(Boolean);
           const leftOut = left.length ? ` Left out: ${left.join(", ")}.` : "";
-          const name = formText(role.name);
+          const name = `${quoted(role.name)} (${role.id})`;
           const action = tool.add ? `Add the role ${name} to` : `Remove the role ${name} from`;
-          return `${action} ${plural(change.length, "member")} of ${formText(guild.name)} (${guild.id})?${leftOut}${reasonLine(reason)}`;
+          return `${action} ${plural(change.length, "member")} of ${quoted(guild.name)} (${guild.id})?${leftOut}${reasonLine(reason)}`;
         });
       const result = await runBatch(
         change,

@@ -88,19 +88,27 @@ export const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" :
 const MAX_SHOWN = 200;
 
 /**
- * A name or a reason as a confirmation message shows it: on one line, with double quotes
- * turned into single ones, cut at 200 characters. The model writes the reason and can name
- * a channel or a role: without this, either could pass for the server's own text.
+ * A name or a reason as a confirmation message shows it: on one line, with control and
+ * format characters (such as a right-to-left override) turned into spaces and double quotes
+ * into single ones, cut at 200 characters. The model writes the reason and can name a
+ * channel or a role: without this, either could pass for the server's own text.
  */
 export function formText(text: string): string {
-  const chars = [...text.replace(/\s+/g, " ").trim().replaceAll('"', "'")];
+  const chars = [
+    ...text
+      .replace(/[\s\p{Cc}\p{Cf}]+/gu, " ")
+      .trim()
+      .replaceAll('"', "'"),
+  ];
   return chars.length > MAX_SHOWN ? `${chars.slice(0, MAX_SHOWN).join("")}...` : chars.join("");
 }
 
+/** {@link formText} in double quotes, which it can no longer contain. */
+export const quoted = (text: string) => `"${formText(text)}"`;
+
 /** The audit log reason as the end of a confirmation message, quoted, or nothing without one. */
 export function reasonLine(reason: string | undefined): string {
-  const shown = formText(reason ?? "");
-  return shown ? ` Reason: "${shown}"` : "";
+  return formText(reason ?? "") ? ` Reason: ${quoted(reason ?? "")}` : "";
 }
 
 /**

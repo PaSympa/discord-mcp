@@ -92,6 +92,9 @@ export class Confirmations {
 
   /** Runs one whole tools/call, the SDK's rounds for its input requests included. */
   async settle(id: RequestId, call: () => Promise<Result>): Promise<Result> {
+    // A second call reusing the ID would read as the answer to the first call's question.
+    if (this.asking.has(id))
+      return unchanged("A call with this request ID is already waiting for a confirmation.");
     try {
       const result = await call();
       if (!this.asking.has(id)) return result;

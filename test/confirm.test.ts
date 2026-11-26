@@ -172,9 +172,36 @@ test("control and format characters in a reason become spaces", async () => {
   ]);
 });
 
-test("a second call reusing the ID of a call that waits for an answer changes nothing", async () => {
+type Raw = {
+  id?: unknown;
+  method?: string;
+  result?: { content: { text: string }[] };
+  error?: unknown;
+};
+const CHANNEL_A = "333333333333333301";
+const CHANNEL_B = "333333333333333302";
+const ACCEPTED = { inputResponses: { confirm: { action: "accept", content: { confirm: true } } } };
+const TIMED_OUT =
+  "No confirmation came back (Fulfilling input required by 'tools/call' failed: Request timed out). Nothing was changed.";
+
+/**
+ * A client on a raw in-memory link that can send two tools/call with the same ID, as a
+ * non-conformant client could. It answers the first form with an accept when
+ * `acceptFirst` is set, and a channel's `delete` waits for `holdDelete`.
+ */
+async function rawSession({
+  timeoutMs,
+  acceptFirst = false,
+  holdDelete,
+}: {
+  timeoutMs: number;
+  acceptFirst?: boolean;
+  holdDelete?: Promise<void>;
+}) {
   mock.method(discord, "isReady", () => true as never);
   const deletions: string[] = [];
+  let deleteStarted!: () => void;
+  const deleting = new Promise<void>((resolve) => (deleteStarted = resolve));
   mock.method(
     discord.channels,
     "fetch",
@@ -184,16 +211,27 @@ test("a second call reusing the ID of a call that waits for an answer changes no
         name: `c${id.slice(-2)}`,
         guildId: GUILD,
         guild: { name: "Test guild" },
-        delete: async () => void deletions.push(id),
+        delete: async () => {
+          deletions.push(id);
+          deleteStarted();
+          await holdDelete;
+        },
       }) as never,
   );
   const [client, server] = InMemoryTransport.createLinkedPair();
-  const received: { id?: unknown; method?: string; result?: { content: { text: string }[] } }[] =
-    [];
-  client.onmessage = (message) => void received.push(message as never);
-  await createServer("0.0.0-test", { confirmTimeoutMs: 200 }).connect(server);
-  await client.start();
   const send = (message: object) => client.send({ jsonrpc: "2.0", ...message } as JSONRPCMessage);
+  const received: Raw[] = [];
+  const listeners: (() => void)[] = [];
+  let asks = 0;
+  client.onmessage = (message) => {
+    const m = message as Raw;
+    received.push(m);
+    if (m.method === "elicitation/create" && asks++ === 0 && acceptFirst)
+      void send({ id: m.id, result: { action: "accept", content: { confirm: true } } });
+    for (const listener of listeners) listener();
+  };
+  await createServer("0.0.0-test", { confirmTimeoutMs: timeoutMs }).connect(server);
+  await client.start();
   await send({
     id: 1,
     method: "initialize",
@@ -204,32 +242,94 @@ test("a second call reusing the ID of a call that waits for an answer changes no
     },
   });
   await send({ method: "notifications/initialized" });
-  const deleteChannel = (channel_id: string, extra = {}) =>
-    send({
-      id: 5,
-      method: "tools/call",
-      params: {
-        name: "discord_delete_channel",
-        arguments: { channel_id, dry_run: false },
-        ...extra,
-      },
-    });
-  await deleteChannel("333333333333333301");
-  await sleep(50);
-  await deleteChannel("333333333333333302", {
-    inputResponses: { confirm: { action: "accept", content: { confirm: true } } },
+  return {
+    deletions,
+    deleting,
+    asks: () => asks,
+    deleteChannel: (channel_id: string, extra = {}) =>
+      void send({
+        id: 5,
+        method: "tools/call",
+        params: {
+          name: "discord_delete_channel",
+          arguments: { channel_id, dry_run: false },
+          ...extra,
+        },
+      }),
+    /** The texts of the first `n` responses to ID 5, once they all came. */
+    texts: (n: number) =>
+      new Promise<(string | undefined)[]>((resolve) => {
+        const check = () => {
+          const done = received.filter((m) => m.id === 5 && ("result" in m || "error" in m));
+          if (done.length >= n) resolve(done.slice(0, n).map((m) => m.result?.content[0].text));
+        };
+        listeners.push(check);
+        check();
+      }),
+    close: () => client.close(),
+  };
+}
+
+const microtasks = async (n: number) => {
+  for (let i = 0; i < n; i++) await Promise.resolve();
+};
+const macrotasks = async (n: number) => {
+  for (let i = 0; i < n; i++) await new Promise((resolve) => setImmediate(resolve));
+};
+
+for (const [label, between, extra] of [
+  ["50 ms later", () => sleep(50), ACCEPTED],
+  [
+    "3 microtasks later, with a requestState",
+    () => microtasks(3),
+    { ...ACCEPTED, requestState: "x" },
+  ],
+] as const) {
+  test(`a second call reusing the ID of a waiting call, ${label}, gets its own question`, async () => {
+    const session = await rawSession({ timeoutMs: 100 });
+    session.deleteChannel(CHANNEL_A);
+    await between();
+    session.deleteChannel(CHANNEL_B, extra);
+    const texts = await session.texts(2);
+    await session.close();
+    assert.equal(session.asks(), 2);
+    assert.deepEqual(texts, [TIMED_OUT, TIMED_OUT]);
+    assert.deepEqual(session.deletions, []);
   });
-  await sleep(400);
-  await client.close();
-  assert.equal(received.filter((m) => m.method === "elicitation/create").length, 1);
-  assert.deepEqual(
-    received.filter((m) => m.id === 5).map((m) => m.result?.content[0].text),
-    [
-      "A call with this request ID is already waiting for a confirmation. Nothing was changed.",
-      "No confirmation came back (Fulfilling input required by 'tools/call' failed: Request timed out). Nothing was changed.",
-    ],
-  );
-  assert.deepEqual(deletions, []);
+}
+
+test("no offset between two calls with the same ID lets the second skip its question", async () => {
+  const offsets = [
+    ...Array.from({ length: 31 }, (_, n) => [`${n} microtasks`, () => microtasks(n)] as const),
+    ...Array.from({ length: 6 }, (_, n) => [`${n} macrotasks`, () => macrotasks(n)] as const),
+  ];
+  for (const extra of [ACCEPTED, { ...ACCEPTED, requestState: "x" }])
+    for (const [label, between] of offsets) {
+      const session = await rawSession({ timeoutMs: 20 });
+      session.deleteChannel(CHANNEL_A);
+      await between();
+      session.deleteChannel(CHANNEL_B, extra);
+      await session.texts(2);
+      await session.close();
+      assert.deepEqual(session.deletions, [], label);
+      mock.restoreAll();
+    }
+});
+
+test("a same-ID call during the first call's accepted change leaves the first result alone", async () => {
+  let release!: () => void;
+  const holdDelete = new Promise<void>((resolve) => (release = resolve));
+  const session = await rawSession({ timeoutMs: 100, acceptFirst: true, holdDelete });
+  session.deleteChannel(CHANNEL_A);
+  await session.deleting;
+  session.deleteChannel(CHANNEL_B);
+  await sleep(20);
+  release();
+  const texts = await session.texts(2);
+  await session.close();
+  assert.equal(session.asks(), 2);
+  assert.deepEqual(texts, ["✅ Channel #c01 deleted.", TIMED_OUT]);
+  assert.deepEqual(session.deletions, [CHANNEL_A]);
 });
 
 test("inputResponses the client sent itself do not skip the question", async () => {
@@ -742,18 +842,18 @@ test("every tool with a dry_run calls confirm on a real call, before any write",
 
 test("the gate refuses an accept on a request already cancelled", async () => {
   const confirmations = new Confirmations();
+  const request = new AbortController();
   type Req = Parameters<Confirmations["gate"]>[0];
-  const req = (inputResponses?: Record<string, unknown>, signal = new AbortController().signal) =>
-    ({ id: 7, inputResponses, signal }) as unknown as Req;
+  const req = (inputResponses?: Record<string, unknown>) =>
+    ({ id: 7, inputResponses, signal: request.signal }) as unknown as Req;
   await assert.rejects(
     confirmations.gate(req())(() => "Sure?"),
     ConfirmationStop,
   );
-  const cancelled = new AbortController();
-  cancelled.abort();
+  request.abort();
   const accepted = { confirm: { action: "accept", content: { confirm: true } } };
   await assert.rejects(
-    confirmations.gate(req(accepted, cancelled.signal))(() => "Sure?"),
+    confirmations.gate(req(accepted))(() => "Sure?"),
     {
       result: {
         content: [

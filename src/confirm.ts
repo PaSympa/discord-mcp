@@ -5,7 +5,6 @@ import {
   type ElicitRequestFormParams,
   type InputRequiredResult,
   type InputResponseView,
-  type RequestId,
   type Result,
   type ServerContext,
 } from "@modelcontextprotocol/server";
@@ -61,9 +60,12 @@ function firstText(result: Result): string {
  * stays in `asking` until the SDK runs the handler again with the answer. When the SDK
  * gives up first, because no answer came in time or the client answered with an error,
  * it returns a result of its own that does not say that nothing changed.
+ *
+ * `asking` holds the request's signal, not its ID: a client can send two calls with the
+ * same ID, while the SDK makes one signal per request and keeps it across the rounds.
  */
 export class Confirmations {
-  private readonly asking = new Set<RequestId>();
+  private readonly asking = new WeakSet<AbortSignal>();
 
   /**
    * The `confirm` of one run of the handler of request `req`, built when the run starts.
@@ -72,14 +74,14 @@ export class Confirmations {
    * check must then move to the request state.
    */
   gate(req: ServerContext["mcpReq"]): NonNullable<ToolContext["confirm"]> {
-    const asked = this.asking.delete(req.id);
+    const asked = this.asking.delete(req.signal);
     return async (message) => {
       if (!asked) {
         const confirm = inputRequired.elicit({
           message: await message(),
           requestedSchema: CONFIRM_SCHEMA,
         });
-        this.asking.add(req.id);
+        this.asking.add(req.signal);
         throw new ConfirmationStop(inputRequired({ inputRequests: { confirm } }));
       }
       const why = refusal(inputResponse(req.inputResponses, "confirm"));
@@ -90,17 +92,14 @@ export class Confirmations {
     };
   }
 
-  /** Runs one whole tools/call, the SDK's rounds for its input requests included. */
-  async settle(id: RequestId, call: () => Promise<Result>): Promise<Result> {
-    // A second call reusing the ID would read as the answer to the first call's question.
-    if (this.asking.has(id))
-      return unchanged("A call with this request ID is already waiting for a confirmation.");
+  /** Runs one whole tools/call, with `signal` its request's, the SDK's rounds included. */
+  async settle(signal: AbortSignal, call: () => Promise<Result>): Promise<Result> {
     try {
       const result = await call();
-      if (!this.asking.has(id)) return result;
+      if (!this.asking.has(signal)) return result;
       return unchanged(`No confirmation came back (${firstText(result)}).`);
     } finally {
-      this.asking.delete(id);
+      this.asking.delete(signal);
     }
   }
 }

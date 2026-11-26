@@ -72,23 +72,29 @@ export function selectModules(): ToolModule[] {
   return names.map((n) => allToolsets[n]);
 }
 
-const READ_ONLY_ON = ["true", "1", "yes", "on"];
-const READ_ONLY_OFF = ["false", "0", "no", "off"];
+const SWITCH_ON = ["true", "1", "yes", "on"];
+const SWITCH_OFF = ["false", "0", "no", "off"];
 
 /**
- * Parses `DISCORD_MCP_READ_ONLY` (case-insensitive). Unset or empty is off. Unlike the
- * lenient intent flags in client.ts, any other value throws at startup: a typo must
- * not silently expose the write tools.
+ * Parses the value of the on/off variable `name` (trimmed, case-insensitive). Unset or
+ * empty gives `unset`. Unlike the lenient intent flags in client.ts, any other value
+ * throws at startup: a typo must not silently pick the less safe setting.
  */
-export function readOnlyMode(): boolean {
-  const raw = process.env.DISCORD_MCP_READ_ONLY?.trim() ?? "";
-  const value = raw.toLowerCase();
-  if (value === "" || READ_ONLY_OFF.includes(value)) return false;
-  if (READ_ONLY_ON.includes(value)) return true;
+export function parseSwitch(name: string, value: string | undefined, unset: boolean): boolean {
+  const raw = value?.trim() ?? "";
+  const normalized = raw.toLowerCase();
+  if (normalized === "") return unset;
+  if (SWITCH_ON.includes(normalized)) return true;
+  if (SWITCH_OFF.includes(normalized)) return false;
   throw new Error(
-    `Invalid DISCORD_MCP_READ_ONLY: "${raw}". ` +
-      `Accepted: ${READ_ONLY_ON.join(", ")} to enable it; ${READ_ONLY_OFF.join(", ")} to disable it.`,
+    `Invalid ${name}: "${raw}". ` +
+      `Accepted: ${SWITCH_ON.join(", ")} to enable it; ${SWITCH_OFF.join(", ")} to disable it.`,
   );
+}
+
+/** Parses `DISCORD_MCP_READ_ONLY`, off when unset. */
+export function readOnlyMode(): boolean {
+  return parseSwitch("DISCORD_MCP_READ_ONLY", process.env.DISCORD_MCP_READ_ONLY, false);
 }
 
 /**

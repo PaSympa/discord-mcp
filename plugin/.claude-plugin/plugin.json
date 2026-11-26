@@ -35,6 +35,12 @@
       "description": "Expose only the tools annotated readOnlyHint: true. Write tools are neither listed nor callable.",
       "default": false
     },
+    "confirm": {
+      "type": "boolean",
+      "title": "Confirm destructive calls",
+      "description": "Ask you to confirm a dry_run: false call to the six tools that preview by default. Turn it off for claude -p runs without an Elicitation hook, where no one can answer.",
+      "default": true
+    },
     "allowed_guilds": {
       "type": "string",
       "title": "Allowed guilds",
@@ -62,6 +68,7 @@
         "DISCORD_TOKEN": "${user_config.discord_token}",
         "DISCORD_MCP_TOOLSETS": "${user_config.toolsets}",
         "DISCORD_MCP_READ_ONLY": "${user_config.read_only}",
+        "DISCORD_MCP_CONFIRM": "${user_config.confirm}",
         "DISCORD_ALLOWED_GUILDS": "${user_config.allowed_guilds}",
         "DISCORD_MESSAGE_CONTENT": "${user_config.message_content}",
         "DISCORD_GUILD_MEMBERS": "${user_config.guild_members}"

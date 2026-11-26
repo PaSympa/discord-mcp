@@ -65,6 +65,7 @@ Before the report, check that the action tools exist, for example `discord_delet
 - Pass a `reason` on every call that takes one. It goes to the audit log, except for `discord_delete_message`, where Discord records none. `discord_bulk_delete_messages` has no `reason` field.
 - `discord_bulk_delete_messages` deletes the message IDs you pass, and only those. Call it first without `dry_run`, with `message_ids` set to the flagged IDs, and show its `would_delete` list. Its `not_deletable` list holds the messages the bot may not delete, a system message or another member's without Manage Messages: report them, do not retry. After a yes, call it with `dry_run: false` and the same IDs. If the result has `remaining`, wait `stopped.retry_after_seconds` when it is set, then call it again with those IDs.
 - `discord_bulk_ban` previews by default. Show its list, then call it with `dry_run: false` after a yes.
+- A call with `dry_run: false` can first show the user a confirmation form. If the result says the user did not confirm, nothing was changed: report it, and call again only if the user asks.
 - Error 50013 (Missing Permissions): the bot lacks the permission, or the target's top role is above the bot's. Report it and do not retry.
 
 ## 6. Verify and close

@@ -14,6 +14,9 @@ import {
   snowflake,
   snowflakeSet,
   guildId,
+  quoted,
+  plural,
+  reasonLine,
   structured,
   httpUrl,
   textUpTo,
@@ -125,13 +128,27 @@ function bulkRoleTool(tool: { name: string; title: string; description: string; 
     },
     schema: z.object(bulkRoleShape),
     outputSchema: bulkRoleOutput,
-    handle: async ({ guild_id, role_id, user_ids, dry_run, reason }, { signal, progress }) => {
+    handle: async (
+      { guild_id, role_id, user_ids, dry_run, reason },
+      { signal, progress, confirm },
+    ) => {
       const deadline = Date.now() + BATCH_BUDGET_MS;
       const guild = await discord.guilds.fetch(guild_id);
       const role = await assignableRole(guild, role_id);
       const { change, skipped, notMember } = await sortMembers(guild, role, user_ids, tool.add);
       if (dry_run)
         return structured({ dry_run, would_change: change, skipped, not_member: notMember });
+      if (change.length)
+        await confirm?.(() => {
+          const left = [
+            skipped.length && `${skipped.length} ${tool.add ? "already with" : "without"} the role`,
+            notMember.length && `${notMember.length} not in the server`,
+          ].filter(Boolean);
+          const leftOut = left.length ? ` Left out: ${left.join(", ")}.` : "";
+          const name = `${quoted(role.name)} (${role.id})`;
+          const action = tool.add ? `Add the role ${name} to` : `Remove the role ${name} from`;
+          return `${action} ${plural(change.length, "member")} of ${quoted(guild.name)} (${guild.id})?${leftOut}${reasonLine(reason)}`;
+        });
       const result = await runBatch(
         change,
         (user, itemSignal) => {

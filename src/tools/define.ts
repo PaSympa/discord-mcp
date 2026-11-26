@@ -82,6 +82,35 @@ export function messageAuthor(authorId: string, webhookId: string | null | undef
   return { author_id: authorId, ...(webhookId ? { webhook_id: webhookId } : {}) };
 }
 
+/** `n` and the noun, plural unless `n` is 1: "1 member", "3 members". */
+export const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+
+const MAX_SHOWN = 200;
+
+/**
+ * A name or a reason as a confirmation message shows it: on one line, with control and
+ * format characters (such as a right-to-left override) turned into spaces and double quotes
+ * into single ones, cut at 200 characters. The model writes the reason and can name a
+ * channel or a role: without this, either could pass for the server's own text.
+ */
+export function formText(text: string): string {
+  const chars = [
+    ...text
+      .replace(/[\s\p{Cc}\p{Cf}]+/gu, " ")
+      .trim()
+      .replaceAll('"', "'"),
+  ];
+  return chars.length > MAX_SHOWN ? `${chars.slice(0, MAX_SHOWN).join("")}...` : chars.join("");
+}
+
+/** {@link formText} in double quotes, which it can no longer contain. */
+export const quoted = (text: string) => `"${formText(text)}"`;
+
+/** The audit log reason as the end of a confirmation message, quoted, or nothing without one. */
+export function reasonLine(reason: string | undefined): string {
+  return formText(reason ?? "") ? ` Reason: ${quoted(reason ?? "")}` : "";
+}
+
 /**
  * An http(s)-only URL. Bare `z.url()` accepts any WHATWG scheme (javascript:,
  * ftp:, mailto:…) that Discord rejects for clickable/image links. The protocol

@@ -5,9 +5,12 @@ import { MAX_FETCH_LIMIT, DEFAULTS } from "../constants.js";
 import {
   defineTool,
   defineModule,
+  quoted,
   snowflake,
   guildId,
   intIn,
+  plural,
+  reasonLine,
   structured,
   textUpTo,
 } from "./define.js";
@@ -360,9 +363,18 @@ const tools = [
         .optional()
         .describe("User IDs not banned, including users who were already banned."),
     }),
-    handle: async ({ guild_id, user_ids, delete_message_seconds, dry_run, reason }) => {
+    handle: async (
+      { guild_id, user_ids, delete_message_seconds, dry_run, reason },
+      { confirm },
+    ) => {
       const guild = await discord.guilds.fetch(guild_id);
       if (dry_run) return structured({ dry_run, would_ban: user_ids });
+      await confirm?.(() => {
+        const messages = delete_message_seconds
+          ? ` Their messages from the last ${plural(delete_message_seconds, "second")} are deleted too.`
+          : "";
+        return `Ban ${plural(user_ids.length, "user")} from ${quoted(guild.name)} (${guild.id})?${messages}${reasonLine(reason)}`;
+      });
       const result = await guild.members.bulkBan(user_ids, {
         deleteMessageSeconds: delete_message_seconds,
         reason,
@@ -398,8 +410,20 @@ const tools = [
         ),
       reason: z.string().optional().describe("Optional reason recorded in the server audit log."),
     }),
-    handle: async ({ guild_id, days, roles, dry_run, reason }) => {
+    handle: async ({ guild_id, days, roles, dry_run, reason }, { confirm }) => {
       const guild = await discord.guilds.fetch(guild_id);
+      if (!dry_run)
+        await confirm?.(async () => {
+          const estimate = await guild.members.prune({ days, dry: true, roles });
+          const names = roles?.map((id) => {
+            const name = guild.roles.cache.get(id)?.name;
+            return name === undefined ? id : `${quoted(name)} (${id})`;
+          });
+          const counted = names?.length
+            ? ` A member counts only when every role they hold is among: ${names.join(", ")}.`
+            : " Only members with no roles count.";
+          return `Prune ${plural(estimate, "member")} of ${quoted(guild.name)} (${guild.id}), inactive for ${plural(days, "day")}?${counted} They can rejoin with an invite.${reasonLine(reason)}`;
+        });
       const pruned = await guild.members.prune({
         days,
         dry: dry_run,

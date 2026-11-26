@@ -46,7 +46,8 @@ class DiscordServer extends Server {
   protected override _wrapHandler(method: string, handler: Handler): Handler {
     const wrapped = super._wrapHandler(method, handler);
     if (method !== "tools/call") return wrapped;
-    return (request, ctx) => this.confirmations.settle(ctx.mcpReq.id, () => wrapped(request, ctx));
+    return (request, ctx) =>
+      this.confirmations.settle(ctx.mcpReq.signal, () => wrapped(request, ctx));
   }
 }
 

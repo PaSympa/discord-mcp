@@ -177,7 +177,7 @@ const tools = [
       title: "Timeout member",
       readOnlyHint: false,
       destructiveHint: false,
-      idempotentHint: true,
+      idempotentHint: false,
       openWorldHint: true,
     },
     schema: z.object({

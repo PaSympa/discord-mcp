@@ -240,7 +240,7 @@ const tools = [
       title: "Edit webhook message",
       readOnlyHint: false,
       destructiveHint: false,
-      idempotentHint: true,
+      idempotentHint: false,
       openWorldHint: true,
     },
     schema: z.object({

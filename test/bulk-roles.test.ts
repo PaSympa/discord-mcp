@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { Collection, DiscordAPIError, PermissionFlagsBits, Routes } from "discord.js";
 import { discord } from "../src/client.js";
 import roles from "../src/tools/roles.js";
+import { callWithProgress } from "./progress.js";
 import { rateLimited, retryAfterSchema } from "./rate-limit.js";
 
 /**
@@ -400,4 +401,115 @@ test("the bulk role tools carry the annotations of discord_add_role and discord_
   });
   assert.deepEqual(annotations("discord_bulk_add_role"), annotations("discord_add_role"));
   assert.deepEqual(annotations("discord_bulk_remove_role"), annotations("discord_remove_role"));
+});
+
+test("a real call reports progress after each member it changes or Discord refuses", async () => {
+  const stub = stubDiscord(GUILD);
+  stub.put.mock.mockImplementation(async (route: string) => {
+    if (route.includes(OTHERS[1]))
+      throw new DiscordAPIError(
+        { code: 10007, message: "Unknown Member" },
+        10007,
+        404,
+        "PUT",
+        route,
+        {},
+      );
+  });
+  const args = {
+    guild_id: GUILD,
+    role_id: roleId(GUILD, HELPERS),
+    user_ids: [HAS_ROLE, STRANGER, NO_ROLE, ...OTHERS],
+    dry_run: false,
+  };
+  const withToken = await callWithProgress("discord_bulk_add_role", args);
+  assert.deepEqual(withToken.progress, [
+    [1, 4],
+    [2, 4],
+    [3, 4],
+    [4, 4],
+  ]);
+  const without = await callWithProgress("discord_bulk_add_role", args, { token: false });
+  assert.deepEqual(without.progress, []);
+  assert.deepEqual(withToken.result, without.result);
+  assert.deepEqual((withToken.result.structuredContent as { failed: unknown[] }).failed, [
+    { user_id: OTHERS[1], code: 10007, message: "Unknown Member" },
+  ]);
+});
+
+test("a falsy progress token, 0 or an empty string, still gets progress, echoed unchanged", async () => {
+  stubDiscord(GUILD);
+  const args = {
+    guild_id: GUILD,
+    role_id: roleId(GUILD, HELPERS),
+    user_ids: [NO_ROLE, ...OTHERS],
+    dry_run: false,
+  };
+  const without = await callWithProgress("discord_bulk_add_role", args, { token: false });
+  for (const progressToken of [0, ""]) {
+    const call = await callWithProgress("discord_bulk_add_role", args, { progressToken });
+    assert.deepEqual(
+      call.progress,
+      [1, 2, 3, 4].map((n) => [n, 4]),
+      `progressToken ${JSON.stringify(progressToken)}`,
+    );
+    assert.deepEqual(call.result, without.result);
+  }
+});
+
+test("a remove reports progress out of the members who hold the role", async () => {
+  stubDiscord(GUILD);
+  const args = {
+    guild_id: GUILD,
+    role_id: roleId(GUILD, HELPERS),
+    user_ids: [HAS_ROLE, NO_ROLE, STRANGER],
+    dry_run: false,
+  };
+  const withToken = await callWithProgress("discord_bulk_remove_role", args);
+  assert.deepEqual(withToken.progress, [[1, 1]]);
+  const without = await callWithProgress("discord_bulk_remove_role", args, { token: false });
+  assert.deepEqual(without.progress, []);
+  assert.deepEqual(withToken.result, without.result);
+});
+
+test("a stopped call reports no progress for the member the stop hit, and a dry run none", async () => {
+  const stub = stubDiscord(GUILD);
+  stub.put.mock.mockImplementation(async (route: string) => {
+    if (!route.includes(NO_ROLE)) throw rateLimited(5_200);
+  });
+  const args = {
+    guild_id: GUILD,
+    role_id: roleId(GUILD, HELPERS),
+    user_ids: [NO_ROLE, ...OTHERS],
+  };
+  const stopped = await callWithProgress("discord_bulk_add_role", { ...args, dry_run: false });
+  assert.deepEqual(stopped.progress, [[1, 4]]);
+  assert.deepEqual((stopped.result.structuredContent as { remaining: string[] }).remaining, OTHERS);
+  const dryRun = await callWithProgress("discord_bulk_add_role", args);
+  assert.deepEqual(dryRun.progress, []);
+});
+
+test("a progress notification the transport fails to send changes nothing in the call", async () => {
+  stubDiscord(GUILD);
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  try {
+    const args = {
+      guild_id: GUILD,
+      role_id: roleId(GUILD, HELPERS),
+      user_ids: [NO_ROLE, ...OTHERS],
+      dry_run: false,
+    };
+    const failing = await callWithProgress("discord_bulk_add_role", args, {
+      failNotifications: true,
+    });
+    assert.equal(failing.progress.length, 4, "every send was attempted");
+    const without = await callWithProgress("discord_bulk_add_role", args, { token: false });
+    assert.deepEqual(failing.result, without.result);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", onUnhandled);
+  }
 });

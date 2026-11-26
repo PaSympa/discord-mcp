@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- `discord_bulk_add_role`, `discord_bulk_remove_role`, `discord_bulk_delete_messages` and `discord_create_thread` with `member_ids` send MCP progress notifications when the client passes a `progressToken`, over stdio and HTTP. A notification follows each member or message, counted out of all those the call acts on, Discord's refusals included, and a bulk delete request counts all its messages at once. Progress is for display only: the 40-second time budget and `remaining` work as before
+
 ### Changed
 
 - The server runs on the MCP TypeScript SDK v2 packages, `@modelcontextprotocol/server` 2.4 and `@modelcontextprotocol/node` 2.1, instead of `@modelcontextprotocol/sdk` 1.32. It keeps the low-level server, the stdio transport and the stateless HTTP transport, and `tools/list` is unchanged. Two error responses change on the wire. The `Unknown tool` and `Invalid cursor` errors keep code `-32602` but lose their `MCP error -32602: ` prefix. A `tools/call` whose `params` fail the MCP schema, such as missing `params`, a missing or non-string `name`, or `arguments` that is not an object, now gets `-32602` with `Invalid tools/call request: ` before the validation issues, instead of `-32603` with the bare issues. Other methods keep their error codes. When several requests arrive in one stdio read or one HTTP batch, their responses can come in a different order than before, with the same content. Requests sent one after another are answered in the same order as before, and JSON-RPC clients match responses by `id`. The production dependency tree drops from 118 installed packages to 32, without express, ajv or cors. The v2 packages are licensed Apache-2.0, where `@modelcontextprotocol/sdk` was MIT

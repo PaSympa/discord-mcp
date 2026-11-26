@@ -13,6 +13,8 @@ import {
   ProtocolErrorCode,
   SdkHttpError,
 } from "@modelcontextprotocol/client";
+import { Collection, SnowflakeUtil } from "discord.js";
+import { discord } from "../src/client.js";
 import { exposureWarning, readHttpConfig, startHttpServer } from "../src/http.js";
 import { createServer } from "../src/server.js";
 import { getAllDefinitions, selectTools } from "../src/tools/index.js";
@@ -462,6 +464,69 @@ test("SDK clients initialize, list the tools and call them over HTTP with the to
     () => wrong.connect(transport),
     (err: unknown) => err instanceof SdkHttpError && err.status === 401,
   );
+});
+
+test("a batch's progress notifications reach the client in the call's own SSE stream, before the result", async () => {
+  const old = [21, 22, 23].map((days) => {
+    const createdTimestamp = Date.now() - days * 24 * 60 * 60 * 1000;
+    const id = SnowflakeUtil.generate({ timestamp: createdTimestamp }).toString();
+    return { id, author: { id: "1" }, webhookId: null, deletable: true, createdTimestamp };
+  });
+  const channel = {
+    id: "333333333333333333",
+    name: "chan",
+    guildId: "111111111111111111",
+    guild: { members: { me: null } },
+    isDMBased: () => false,
+    isTextBased: () => true,
+    messages: { fetch: async () => new Collection(old.map((m) => [m.id, m])) },
+  };
+  const mocks = [
+    mock.method(discord, "isReady", () => true as never),
+    mock.method(discord.channels, "fetch", async () => channel as never),
+    mock.method(discord.rest, "delete", async () => undefined),
+  ];
+  const events = async (meta: Record<string, unknown>) => {
+    const reply = await send({
+      headers: { ...MCP_HEADERS, ...AUTH },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 7,
+        method: "tools/call",
+        params: {
+          name: "discord_bulk_delete_messages",
+          arguments: { channel_id: channel.id, message_ids: old.map((m) => m.id), dry_run: false },
+          _meta: meta,
+        },
+      }),
+    });
+    assert.equal(reply.status, 200);
+    assert.equal(reply.headers["content-type"], "text/event-stream");
+    return reply.body
+      .split("\n")
+      .filter((line) => line.startsWith("data: "))
+      .map((line) => JSON.parse(line.slice("data: ".length)));
+  };
+  try {
+    const without = await events({});
+    assert.equal(without.length, 1, "no notification without a progress token");
+    assert.deepEqual(without[0].result.structuredContent.deleted, old.map((m) => m.id).reverse());
+    for (const progressToken of ["batch-1", 0, ""]) {
+      const withToken = await events({ progressToken });
+      assert.deepEqual(
+        withToken.slice(0, -1),
+        [1, 2, 3].map((progress) => ({
+          jsonrpc: "2.0",
+          method: "notifications/progress",
+          params: { progressToken, progress, total: 3 },
+        })),
+        `progressToken ${JSON.stringify(progressToken)}`,
+      );
+      assert.deepEqual(withToken.at(-1), without[0]);
+    }
+  } finally {
+    for (const m of mocks) m.mock.restore();
+  }
 });
 
 test("no log line carries the bearer token", () => {

@@ -168,6 +168,7 @@ function stopFor(err: unknown, systemicCodes: ReadonlySet<number>): BatchStop | 
  * of that request is unknown. Each item gets its own signal, because discord.js adds an
  * abort listener per request and never removes it. `systemicCodes` replaces the codes
  * that stop the batch, for a tool where one of the defaults can concern a single item.
+ * `progress` gets the count of items done or failed, out of all the items, after each one.
  */
 export async function runBatch<T>(
   items: readonly T[],
@@ -175,8 +176,14 @@ export async function runBatch<T>(
   {
     deadline = Date.now() + BATCH_BUDGET_MS,
     signal,
+    progress,
     systemicCodes = SYSTEMIC_CODES,
-  }: { deadline?: number; signal?: AbortSignal; systemicCodes?: ReadonlySet<number> } = {},
+  }: {
+    deadline?: number;
+    signal?: AbortSignal;
+    progress?: (handled: number, total: number) => void;
+    systemicCodes?: ReadonlySet<number>;
+  } = {},
 ): Promise<BatchResult<T>> {
   const done: T[] = [];
   const failed: BatchResult<T>["failed"] = [];
@@ -190,6 +197,7 @@ export async function runBatch<T>(
       const { code, message } = err as DiscordAPIError & { code: number };
       failed.push({ item, code, message });
     }
+    progress?.(i + 1, items.length);
   }
   return { done, failed, remaining: [] };
 }

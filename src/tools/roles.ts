@@ -125,7 +125,7 @@ function bulkRoleTool(tool: { name: string; title: string; description: string; 
     },
     schema: z.object(bulkRoleShape),
     outputSchema: bulkRoleOutput,
-    handle: async ({ guild_id, role_id, user_ids, dry_run, reason }, { signal }) => {
+    handle: async ({ guild_id, role_id, user_ids, dry_run, reason }, { signal, progress }) => {
       const deadline = Date.now() + BATCH_BUDGET_MS;
       const guild = await discord.guilds.fetch(guild_id);
       const role = await assignableRole(guild, role_id);
@@ -139,7 +139,7 @@ function bulkRoleTool(tool: { name: string; title: string; description: string; 
           const options = { reason, signal: itemSignal };
           return tool.add ? discord.rest.put(route, options) : discord.rest.delete(route, options);
         },
-        { deadline, signal },
+        { deadline, signal, progress },
       );
       return structured({
         dry_run,

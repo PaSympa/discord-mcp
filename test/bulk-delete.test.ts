@@ -11,6 +11,7 @@ import {
 } from "discord.js";
 import { discord } from "../src/client.js";
 import messages from "../src/tools/messages.js";
+import { callWithProgress } from "./progress.js";
 import { rateLimited, retryAfterSchema } from "./rate-limit.js";
 
 const GUILD = "111111111111111111";
@@ -641,4 +642,73 @@ test("the call's signal reaches each delete request", async () => {
   const { signal } = post.mock.calls[0].arguments[1] as { signal: AbortSignal };
   assert.ok(signal instanceof AbortSignal);
   assert.equal(signal.aborted, false);
+});
+
+/** The progress a call through the MCP server reports, after checking that a call without a token gets none and the same result. */
+async function progressOf(args: Record<string, unknown>) {
+  const full = { channel_id: CHANNEL, ...args };
+  const withToken = await callWithProgress("discord_bulk_delete_messages", full);
+  const without = await callWithProgress("discord_bulk_delete_messages", full, { token: false });
+  assert.deepEqual(without.progress, []);
+  assert.deepEqual(withToken.result, without.result);
+  return withToken.progress;
+}
+
+test("progress counts messages: once after the bulk request, then after each single delete", async () => {
+  const recent = [message(2 * HOUR), message(HOUR)];
+  const old = [message(20 * DAY), message(21 * DAY)];
+  channelWith([...recent, ...old]);
+  const { post, del } = stubRest();
+  assert.deepEqual(await progressOf({ message_ids: ids([...recent, ...old]), dry_run: false }), [
+    [2, 4],
+    [3, 4],
+    [4, 4],
+  ]);
+  assert.equal(post.mock.callCount(), 2);
+  assert.equal(del.mock.callCount(), 4);
+});
+
+test("recent messages only report once, after the bulk request", async () => {
+  const history = [message(3 * HOUR), message(2 * HOUR), message(HOUR)];
+  channelWith(history);
+  stubRest();
+  assert.deepEqual(await progressOf({ message_ids: ids(history), dry_run: false }), [[3, 3]]);
+});
+
+test("a refused bulk request reports nothing; the single deletes report from the first", async () => {
+  const history = [message(3 * HOUR), message(2 * HOUR), message(HOUR)];
+  channelWith(history);
+  mock.method(discord.rest, "post", async () => {
+    throw tooOld();
+  });
+  mock.method(discord.rest, "delete", async () => undefined);
+  assert.deepEqual(await progressOf({ message_ids: ids(history), dry_run: false }), [
+    [1, 3],
+    [2, 3],
+    [3, 3],
+  ]);
+});
+
+test("one recent message and old ones report each single delete", async () => {
+  const history = [message(HOUR), message(20 * DAY)];
+  channelWith(history);
+  stubRest();
+  assert.deepEqual(await progressOf({ message_ids: ids(history), dry_run: false }), [
+    [1, 2],
+    [2, 2],
+  ]);
+});
+
+test("a stop reports nothing for the message it hit, and a dry run reports nothing", async () => {
+  const recent = [message(2 * HOUR), message(HOUR)];
+  const old = message(20 * DAY);
+  channelWith([...recent, old]);
+  mock.method(discord.rest, "post", async () => undefined);
+  mock.method(discord.rest, "delete", async () => {
+    throw new DiscordAPIError({}, undefined as never, 401, "DELETE", "/m", {});
+  });
+  const all = ids([...recent, old]);
+  assert.deepEqual(await progressOf({ message_ids: all, dry_run: false }), [[2, 3]]);
+  assert.deepEqual(await progressOf({ message_ids: all }), []);
+  assert.deepEqual(await progressOf({ count: 3 }), []);
 });

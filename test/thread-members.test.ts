@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { ChannelType, DiscordAPIError, Routes, TextChannel } from "discord.js";
 import { discord } from "../src/client.js";
 import messages from "../src/tools/messages.js";
+import { callWithProgress } from "./progress.js";
 import { rateLimited } from "./rate-limit.js";
 
 const GUILD = "111111111111111111";
@@ -570,6 +571,52 @@ test("create_thread adds member_ids to a thread started from a message", async (
   assert.equal(created[0].fromMessage, true);
   assert.deepEqual(created.added, [USER]);
   assert.match(textOf(result), /created from message.*Added 1 member\./);
+});
+
+test("create_thread reports progress after each member_ids add, refused ones included", async () => {
+  for (const extra of [{ private: true }, {}, { message_id: MESSAGE }]) {
+    stubTextChannel((user) =>
+      user === OTHER ? discordError(10013, "Unknown User", 404) : undefined,
+    );
+    const args = {
+      channel_id: CHANNEL,
+      name: "pair",
+      member_ids: [USER, USER, OTHER, THIRD],
+      ...extra,
+    };
+    const withToken = await callWithProgress("discord_create_thread", args);
+    assert.deepEqual(withToken.progress, [
+      [1, 3],
+      [2, 3],
+      [3, 3],
+    ]);
+    const without = await callWithProgress("discord_create_thread", args, { token: false });
+    assert.deepEqual(without.progress, []);
+    assert.deepEqual(withToken.result, without.result);
+    mock.restoreAll();
+  }
+});
+
+test("create_thread reports no progress past a stop, nor without member_ids", async () => {
+  stubTextChannel(() => missingPermissions());
+  const stopped = await callWithProgress("discord_create_thread", {
+    channel_id: CHANNEL,
+    name: "pair",
+    member_ids: [USER, OTHER, THIRD],
+  });
+  assert.deepEqual(stopped.progress, []);
+  stubTextChannel((user) => (user === OTHER ? missingPermissions() : undefined));
+  const partial = await callWithProgress("discord_create_thread", {
+    channel_id: CHANNEL,
+    name: "pair",
+    member_ids: [USER, OTHER, THIRD],
+  });
+  assert.deepEqual(partial.progress, [[1, 3]]);
+  const none = await callWithProgress("discord_create_thread", {
+    channel_id: CHANNEL,
+    name: "solo",
+  });
+  assert.deepEqual(none.progress, []);
 });
 
 test("create_thread caps member_ids at 50", () => {

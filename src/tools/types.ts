@@ -43,9 +43,14 @@ export interface ToolResult {
   isError?: boolean;
 }
 
-/** Per-call context. `signal` aborts when the client cancels the request. */
+/**
+ * Per-call context. `signal` aborts when the client cancels the request. `progress`
+ * reports how many items of `total` a batch has handled; it never throws, and `progress`
+ * must grow with each report.
+ */
 export interface ToolContext {
   signal?: AbortSignal;
+  progress?: (progress: number, total: number) => void;
 }
 
 /** Validates and executes a single tool call, returning its result. */

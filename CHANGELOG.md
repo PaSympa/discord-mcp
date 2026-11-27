@@ -15,6 +15,7 @@
 - In HTTP mode, a request body that is not valid JSON or not JSON-RPC is logged with the text of its 400 reply, as before. The SDK's parse error, which can quote the body, is not logged
 - The plugin and the Docker image show the same name as the bundle and the MCP Registry, `discord-mcp`. The plugin's `displayName` and README title were Discord MCP (community), and the image's `org.opencontainers.image.title` label was Discord MCP Server
 - `discord_lock_channel_permissions` moves from the `channels` toolset to the `permissions` toolset, with `discord_reset_channel_permissions` and `discord_copy_permissions`, and its title becomes Lock permissions to category. With `DISCORD_MCP_TOOLSETS` listing `channels` without `permissions`, the tool is no longer listed: add `permissions` to keep it. The Moderator profile of the README now has 34 tools
+- The plugin declares the hosts it reaches under `network.hosts`: `discord.com` for the API, `*.discord.gg` for the gateway and `registry.npmjs.org` for `npx`. `claude plugin validate` lists them, from Claude Code 2.1.328. The field allows or blocks nothing. It cannot name the hosts of the image URLs you pass for a role icon, a webhook avatar or an event cover
 
 ### Fixed
 

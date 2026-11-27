@@ -22,6 +22,7 @@
 - `discord_list_channels` leaves active threads out of the category grouping. A thread used to be listed under a key named after its parent channel, which could merge with a real category of the same name. Threads remain available through `discord_list_channel_threads`. Contributed by [@prascli](https://github.com/prascli) in [#223](https://github.com/PaSympa/discord-mcp/pull/223)
 - `discord_list_channels` no longer merges two categories with the same name. When a name repeats, each of those categories is keyed by its name and ID, such as `Events (123456789012345678)`. A category named `No Category` or `Hidden parent` gets its ID too, so its channels no longer mix with the channels outside a category or under a hidden one
 - `discord_list_roles` lists only the permission flags set on each role. A role with Administrator used to list every flag. `discord_get_member_info` still lists every flag for an Administrator, as its description says
+- `discord_set_channel_position` says when the order stays unchanged. For a position at or past the number of channels in the channel's group, it gives that number and says the channel kept its place. It used to say the channel moved
 
 ## [2.5.0] - 2026-11-25
 

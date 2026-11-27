@@ -1,4 +1,4 @@
-import { ChannelType, NewsChannel } from "discord.js";
+import { ChannelType, NewsChannel, type GuildChannel } from "discord.js";
 import { z } from "zod";
 import {
   discord,
@@ -15,9 +15,33 @@ import {
   snowflake,
   guildId,
   intIn,
+  plural,
   reasonLine,
   textUpTo,
 } from "./define.js";
+
+const SORT_GROUPS: ChannelType[][] = [
+  [
+    ChannelType.GuildText,
+    ChannelType.GuildAnnouncement,
+    ChannelType.GuildForum,
+    ChannelType.GuildMedia,
+  ],
+  [ChannelType.GuildVoice, ChannelType.GuildStageVoice],
+];
+
+/**
+ * How many channels setPosition orders this one among, grouped as discord.js groups them:
+ * the same sorting group, and the same parent unless it is a category. Past the last of
+ * them, discord.js leaves the order as it is.
+ */
+function positionGroupSize(channel: GuildChannel): number {
+  const types = SORT_GROUPS.find((group) => group.includes(channel.type)) ?? [channel.type];
+  const isCategory = channel.type === ChannelType.GuildCategory;
+  return channel.guild.channels.cache.filter(
+    (c) => types.includes(c.type) && (isCategory || c.parentId === channel.parentId),
+  ).size;
+}
 
 /** Tool definitions for guild channels: lifecycle, layout, following, and permission sync. */
 const tools = [
@@ -231,12 +255,13 @@ const tools = [
     }),
     handle: async ({ channel_id, position }) => {
       const channel = await getGuildChannel(channel_id);
+      const groupSize = positionGroupSize(channel);
       await channel.setPosition(position);
-      return {
-        content: [
-          { type: "text", text: `✅ Channel #${channel.name} moved to position ${position}.` },
-        ],
-      };
+      const text =
+        position < groupSize
+          ? `✅ Channel #${channel.name} moved to position ${position}.`
+          : `✅ Channel #${channel.name} kept its place: its group has ${plural(groupSize, "channel")} (positions 0 to ${groupSize - 1}), so position ${position} leaves the order unchanged.`;
+      return { content: [{ type: "text", text }] };
     },
   }),
   defineTool({

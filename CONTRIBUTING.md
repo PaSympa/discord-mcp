@@ -72,11 +72,12 @@ _lowest_-quality tool heavily, so one thin definition drags the whole server's g
   to use it. A tool with no neighbor to confuse it with goes on the short list in
   `test/registry.test.ts`, which checks both rules.
 - **`annotations`**: set the MCP hints: `readOnlyHint` (true for pure reads), `destructiveHint`
-  (true for delete/ban/prune/irreversible writes), `idempotentHint` (true when repeating the same
-  call has no additional effect, even when the repeat fails because the target is already gone
-  or already in that state; the MCP spec: "calling the tool repeatedly with the same arguments
-  will have no additional effect on its environment"), and `openWorldHint: true` (every tool
-  calls the Discord API). Add a short `title`.
+  (true for delete/ban/prune and for any write that can lose state no tool can restore),
+  `idempotentHint` (true when repeating the same call has no additional effect, even when the
+  repeat fails because the target is already gone or already in that state; the MCP spec:
+  "calling the tool repeatedly with the same arguments will have no additional effect on its
+  environment"), and `openWorldHint: true` (every tool calls the Discord API). Add a short
+  `title`.
 - **Parameters**: give every schema field a `.describe()` with its format and constraints
   (e.g. snowflake, value range, defaults). When the same fields repeat across tools, extract
   them into a shared shape and spread it (see `embedFieldsShape` in `src/embeds.ts`).

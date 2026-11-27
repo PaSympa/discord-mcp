@@ -225,7 +225,7 @@ const tools = [
     annotations: {
       title: "Edit scheduled event",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

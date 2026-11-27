@@ -55,7 +55,12 @@ test("tools/list serves every definition and rejects unexpected cursors", async 
 test("tools that overwrite existing settings are annotated destructive", async () => {
   const client = await connectedClient();
   const { tools } = await client.listTools();
-  for (const name of ["discord_update_membership_screening", "discord_lock_channel_permissions"])
+  for (const name of [
+    "discord_update_membership_screening",
+    "discord_lock_channel_permissions",
+    "discord_edit_role",
+    "discord_edit_scheduled_event",
+  ])
     assert.equal(tools.find((t) => t.name === name)?.annotations?.destructiveHint, true, name);
   await client.close();
 });

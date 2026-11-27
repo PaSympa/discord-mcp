@@ -1,6 +1,6 @@
 {
   "name": "discord-mcp",
-  "displayName": "Discord MCP (community)",
+  "displayName": "discord-mcp",
   "version": "2.5.0",
   "description": "Run your Discord from Claude Code through your own bot: messages, moderation, roles, channels, forums, webhooks and events, plus a channel digest and a moderation sweep skill.",
   "author": {

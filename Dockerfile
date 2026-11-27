@@ -10,7 +10,7 @@ RUN npm run build
 FROM node:26-alpine
 
 LABEL io.modelcontextprotocol.server.name="io.github.PaSympa/discord-mcp"
-LABEL org.opencontainers.image.title="Discord MCP Server"
+LABEL org.opencontainers.image.title="discord-mcp"
 LABEL org.opencontainers.image.description="Run your Discord from Claude, Codex, Cursor or VS Code: messages, moderation, roles, forums, events"
 LABEL org.opencontainers.image.source="https://github.com/PaSympa/discord-mcp"
 LABEL org.opencontainers.image.licenses="MIT"

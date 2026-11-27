@@ -226,7 +226,8 @@ const tools = [
     handle: async ({ channel_id, new_name }) => {
       const channel = await getGuildChannel(channel_id);
       assertCanCopyFrom(channel);
-      const cloned = await channel.clone({ name: new_name });
+      // clone() spreads its options last: a name key set to undefined erases the source name.
+      const cloned = await channel.clone(new_name === undefined ? {} : { name: new_name });
       return {
         content: [
           { type: "text", text: `✅ Channel cloned as #${cloned.name} (id: ${cloned.id}).` },

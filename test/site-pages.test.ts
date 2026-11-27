@@ -1743,10 +1743,28 @@ test("generated sentences agree in number, commands keep each flag with its valu
     for (const line of lines.slice(1, -1))
       assert.match(line, /^ {2}(-e|--env) [A-Z_]+=\S+ \\$/, `${id}: "${line}"`);
   }
+});
+
+test("the header search takes its name from its visible label at every width", () => {
+  const name = `Search ${catalog.totals.tools} tools`;
   for (const page of pages) {
-    const control = /<(a|button) class="search-btn"[^>]*>/.exec(read(page))![0];
-    assert.equal(attr(control, "aria-label"), `Search ${catalog.totals.tools} tools`, page);
+    const [, open, , inner] = /(<(a|button) class="search-btn"[^>]*>)([\s\S]*?)<\/\2>/.exec(
+      read(page),
+    )!;
+    // WCAG 2.5.3: an aria-label must contain the visible text, which includes the Ctrl K hint.
+    assert.equal(attr(open, "aria-label"), undefined, `${page}: ${open}`);
+    const spoken = inner
+      .replace(/<(\w+)\b[^>]*\saria-hidden="true"[^>]*>[\s\S]*?<\/\1>/g, "")
+      .replace(/<[^>]+>/g, "");
+    assert.equal(spoken, name, page);
   }
+  const css = read("assets/site.css").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(([, selectors]) =>
+    selectors.split(",").some((s) => s.trim() === ".search-btn .lbl"),
+  );
+  assert.ok(rules.length >= 2, "the wide and the narrow rule");
+  for (const [, , body] of rules)
+    assert.doesNotMatch(body, /display:\s*none/, "a hidden label would leave the control unnamed");
 });
 
 test("a shell line's closing backslash wraps with the end of the word before it", () => {

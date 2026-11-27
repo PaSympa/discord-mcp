@@ -97,12 +97,10 @@ export function layout(
     ["tools/", "Tools"],
     ["toolsets/", "Toolsets"],
   ];
-  // Narrow screens hide the visible label, so the control names itself.
-  const searchName = `Search ${site.totals.tools} tools`;
   const label = tpl`${ICONS.search}<span class="lbl">Search <span data-total>${site.totals.tools}</span> tools</span>${searchHint()}`;
   const search = searchButton
-    ? tpl`<button class="search-btn" type="button" id="search-jump" aria-label="${searchName}" aria-keyshortcuts="${SEARCH_KEYS}">${label}</button>`
-    : tpl`<a class="search-btn" href="${up}tools/#q" aria-label="${searchName}" aria-keyshortcuts="${SEARCH_KEYS}">${label}</a>`;
+    ? tpl`<button class="search-btn" type="button" id="search-jump" aria-keyshortcuts="${SEARCH_KEYS}">${label}</button>`
+    : tpl`<a class="search-btn" href="${up}tools/#q" aria-keyshortcuts="${SEARCH_KEYS}">${label}</a>`;
   const indexing = indexed
     ? tpl`<link rel="canonical" href="${canonical}">
 <meta property="og:url" content="${canonical}">`

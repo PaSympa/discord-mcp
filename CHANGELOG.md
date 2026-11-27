@@ -1,18 +1,18 @@
 # Changelog
 
-## [Unreleased]
+## [2.6.0] - 2026-11-27
 
 ### Added
 
 - `discord_bulk_add_role`, `discord_bulk_remove_role`, `discord_bulk_delete_messages` and `discord_create_thread` with `member_ids` send MCP progress notifications when the client passes a `progressToken`, over stdio and HTTP. A notification follows each member or message, counted out of all those the call acts on, Discord's refusals included, and a bulk delete request counts all its messages at once. Progress is for display only: the 40-second time budget and `remaining` work as before
-- `discord_delete_channel`, `discord_bulk_delete_messages`, `discord_bulk_ban`, `discord_prune_members`, `discord_bulk_add_role` and `discord_bulk_remove_role` ask the user to confirm a call with `dry_run: false` before they change anything, over stdio, when the client declares form elicitation. The question sums up the call as its preview would: the channel, the number of messages and how many are older than 14 days, the number of users to ban, Discord's prune estimate with the days and roles, or the members a role change affects and those it leaves out. Only an answer with `confirm` set to `true` goes ahead. A decline, a cancel, `confirm` left false, no answer within 45 seconds or an error from the client ends the call with an `isError` result that says nothing was changed. The 40-second time budget of the batch tools starts after the answer. A role change or a bulk delete with nothing left to change does not ask. Clients that declare no form elicitation, URL elicitation only included, and HTTP mode keep today's behavior, and `tools/list` is unchanged. The plugin's moderation-sweep skill reports a call the user did not confirm instead of calling again
+- `discord_delete_channel`, `discord_bulk_delete_messages`, `discord_bulk_ban`, `discord_prune_members`, `discord_bulk_add_role` and `discord_bulk_remove_role` ask the user to confirm a call with `dry_run: false` before they change anything, over stdio, when the client declares form elicitation. The question sums up the call as its preview would: the channel, the number of messages and how many are older than 14 days, the number of users to ban, Discord's prune estimate with the days and roles, or the members a role change affects and those it leaves out. Only an answer with `confirm` set to `true` goes ahead. A decline, a cancel, `confirm` left false, no answer within 45 seconds or an error from the client ends the call with an `isError` result that says nothing was changed. The 40-second time budget of the batch tools starts after the answer. A role change or a bulk delete with nothing left to change does not ask. Clients that declare no form elicitation, URL elicitation only included, and HTTP mode keep today's behavior. The plugin's moderation-sweep skill reports a call the user did not confirm instead of calling again
 - `DISCORD_MCP_CONFIRM=false` turns the confirmation off, for runs where no one can answer, such as `claude -p` without an `Elicitation` hook. It defaults to `true` and takes true/false, 1/0, yes/no or on/off; any other value stops the server at startup. The Claude Code plugin and the Claude Desktop bundle offer it as the Confirm destructive calls setting
 
 ### Changed
 
 - The descriptions of `discord_delete_channel`, `discord_bulk_delete_messages`, `discord_bulk_ban`, `discord_prune_members`, `discord_bulk_add_role` and `discord_bulk_remove_role` say that a real call can first ask the user to confirm, and that a call without a yes changes nothing and should not be repeated unless the user asks. The description of `discord_read_dms` says that Discord opens an empty DM channel when none exists yet, and that nothing is sent
-- The server runs on the MCP TypeScript SDK v2 packages, `@modelcontextprotocol/server` 2.4 and `@modelcontextprotocol/node` 2.1, instead of `@modelcontextprotocol/sdk` 1.32. It keeps the low-level server, the stdio transport and the stateless HTTP transport, and `tools/list` is unchanged. Two error responses change on the wire. The `Unknown tool` and `Invalid cursor` errors keep code `-32602` but lose their `MCP error -32602: ` prefix. A `tools/call` whose `params` fail the MCP schema, such as missing `params`, a missing or non-string `name`, or `arguments` that is not an object, now gets `-32602` with `Invalid tools/call request: ` before the validation issues, instead of `-32603` with the bare issues. Other methods keep their error codes. When several requests arrive in one stdio read or one HTTP batch, their responses can come in a different order than before, with the same content. Requests sent one after another are answered in the same order as before, and JSON-RPC clients match responses by `id`. The production dependency tree drops from 118 installed packages to 32, without express, ajv or cors. The v2 packages are licensed Apache-2.0, where `@modelcontextprotocol/sdk` was MIT
-- On stdio, once the server can no longer write to stdout, it stops reading requests instead of handling requests whose answers it cannot send. Tool calls still running at that point are cancelled through their abort signal, where they used to run to the end. It still exits once the client closes stdin, after the 5-second grace period
+- The server runs on the MCP TypeScript SDK v2 packages, `@modelcontextprotocol/server` 2.4 and `@modelcontextprotocol/node` 2.1, instead of `@modelcontextprotocol/sdk` 1.32. It keeps the low-level server, the stdio transport and the stateless HTTP transport, and the migration itself leaves `tools/list` unchanged. Two error responses change on the wire. The `Unknown tool` and `Invalid cursor` errors keep code `-32602` but lose their `MCP error -32602: ` prefix. A `tools/call` whose `params` fail the MCP schema, such as missing `params`, a missing or non-string `name`, or `arguments` that is not an object, now gets `-32602` with `Invalid tools/call request: ` before the validation issues, instead of `-32603` with the bare issues. Other methods keep their error codes. When several requests arrive in one stdio read or one HTTP batch, their responses can come in a different order than before, with the same content. Requests sent one after another are answered in the same order as before, and JSON-RPC clients match responses by `id`. The production dependency tree drops from 118 installed packages to 32, without express, ajv or cors. The v2 packages are licensed Apache-2.0, where `@modelcontextprotocol/sdk` was MIT
+- On stdio, once the server can no longer write to stdout, it stops reading requests instead of handling requests whose answers it cannot send. Tool calls still running at that point get an aborted signal. Only the batch tools act on it: `discord_bulk_add_role`, `discord_bulk_remove_role`, `discord_bulk_delete_messages` and `discord_create_thread` with `member_ids` stop between two items. The other tools run to the end, as before. It still exits once the client closes stdin, after the 5-second grace period
 - In HTTP mode, a request body that is not valid JSON or not JSON-RPC is logged with the text of its 400 reply, as before. The SDK's parse error, which can quote the body, is not logged
 - The plugin and the Docker image show the same name as the bundle and the MCP Registry, `discord-mcp`. The plugin's `displayName` and README title were Discord MCP (community), and the image's `org.opencontainers.image.title` label was Discord MCP Server
 - `discord_lock_channel_permissions` moves from the `channels` toolset to the `permissions` toolset, with `discord_reset_channel_permissions` and `discord_copy_permissions`, and its title becomes Lock permissions to category. With `DISCORD_MCP_TOOLSETS` listing `channels` without `permissions`, the tool is no longer listed: add `permissions` to keep it. The Moderator profile of the README now has 34 tools
@@ -192,7 +192,7 @@
 
 ### Changed
 
-- Tool inputs reject unknown argument keys instead of silently stripping them, and every `inputSchema` advertises `additionalProperties: false`. Callers passing extra keys now get `Invalid arguments — Unrecognized key: "…"`
+- Tool inputs reject unknown argument keys instead of silently stripping them, and every `inputSchema` advertises `additionalProperties: false`. Callers passing extra keys now get an `Invalid arguments` error that names the unrecognized key
 - The Docker image runs on Node 26 (was Node 24)
 
 ### Added
@@ -207,14 +207,14 @@
 - Every tool input is validated by a zod schema that also derives the advertised `inputSchema` (single source of truth). Numeric inputs are strictly bounded: out-of-range, non-integer, or string numbers are rejected with a clear error instead of being coerced/clamped
 - Embed and role colors are hex-only (`#RRGGBB`); named colors ("Red") and raw integers are rejected
 - All URL inputs must be `http(s)` (`javascript:`, `ftp:`, … rejected); the constraint is advertised as a `pattern` in the schema
-- Scheduled-event datetimes must be ISO 8601 with an explicit offset or `Z`; offset-less strings are rejected, and event `entity_type`/`status` enums are case-sensitive uppercase (`status` no longer accepts `SCHEDULED` — no transition back to it exists)
+- Scheduled-event datetimes must be ISO 8601 with an explicit offset or `Z`; offset-less strings are rejected, and event `entity_type`/`status` enums are case-sensitive uppercase (`status` no longer accepts `SCHEDULED`, since no transition back to it exists)
 - `discord_delete_channel` and `discord_bulk_delete_messages` are safe-by-default: `dry_run` defaults to `true` (advertised in the schema), so existing callers preview instead of deleting until they pass `dry_run:false`. The bulk-delete dry run reports the real deletable count (14-day rule applied)
-- Unknown tool names and unexpected `tools/list` cursors are JSON-RPC protocol errors (`-32602`) instead of `isError` results, and validation failures surface as `Invalid arguments — field: message`
+- Unknown tool names and unexpected `tools/list` cursors are JSON-RPC protocol errors (`-32602`) instead of `isError` results, and validation failures surface as an `Invalid arguments` error that names the field
 - Read tools (32) now advertise `outputSchema` and return `structuredContent`; conforming outputs are normalised (unknown keys dropped) and non-conforming output is converted to an error instead of being shipped. `discord_fetch_webhook_message` `timestamp` is an ISO string (was mistyped as a number)
-- `discord_set_nickname` now requires the `nickname` field (string or null) — omitting it used to silently clear the nickname; `discord_bulk_ban` caps `user_ids` at 200 (Discord API limit) and `discord_set_role_position` requires `position >= 1` (and rejects positions above the server's highest role instead of silently doing nothing)
+- `discord_set_nickname` now requires the `nickname` field (string or null), since omitting it used to silently clear the nickname; `discord_bulk_ban` caps `user_ids` at 200 (Discord API limit) and `discord_set_role_position` requires `position >= 1` (and rejects positions above the server's highest role instead of silently doing nothing)
 - `discord_set_role_icon` requires at least one of `icon`/`unicode_emoji` (both omitted used to report success without doing anything); `discord_create_event_invite` rejects `channel_id` on non-EXTERNAL events (it was silently ignored); embed arrays advertise and enforce `maxItems: 10`; invalid permission flag names are rejected with the culprit named instead of crashing with an opaque internal error
 - The `events` toolset is renamed `scheduled_events`
-- Node 20 support dropped (`engines: ">=22.0.0"`) — Node 20 reached end-of-life on 2026-04-30 and no longer receives security fixes
+- Node 20 support dropped (`engines: ">=22.0.0"`). Node 20 reached end-of-life on 2026-04-30 and no longer receives security fixes
 
 ### Added
 
@@ -232,7 +232,7 @@
 
 ### Fixed
 
-- Security: refreshed the dependency lockfile (8 npm audit findings → 0, including `ws` — the websocket library on the gateway hot path). npm consumers always resolved fresh in-range dependencies and were unaffected; the Docker image embeds the lockfile, so this release rebuilds it with the patched versions
+- Security: refreshed the dependency lockfile (8 npm audit findings → 0, including `ws`, the websocket library on the gateway hot path). npm consumers always resolved fresh in-range dependencies and were unaffected; the Docker image embeds the lockfile, so this release rebuilds it with the patched versions
 - Release pipeline: the Docker publish job now requires the npm job (lint, tests, tag↔version guard) instead of publishing unconditionally on any tag
 
 ## [1.7.2] - 2026-06-10
@@ -260,7 +260,7 @@
 
 ### Changed
 
-- Renamed the `ready` gateway listener to `clientReady` — forward-compatible with discord.js v15 (where `ready` no longer fires) and silences the v14 deprecation warning
+- Renamed the `ready` gateway listener to `clientReady`. It is forward-compatible with discord.js v15 (where `ready` no longer fires) and silences the v14 deprecation warning
 - Connection robustness: login now races a 30s READY timeout (no more indefinite hangs), resets its in-flight state on failure so the next call retries, and registers `error` / `shardError` / `invalidated` listeners (an unhandled client error could previously crash the process). REST retries/timeout configured; process-level `unhandledRejection` / `uncaughtException` handlers added
 - Tool errors now surface the underlying `DiscordAPIError` code + HTTP status with a plain-language hint (e.g. 50013 → missing permission, 10008 → unknown message) instead of a bare message
 - Cursor pagination on large lists: `discord_list_members`, `discord_get_event_subscribers`, and `discord_list_forum_threads` now return a cursor (`nextCursor` / `nextBefore` + `hasMore`) and accept `after` / `before` to page, instead of silently returning only the first page. These tools now return an object (`{ items, nextCursor }`) rather than a bare array
@@ -273,8 +273,8 @@
 
 ### Fixed
 
-- `discord_get_reactions` / `discord_remove_reactions` now resolve custom emoji passed as `name:id`. The reaction cache is keyed by the emoji id (custom) or the unicode char (standard) — not the `name:id` form the tool schema accepts — so custom-emoji lookups previously failed with "No reaction found" even when the reaction existed. A new `findReaction()` helper normalizes the emoji to the cache key (handles `name:id`, `<:name:id>`, `<a:name:id>`, raw id, and unicode) (#25)
-- The role tools (`discord_edit_role`, `discord_delete_role`, `discord_get_role_members`, `discord_set_role_position`, `discord_set_role_icon`) now return a clear "Role not found" error for an unknown `role_id` instead of crashing on a null dereference — removed the misleading `as Role` cast that hid the `| null` return of `guild.roles.fetch()` (#25)
+- `discord_get_reactions` / `discord_remove_reactions` now resolve custom emoji passed as `name:id`. The reaction cache is keyed by the emoji id (custom) or the unicode char (standard), not the `name:id` form the tool schema accepts, so custom-emoji lookups previously failed with "No reaction found" even when the reaction existed. A new `findReaction()` helper normalizes the emoji to the cache key (handles `name:id`, `<:name:id>`, `<a:name:id>`, raw id, and unicode) (#25)
+- The role tools (`discord_edit_role`, `discord_delete_role`, `discord_get_role_members`, `discord_set_role_position`, `discord_set_role_icon`) now return a clear "Role not found" error for an unknown `role_id` instead of crashing on a null dereference: removed the misleading `as Role` cast that hid the `| null` return of `guild.roles.fetch()` (#25)
 
 ### Changed
 
@@ -297,7 +297,7 @@
 
 ### Changed
 
-- Enriched every tool description with usage guidance, required Discord permissions, side effects / destructive behavior, and return value — improving agent reliability and directory tool-definition-quality scores
+- Enriched every tool description with usage guidance, required Discord permissions, side effects / destructive behavior, and return value, which improves agent reliability and directory tool-definition-quality scores
 - Documented every input-schema parameter (100% coverage), including nested embed/field properties, with formats and constraints
 - Extracted shared embed schema fragments (`EMBED_FIELD_PROPS`, `WEBHOOK_EMBED_PROPS`) to keep repeated definitions in sync
 - CONTRIBUTING: documented the tool-definition quality bar (description, annotations, parameter docs)

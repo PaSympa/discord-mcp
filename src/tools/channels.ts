@@ -150,7 +150,7 @@ const tools = [
     annotations: {
       title: "Edit channel",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

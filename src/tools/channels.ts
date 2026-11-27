@@ -96,7 +96,7 @@ const tools = [
   defineTool({
     name: "discord_delete_channel",
     description:
-      "Permanently delete a channel and all of its messages. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. Deleting a category keeps its channels, which leave the category. A DM channel ID only closes the DM, which is reversible. Requires the Manage Channels permission (or Manage Threads for a thread). An optional reason is recorded in the audit log. discord_delete_forum_post also deletes a thread, but at once: use this tool to keep the dry run.",
+      "Permanently delete a channel and all of its messages. IRREVERSIBLE. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview, then re-call with dry_run:false to actually delete. A real call can first ask the user to confirm; without a yes it changes nothing, says so, and should not be repeated unless the user asks. Deleting a category keeps its channels, which leave the category. A DM channel ID only closes the DM, which is reversible. Requires the Manage Channels permission (or Manage Threads for a thread). An optional reason is recorded in the audit log. discord_delete_forum_post also deletes a thread, but at once: use this tool to keep the dry run.",
     annotations: {
       title: "Delete channel",
       readOnlyHint: false,

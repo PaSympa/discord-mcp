@@ -203,6 +203,22 @@ test("an embed the schema accepts is one EmbedBuilder accepts, emoji included", 
   }
 });
 
+test("clone_channel bounds new_name to 100 characters, like create_channel and edit_channel", async () => {
+  const node = schemaAt(inputSchema(channels, "discord_clone_channel"), ["new_name"]);
+  assert.equal(node.maxLength, 100);
+  assert.equal(
+    node.description,
+    "Optional name for the clone. Defaults to the source channel's name.",
+  );
+  const over = await issuesFor(channels, "discord_clone_channel", { new_name: "x".repeat(101) });
+  assert.deepEqual(
+    over.find((i) => i.path[0] === "new_name")?.message,
+    "Must be at most 100 characters.",
+  );
+  const at = await issuesFor(channels, "discord_clone_channel", { new_name: "x".repeat(100) });
+  assert.ok(!at.some((i) => i.path[0] === "new_name"));
+});
+
 test("text limits count code points, as JSON Schema's maxLength does", () => {
   const emoji = "\u{1F600}";
   assert.ok(messageText.safeParse(emoji.repeat(2000)).success, "2000 emoji are 2000 characters");

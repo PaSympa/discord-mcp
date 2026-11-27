@@ -25,6 +25,7 @@
 - `discord_set_channel_position` says when the order stays unchanged. For a position at or past the number of channels in the channel's group, it gives that number and says the channel kept its place. It used to say the channel moved
 - The 30-second connection timeout also covers the Discord login itself. A login that never answered left every tool call waiting with no error. After 30 seconds the call now fails with the "did not reach READY" error. The login keeps running, and a later call uses it once it ends
 - `discord_list_channels`, `discord_find_channel_by_name` and the `total` of `discord_get_server_stats` include channels of a type discord.js does not know yet, such as type 20. They used to be left out. Their `type` reads `Unknown(20)`, and `discord_list_channels` lists them under their category, after the known channels. The first two tools then read the channel list twice
+- `discord_clone_channel` refuses a `new_name` longer than 100 characters before any call, as `discord_create_channel` and `discord_edit_channel` do, and `tools/list` advertises the limit as `maxLength`
 
 ## [2.5.0] - 2026-11-25
 

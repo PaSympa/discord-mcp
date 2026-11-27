@@ -219,8 +219,7 @@ const tools = [
     },
     schema: z.object({
       channel_id: snowflake.describe("ID (snowflake) of the channel to clone."),
-      new_name: z
-        .string()
+      new_name: textUpTo(100)
         .optional()
         .describe("Optional name for the clone. Defaults to the source channel's name."),
     }),

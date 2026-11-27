@@ -1,4 +1,13 @@
-import { ChannelType, CategoryChannel, GuildChannel } from "discord.js";
+import {
+  ChannelFlagsBitField,
+  ChannelType,
+  Collection,
+  Routes,
+  type CategoryChannel,
+  type Guild,
+  type GuildBasedChannel,
+  type GuildChannel,
+} from "discord.js";
 import { z } from "zod";
 import { discord, isGuildAllowed, isObfuscated, splitObfuscated } from "../client.js";
 import { defineTool, defineModule, guildId, structured } from "./define.js";
@@ -31,6 +40,45 @@ function categoryKey(categories: Iterable<{ name: string }>) {
   for (const { name } of categories) uses.set(name, (uses.get(name) ?? 0) + 1);
   return ({ id, name }: { id: string; name: string }) =>
     (uses.get(name) ?? 0) > 1 ? `${name} (${id})` : name;
+}
+
+/** A channel whose type discord.js does not know, read from Discord's raw channel list. */
+interface UnknownTypeChannel {
+  id: string;
+  name: string;
+  type: string;
+  position: number;
+  parentId: string | null;
+  flags: ChannelFlagsBitField;
+}
+
+/**
+ * Refreshes the guild's channel cache and returns the channels discord.js leaves out of it,
+ * those of a type it does not know, which its fetch maps to null. Only when there are some
+ * is the channel list read a second time, raw, for their names and parents.
+ */
+async function fetchUnknownTypeChannels(guild: Guild): Promise<UnknownTypeChannel[]> {
+  const fetched = await guild.channels.fetch();
+  if (!fetched.some((c) => c === null)) return [];
+  const raw = (await discord.rest.get(Routes.guildChannels(guild.id))) as {
+    id: string;
+    type: number;
+    name?: string | null;
+    position?: number;
+    parent_id?: string | null;
+    flags?: number;
+  }[];
+  return raw
+    .filter((c) => fetched.get(c.id) === null)
+    .map((c) => ({
+      id: c.id,
+      name: c.name ?? "",
+      type: `Unknown(${c.type})`,
+      position: c.position ?? 0,
+      parentId: c.parent_id ?? null,
+      flags: new ChannelFlagsBitField(c.flags ?? 0),
+    }))
+    .sort((a, b) => a.position - b.position || Number(BigInt(a.id) - BigInt(b.id)));
 }
 
 /** Tool definitions for server/guild discovery and channel navigation. */
@@ -101,7 +149,7 @@ const tools = [
     outputSchema: z.object({}).catchall(z.array(channelSummary)),
     handle: async ({ guild_id }) => {
       const guild = await discord.guilds.fetch(guild_id);
-      await guild.channels.fetch();
+      const unknownTypes = await fetchUnknownTypeChannels(guild);
       const { visible } = splitObfuscated(guild.channels.cache);
       const categories = visible
         .filter((c) => c.type === ChannelType.GuildCategory)
@@ -113,20 +161,29 @@ const tools = [
         result[keyOf(cat)] = [];
       });
 
+      const add = (entry: z.infer<typeof channelSummary>, parent?: GuildBasedChannel | null) => {
+        const parentName = !parent
+          ? NO_CATEGORY
+          : isObfuscated(parent)
+            ? HIDDEN_PARENT
+            : keyOf(parent);
+        if (!result[parentName]) result[parentName] = [];
+        result[parentName].push(entry);
+      };
       visible
         .filter((c) => c.type !== ChannelType.GuildCategory && !c.isThread())
         .sort((a, b) => (a as GuildChannel).position - (b as GuildChannel).position)
         .forEach((ch) => {
-          const entry = { id: ch.id, name: ch.name, type: ChannelType[ch.type] };
-          const parent = (ch as GuildChannel).parent;
-          const parentName = !parent
-            ? NO_CATEGORY
-            : isObfuscated(parent)
-              ? HIDDEN_PARENT
-              : keyOf(parent);
-          if (!result[parentName]) result[parentName] = [];
-          result[parentName].push(entry);
+          add(
+            { id: ch.id, name: ch.name, type: ChannelType[ch.type] },
+            (ch as GuildChannel).parent,
+          );
         });
+      for (const ch of unknownTypes) {
+        if (isObfuscated(ch)) continue;
+        const parent = ch.parentId ? guild.channels.cache.get(ch.parentId) : undefined;
+        add({ id: ch.id, name: ch.name, type: ch.type }, parent);
+      }
 
       return structured(result);
     },
@@ -147,12 +204,19 @@ const tools = [
     }),
     handle: async ({ guild_id, name }) => {
       const guild = await discord.guilds.fetch(guild_id);
-      await guild.channels.fetch();
+      const unknownTypes = await fetchUnknownTypeChannels(guild);
       const keyword = name.toLowerCase();
-      const { visible, hidden: hiddenChannels } = splitObfuscated(guild.channels.cache);
-      const matches = visible
-        .filter((c) => c.name.toLowerCase().includes(keyword))
-        .map((c) => ({ id: c.id, name: c.name, type: ChannelType[c.type] }));
+      const known = splitObfuscated(guild.channels.cache);
+      const unknown = splitObfuscated(new Collection(unknownTypes.map((c) => [c.id, c])));
+      const hiddenChannels = known.hidden + unknown.hidden;
+      const matches = [
+        ...known.visible
+          .filter((c) => c.name.toLowerCase().includes(keyword))
+          .map((c) => ({ id: c.id, name: c.name, type: ChannelType[c.type] })),
+        ...unknown.visible
+          .filter((c) => c.name.toLowerCase().includes(keyword))
+          .map((c) => ({ id: c.id, name: c.name, type: c.type })),
+      ];
       return structured({
         matches,
         hiddenChannels,

@@ -25,6 +25,25 @@ test("selectModules picks exactly the listed toolsets, case-insensitive", () => 
   }
 });
 
+test("lock_channel_permissions is in the permissions toolset, with reset and copy", () => {
+  const namesOf = (toolsets: string) => {
+    process.env.DISCORD_MCP_TOOLSETS = toolsets;
+    try {
+      return selectModules().flatMap((m) => m.definitions.map((d) => d.name));
+    } finally {
+      delete process.env.DISCORD_MCP_TOOLSETS;
+    }
+  };
+  const permissions = namesOf("permissions");
+  for (const name of [
+    "discord_lock_channel_permissions",
+    "discord_reset_channel_permissions",
+    "discord_copy_permissions",
+  ])
+    assert.ok(permissions.includes(name), name);
+  assert.ok(!namesOf("channels").includes("discord_lock_channel_permissions"));
+});
+
 test("selectModules fails fast on unknown or empty selections", () => {
   for (const value of ["messsages", "discovery messages", ",,"]) {
     process.env.DISCORD_MCP_TOOLSETS = value;

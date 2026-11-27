@@ -754,7 +754,7 @@ test("audit_permissions reports zero hidden channels in a clean guild", async ()
 type Lockable = { edit: (...args: unknown[]) => Promise<unknown> };
 
 const lockPermissions = (channel_id: string) =>
-  channels.handlers.get("discord_lock_channel_permissions")!({ channel_id });
+  permissions.handlers.get("discord_lock_channel_permissions")!({ channel_id });
 
 test("lock_channel_permissions refuses a channel under an obfuscated category, with zero writes", async () => {
   const edit = mock.method(cached<Lockable>(UNDER_HIDDEN), "edit", async () => ({}));

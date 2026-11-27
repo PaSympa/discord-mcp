@@ -82,7 +82,7 @@ The full set of 108 tools costs about 42k tokens of context when a client loads 
 | Everything (default) | unset                                            | 108   | ~42k tokens |
 | Chat assistant       | `discovery,messages`                             | 27    | ~13k tokens |
 | Community manager    | `discovery,messages,forums,scheduled_events`     | 44    | ~19k tokens |
-| Moderator            | `discovery,members,moderation,roles,permissions` | 33    | ~12k tokens |
+| Moderator            | `discovery,members,moderation,roles,permissions` | 34    | ~12k tokens |
 | Audit and stats      | `discovery,stats,moderation`                     | 6     | ~2k tokens  |
 
 ```json
@@ -415,7 +415,7 @@ The intent flags only change what the bot requests when it connects. Requesting 
 </details>
 
 <details>
-<summary><strong>Channels</strong> (8 tools)</summary>
+<summary><strong>Channels</strong> (7 tools)</summary>
 
 | Tool                                  | Description                              |
 | ------------------------------------- | ---------------------------------------- |
@@ -426,15 +426,15 @@ The intent flags only change what the bot requests when it connects. Requesting 
 | `discord_clone_channel`               | Clone a channel with its permissions     |
 | `discord_set_channel_position`        | Set display position within a category   |
 | `discord_follow_announcement_channel` | Follow an announcement channel           |
-| `discord_lock_channel_permissions`    | Sync permissions with parent category    |
 
 </details>
 
 <details>
-<summary><strong>Channel permissions</strong> (6 tools)</summary>
+<summary><strong>Channel permissions</strong> (7 tools)</summary>
 
 | Tool                                | Description                                      |
 | ----------------------------------- | ------------------------------------------------ |
+| `discord_lock_channel_permissions`  | Sync permissions with parent category            |
 | `discord_get_channel_permissions`   | List all permission overwrites on a channel      |
 | `discord_set_role_permission`       | Allow/deny permissions for a role on a channel   |
 | `discord_set_member_permission`     | Allow/deny permissions for a member on a channel |

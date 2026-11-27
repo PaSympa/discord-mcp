@@ -43,7 +43,7 @@ function positionGroupSize(channel: GuildChannel): number {
   ).size;
 }
 
-/** Tool definitions for guild channels: lifecycle, layout, following, and permission sync. */
+/** Tool definitions for guild channels: lifecycle, layout, and following. */
 const tools = [
   defineTool({
     name: "discord_create_channel",
@@ -291,36 +291,6 @@ const tools = [
       return {
         content: [
           { type: "text", text: `✅ Now following announcement channel in target channel.` },
-        ],
-      };
-    },
-  }),
-  defineTool({
-    name: "discord_lock_channel_permissions",
-    description:
-      "Reset a channel's permission overwrites to exactly match its parent category (Discord's 'sync permissions'). The channel must be inside a category. Requires the Manage Channels and Manage Roles permissions (and View Channel on the category): the tool refuses a category the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. Use discord_reset_channel_permissions to remove every overwrite, or discord_copy_permissions to copy another channel's.",
-    annotations: {
-      title: "Sync channel permissions",
-      readOnlyHint: false,
-      destructiveHint: true,
-      idempotentHint: true,
-      openWorldHint: true,
-    },
-    schema: z.object({
-      channel_id: snowflake.describe(
-        "ID (snowflake) of the channel to sync with its parent category.",
-      ),
-    }),
-    handle: async ({ channel_id }) => {
-      const channel = await getGuildChannel(channel_id);
-      if (channel.parent) assertCanCopyFrom(channel.parent);
-      await channel.lockPermissions();
-      return {
-        content: [
-          {
-            type: "text",
-            text: `✅ Channel #${channel.name} permissions synced with parent category.`,
-          },
         ],
       };
     },

@@ -381,6 +381,21 @@ test("inputResponses the client sent itself do not skip the question", async () 
   assert.equal(textOf(result), "The user did not confirm (declined). Nothing was changed.");
 });
 
+test("inputResponses from a client without the capability still go through the gate", async () => {
+  const { deletions } = fakeChannel();
+  const { result, asked } = await call("discord_delete_channel", DELETE_CHANNEL, {
+    capabilities: {},
+    inject: { confirm: { action: "accept", content: { confirm: true } } },
+  });
+  assert.deepEqual(asked, []);
+  assert.deepEqual(deletions, []);
+  assert.equal(result.isError, true);
+  assert.equal(
+    textOf(result),
+    "No confirmation came back (Cannot request input 'confirm' (elicitation/create): the client on this 2025-era connection did not declare the required capability). Nothing was changed.",
+  );
+});
+
 test("an accept that arrives after the timeout changes nothing", async () => {
   const { deletions } = fakeChannel();
   const { result } = await call("discord_delete_channel", DELETE_CHANNEL, {

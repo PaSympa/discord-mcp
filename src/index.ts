@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Discord MCP Server: entry point, on stdio unless DISCORD_MCP_TRANSPORT=http selects the
+ * discord-mcp: entry point, on stdio unless DISCORD_MCP_TRANSPORT=http selects the
  * Streamable HTTP server in `http.ts`. Server construction lives in `server.ts` (testable
  * via in-memory transport); the Discord client in `client.ts`.
  */
@@ -51,7 +51,7 @@ async function main() {
     process.stdin.resume();
   };
   await server.connect(transport);
-  console.error(`Discord MCP Server v${version} running on stdio.`);
+  console.error(`discord-mcp v${version} running on stdio.`);
 }
 
 async function serveHttp() {
@@ -62,14 +62,14 @@ async function serveHttp() {
   const { port } = httpServer.address() as AddressInfo;
   const host = config.host.includes(":") ? `[${config.host}]` : config.host;
   console.error(
-    `Discord MCP Server v${version} listening on http://${host}:${port}/mcp. Allowed Host names: ${config.allowedHosts.join(", ")}.`,
+    `discord-mcp v${version} listening on http://${host}:${port}/mcp. Allowed Host names: ${config.allowedHosts.join(", ")}.`,
   );
   const warning = exposureWarning(config);
   if (warning) console.error(warning);
 }
 
 function shutdown() {
-  console.error("Shutting down Discord MCP Server...");
+  console.error("Shutting down discord-mcp...");
   if (!httpServer) {
     discord.destroy();
     process.exit(0);

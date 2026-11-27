@@ -7,6 +7,7 @@
 - `discord_update_forum_post`, `discord_set_role_icon`, `discord_edit_webhook`, `discord_edit_embed`, `discord_edit_dm_embed`, `discord_edit_webhook_message` and `discord_edit_channel` are annotated `destructiveHint: true`, as the rule CONTRIBUTING states since 2.6.0 asks. Archiving a forum post unpins it, and no tool pins it again. A new role icon or webhook avatar replaces the image. An embed edit replaces the whole embed, and the read tools return only a text summary of it, without its color, images or timestamp, so the old one cannot be set back. `discord_edit_channel` overwrites a text channel's topic, slowmode and NSFW flag, which no read tool returns
 - `discord_clone_channel` without `new_name` gives the clone the source channel's name, as the parameter says. It used to send the request without a name, which Discord requires
 - `discord_edit_channel` names the `topic` or `slowmode` it did not send because the channel is not a plain text channel. When nothing is left to send, or the call gives no field, it sends no request and says the channel is unchanged. It used to say the channel was updated
+- The server's startup and shutdown lines on stderr say `discord-mcp`, the display name since 2.6.0. They used to say Discord MCP Server. stdout and the `initialize` reply do not change
 
 ## [2.6.0] - 2026-11-27
 

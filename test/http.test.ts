@@ -602,7 +602,9 @@ function startIndex(env: Record<string, string>) {
 
 async function listeningPort(run: ReturnType<typeof startIndex>): Promise<number> {
   for (let attempt = 0; attempt < 300; attempt++) {
-    const found = /listening on http:\/\/127\.0\.0\.1:(\d+)\/mcp\./.exec(run.stderr())?.[1];
+    const found = /discord-mcp v\S+ listening on http:\/\/127\.0\.0\.1:(\d+)\/mcp\./.exec(
+      run.stderr(),
+    )?.[1];
     if (found) return Number(found);
     if (run.child.exitCode !== null) break;
     await sleep(50);
@@ -698,7 +700,7 @@ test(
     }
     assert.deepEqual(await run.closed, { code: 0, signal: null });
     assert.ok(Date.now() - killedAt < 4_000, "the shutdown waited for the 5 s backstop");
-    assert.match(run.stderr(), /Shutting down Discord MCP Server/);
+    assert.match(run.stderr(), /Shutting down discord-mcp\.\.\./);
     assert.ok(
       !run.stderr().includes(TOKEN) && !run.stderr().includes(bot),
       "stderr prints a token",
@@ -726,6 +728,6 @@ test(
       run.child.kill("SIGTERM");
     }
     await run.closed;
-    assert.match(run.stderr(), /running on stdio\./);
+    assert.match(run.stderr(), /discord-mcp v\S+ running on stdio\./);
   },
 );

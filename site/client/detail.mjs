@@ -188,7 +188,7 @@ const ANNOTATIONS = [
 ];
 
 /** Description text with the tool names it mentions linked to their entries. */
-function linkedText(text, byName, href) {
+export function linkedText(text, byName, href) {
   return raw(
     esc(text).replace(/discord_[a-z_]+/g, (name) =>
       byName.has(name)
@@ -210,7 +210,8 @@ const list = (items) =>
 
 /**
  * The Discord permissions a tool's description names, one requirement per line:
- * "Manage Nicknames, or Change Nickname for the bot itself", "Manage Messages when ...".
+ * "Manage Nicknames, or Change Nickname for the bot itself", "Manage Messages when ...",
+ * "Connect in the channel for VOICE events, as for discord_create_scheduled_event".
  */
 export function permissionLines(permissions = []) {
   const alternatives = (name) =>
@@ -219,10 +220,18 @@ export function permissionLines(permissions = []) {
       .map((p) => `, or ${p.name}${p.condition ? " " + p.condition : ""}`)
       .join("");
   const main = permissions.filter((p) => !p.alternativeTo);
-  const conditions = [...new Set(main.map((p) => p.condition))];
-  return conditions.map((condition) => {
-    const names = main.filter((p) => p.condition === condition).map((p) => p.name);
-    return list(names) + alternatives(names.at(-1)) + (condition ? " " + condition : "");
+  const groups = [...new Set(main.map((p) => JSON.stringify([p.condition, p.sameAs ?? null])))];
+  return groups.map((group) => {
+    const [condition, sameAs] = JSON.parse(group);
+    const names = main
+      .filter((p) => p.condition === condition && (p.sameAs ?? null) === sameAs)
+      .map((p) => p.name);
+    return (
+      list(names) +
+      alternatives(names.at(-1)) +
+      (condition ? " " + condition : "") +
+      (sameAs ? ", as for " + sameAs : "")
+    );
   });
 }
 
@@ -260,7 +269,7 @@ export function renderToolDetail(tool, ctx) {
   const head = tpl`<div class="crumb">${toolsetPage ? tpl`<a href="${toolsetPage}">${label} toolset</a>` : tpl`<span>${label} toolset</span>`}<code>${tool.toolset}</code></div>
 <h2 id="dlg-title" tabindex="-1">${tool.title}</h2>
 <div class="dlg-name"><code id="dlg-name-code">${breakable(tool.name)}</code><button class="btn btn-sm" type="button" data-copy-text="${tool.name}">Copy name</button>${page ? tpl`<a class="btn btn-sm" href="${page}">Open the tool page</a>` : ""}</div>
-<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span></div>${permission ? tpl`<p class="dlg-perm">${permissionLabel(tool.permissions)}: ${permission}</p>` : ""}`;
+<div class="dlg-meta">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}<span title="${formatInt(tool.bytes)} bytes divided by 4">${formatInt(tool.tokens)} tokens, estimated</span></div>${permission ? tpl`<p class="dlg-perm">${permissionLabel(tool.permissions)}: ${linkedText(permission, byName, href)}</p>` : ""}`;
   const body = tpl`<p class="desc">${linkedText(definition.description, byName, href)}</p>${example}
 <section class="d-sec" aria-labelledby="d-anno"><${h} id="d-anno">Risk and annotations</${h}>
 <table class="anno"><tbody>${rows}</tbody></table>

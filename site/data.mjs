@@ -41,6 +41,11 @@ const PERMISSIONS = new RegExp(
   "g",
 );
 const BRACKETED = new RegExp(`\\((and|or) (${PERMISSION})((?: [^)]*)?)\\)`, "g");
+// A plus clause names permissions without "permission" after them, so "in" joins a name
+// only before a capital: "Connect in the channel" is Connect, then its scope.
+const PLAIN = "[A-Z][a-z]+(?: (?:in [A-Z][a-z]+|[A-Z][a-z]+))*";
+const PLUS_ITEM = new RegExp(`^(${PLAIN}(?:(?:,? and |, )${PLAIN})*) ((?:in|for) .+)$`);
+const SAME_AS = /^the same (?:[a-z]+ )?permissions as ([a-z]+ing) it$/;
 const titleCase = (constant) =>
   constant
     .toLowerCase()
@@ -48,37 +53,82 @@ const titleCase = (constant) =>
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(" ");
 
-/**
- * The Discord permissions a description says the tool requires, read from its "requires
- * the X permission" clauses and the "(and Y ...)" or "(or Z ...)" that follow them.
- * `condition` limits a requirement to some calls ("for messages authored by others", or
- * "when ..." with the subject of "... requires"); `alternativeTo` names the permission
- * that this one can replace.
- */
-export function permissionsOf(description) {
-  const found = [];
-  const add = (name, condition, alternativeTo = null) => {
-    if (!found.some((p) => p.name === name)) found.push({ name, condition, alternativeTo });
-  };
+/** Each "requires ..." clause of a description, split at its ", plus ..." tail. */
+function* requiresClauses(description) {
   for (const match of description.matchAll(/\brequires\b/gi)) {
     const before = description.slice(0, match.index);
     const subject = before
       .slice(Math.max(before.lastIndexOf(". "), before.lastIndexOf("; ")) + 1)
       .trim();
     const rest = description.slice(match.index);
-    const clause = rest.slice(0, rest.search(/[.;](?:\s|$)|$/));
+    const [head, plus = null] = rest.slice(0, rest.search(/[.;](?:\s|$)|$/)).split(", plus ");
     const condition = subject ? "when " + subject[0].toLowerCase() + subject.slice(1) : null;
+    yield { head, plus, condition };
+  }
+}
+
+/** The "X and Y in the channel for VOICE events, or Z for STAGE_INSTANCE events" of a plus tail. */
+function plusItems(plus) {
+  return plus.split(", or ").map((item) => {
+    const same = SAME_AS.exec(item);
+    if (same) return { sameAs: same[1] };
+    const named = PLUS_ITEM.exec(item);
+    return named && { names: named[1].split(/,? and |, /), condition: named[2] };
+  });
+}
+
+/**
+ * The Discord permissions a description says the tool requires, read from its "requires
+ * the X permission" clauses, the "(and Y ...)" or "(or Z ...)" that follow them, and a
+ * ", plus ..." tail. `condition` limits a requirement to some calls ("for messages authored
+ * by others", or "when ..." with the subject of "... requires"); `alternativeTo` names the
+ * permission that this one can replace. A tail like "plus the same channel permissions as
+ * creating it" copies the other tool's tail, found by `sourceOf("creating")`, and marks each
+ * copy with `sameAs`, that tool's name.
+ */
+export function permissionsOf(description, sourceOf) {
+  const found = [];
+  const add = (name, condition, alternativeTo = null, sameAs = null) => {
+    if (found.some((p) => p.name === name)) return;
+    found.push(
+      sameAs ? { name, condition, alternativeTo, sameAs } : { name, condition, alternativeTo },
+    );
+  };
+  for (const { head, plus, condition } of requiresClauses(description)) {
     let last = null;
-    for (const [, names, constant] of clause.matchAll(PERMISSIONS))
+    for (const [, names, constant] of head.matchAll(PERMISSIONS))
       for (const name of constant ? [titleCase(constant)] : names.split(/,? and |, /)) {
         add(name, condition);
         last = name;
       }
     if (!last) continue;
-    for (const [, joint, name, scope] of clause.matchAll(BRACKETED))
+    for (const [, joint, name, scope] of head.matchAll(BRACKETED))
       add(name, scope.trim() || condition, joint === "or" ? last : null);
+    for (const item of plus ? plusItems(plus) : []) {
+      if (item?.names) for (const name of item.names) add(name, item.condition);
+      if (!item?.sameAs) continue;
+      if (!sourceOf) throw new Error(`"${plus}" names another tool's permissions: pass sourceOf.`);
+      const source = sourceOf(item.sameAs);
+      for (const clause of requiresClauses(source.description))
+        for (const copied of clause.plus ? plusItems(clause.plus) : [])
+          for (const name of copied?.names ?? []) add(name, copied.condition, null, source.name);
+    }
   }
   return found;
+}
+
+/**
+ * The tool that "as creating it" means for `name`: the same object, after the verb the
+ * gerund stands for. discord_edit_scheduled_event, "creating": discord_create_scheduled_event.
+ */
+export function sourceTool(tools, name, gerund) {
+  const object = name.replace(/^discord_[a-z]+_/, "");
+  const stem = gerund.slice(0, -"ing".length);
+  const source = tools.find(
+    (t) => t.name !== name && new RegExp(`^discord_${stem}e?_${object}$`).test(t.name),
+  );
+  if (!source) throw new Error(`${name}: no tool matches "as ${gerund} it".`);
+  return source;
 }
 
 /** Maps each tool name to its toolset. Throws unless the toolsets partition tools/list. */
@@ -200,7 +250,9 @@ export function buildCatalog({ server, tools, toolsets }) {
       purpose: purposeOf(definition.description),
       dryRunDefault: dryRunDefault(definition),
       crossReferences,
-      permissions: permissionsOf(definition.description),
+      permissions: permissionsOf(definition.description, (gerund) =>
+        sourceTool(tools, definition.name, gerund),
+      ),
       bytes,
       tokens: bytes / 4,
       definition,

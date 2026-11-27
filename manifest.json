@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "discord-mcp",
   "display_name": "discord-mcp",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Run your Discord from Claude through your own bot: messages, moderation, roles, channels, forums, webhooks and events.",
   "author": {
     "name": "PaSympa",

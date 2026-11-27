@@ -1,7 +1,7 @@
 {
   "name": "discord-mcp",
   "displayName": "discord-mcp",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Run your Discord from Claude Code through your own bot: messages, moderation, roles, channels, forums, webhooks and events, plus a channel digest and a moderation sweep skill.",
   "author": {
     "name": "PaSympa",
@@ -66,7 +66,7 @@
   "mcpServers": {
     "discord": {
       "command": "npx",
-      "args": ["-y", "@pasympa/discord-mcp@2.5.0"],
+      "args": ["-y", "@pasympa/discord-mcp@2.6.0"],
       "env": {
         "DISCORD_TOKEN": "${user_config.discord_token}",
         "DISCORD_MCP_TOOLSETS": "${user_config.toolsets}",

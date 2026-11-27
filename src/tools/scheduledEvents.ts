@@ -306,7 +306,7 @@ const tools = [
       title: "Delete scheduled event",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z.object({

@@ -831,7 +831,7 @@ const tools = [
       title: "Bulk delete messages",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z
@@ -1073,7 +1073,7 @@ const tools = [
       title: "Delete message",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z.object({

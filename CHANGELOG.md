@@ -27,6 +27,7 @@
 - The 30-second connection timeout also covers the Discord login itself. A login that never answered left every tool call waiting with no error. After 30 seconds the call now fails with the "did not reach READY" error. The login keeps running, and a later call uses it once it ends
 - `discord_list_channels`, `discord_find_channel_by_name` and the `total` of `discord_get_server_stats` include channels of a type discord.js does not know yet, such as type 20. They used to be left out. Their `type` reads `Unknown(20)`, and `discord_list_channels` lists them under their category, after the known channels. The first two tools then read the channel list twice
 - `discord_clone_channel` refuses a `new_name` longer than 100 characters before any call, as `discord_create_channel` and `discord_edit_channel` do, and `tools/list` advertises the limit as `maxLength`
+- `discord_delete_message`, `discord_bulk_delete_messages`, `discord_delete_channel`, `discord_kick_member`, `discord_bulk_ban`, `discord_delete_role`, `discord_delete_forum_post`, `discord_delete_webhook`, `discord_delete_webhook_message`, `discord_delete_scheduled_event`, `discord_delete_invite` and `discord_delete_dm` are annotated `idempotentHint: true`. Repeating the same call has no further effect, even when the repeat fails because the target is already gone; a bulk delete lists the IDs in `not_found`. CONTRIBUTING now states this rule. `discord_prune_members` stays `false`
 
 ## [2.5.0] - 2026-11-25
 

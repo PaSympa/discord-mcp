@@ -2,7 +2,8 @@
  * MCP tool behavioral hints (advisory, not guarantees). See the MCP spec
  * "tool annotations": readOnlyHint (only reads, never mutates), destructiveHint
  * (may perform irreversible updates: delete/ban/prune), idempotentHint (repeat
- * calls with same args add no effect), openWorldHint (talks to an external API,
+ * calls with same args add no effect, even when the repeat fails because the
+ * target is already gone), openWorldHint (talks to an external API,
  * always true here). title is a human-readable display name.
  */
 export interface ToolAnnotations {

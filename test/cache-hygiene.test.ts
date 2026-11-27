@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 import { GatewayIntentBits } from "discord.js";
 
@@ -153,6 +153,78 @@ test("concurrent callers share one login attempt", async () => {
     assert.equal(discord.listenerCount("clientReady"), 0);
   } finally {
     discord.login = original;
+  }
+});
+
+/** The promise's outcome, or "pending" if it is still unsettled once pending callbacks have run. */
+const settled = (promise: Promise<string>) =>
+  Promise.race([promise, new Promise<string>((resolve) => setImmediate(() => resolve("pending")))]);
+
+const outcome = () =>
+  ensureConnected().then(
+    () => "resolved",
+    (err: Error) => err.message,
+  );
+
+test("a login that never settles fails each call after 30 s without starting a second login", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  let finish!: (token: string) => void;
+  const login = mock.method(
+    discord,
+    "login",
+    () => new Promise<string>((resolve) => (finish = resolve)),
+  );
+  const isReady = mock.method(discord, "isReady", () => false);
+  try {
+    const first = outcome();
+    mock.timers.tick(29_999);
+    assert.equal(await settled(first), "pending");
+    mock.timers.tick(1);
+    assert.match(await settled(first), /^Discord did not reach READY within 30s\. Check the token/);
+
+    const second = outcome();
+    mock.timers.tick(30_000);
+    assert.match(await settled(second), /did not reach READY/);
+    assert.equal(
+      login.mock.callCount(),
+      1,
+      "a second login while one is in flight replays every guild",
+    );
+
+    finish("token");
+    isReady.mock.mockImplementation(() => true);
+    assert.equal(
+      await settled(outcome()),
+      "resolved",
+      "a login that ends late serves the next call",
+    );
+    assert.equal(login.mock.callCount(), 1);
+  } finally {
+    mock.timers.reset();
+    mock.restoreAll();
+    discord.emit("invalidated");
+  }
+});
+
+test("a login that reaches READY clears its timeouts", async () => {
+  const set = mock.method(globalThis, "setTimeout");
+  const clear = mock.method(globalThis, "clearTimeout");
+  mock.method(discord, "login", async () => {
+    queueMicrotask(() => discord.emit("clientReady", discord));
+    return "token";
+  });
+  try {
+    assert.equal(await settled(outcome()), "resolved");
+    const timers = set.mock.calls.filter((call) => call.arguments[1] === 30_000);
+    assert.equal(timers.length, 2, "the attempt and the call each arm one");
+    for (const timer of timers)
+      assert.ok(
+        clear.mock.calls.some((call) => call.arguments[0] === timer.result),
+        "a pending timer keeps the process alive",
+      );
+  } finally {
+    mock.restoreAll();
+    discord.emit("invalidated");
   }
 });
 

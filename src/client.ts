@@ -31,6 +31,8 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
 /** Maximum time to wait for the gateway to reach READY before giving up. */
 const LOGIN_TIMEOUT_MS = 30_000;
+const loginTimeoutMessage = () =>
+  `Discord did not reach READY within ${LOGIN_TIMEOUT_MS / 1000}s. Check the token and that the Server Members / Message Content privileged intents are enabled in the Developer Portal, or disable them via DISCORD_GUILD_MEMBERS=false / DISCORD_MESSAGE_CONTENT=false.`;
 
 /**
  * Reads a boolean env flag, defaulting to `true`. Set to false/0/no/off to disable.
@@ -117,11 +119,7 @@ export async function ensureConnected(): Promise<void> {
         };
         timer = setTimeout(() => {
           discord.off(Events.ClientReady, onReady);
-          reject(
-            new Error(
-              `Discord did not reach READY within ${LOGIN_TIMEOUT_MS / 1000}s. Check the token and that the Server Members / Message Content privileged intents are enabled in the Developer Portal, or disable them via DISCORD_GUILD_MEMBERS=false / DISCORD_MESSAGE_CONTENT=false.`,
-            ),
-          );
+          reject(new Error(loginTimeoutMessage()));
         }, LOGIN_TIMEOUT_MS);
         discord.once(Events.ClientReady, onReady);
       });
@@ -143,7 +141,17 @@ export async function ensureConnected(): Promise<void> {
     });
   }
 
-  await loginPromise;
+  // Each call gives up after the timeout, but a login still pending keeps running:
+  // starting another one while it is in flight would replay every guild.
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(loginTimeoutMessage())), LOGIN_TIMEOUT_MS);
+  });
+  try {
+    await Promise.race([loginPromise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Reads DISCORD_ALLOWED_GUILDS lazily so module import order cannot freeze an empty list. */

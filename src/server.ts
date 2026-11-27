@@ -88,10 +88,12 @@ export function createServer(
     if (!hasTool(name))
       throw new ProtocolError(ProtocolErrorCode.InvalidParams, `Unknown tool: ${name}`);
     // Stateless HTTP serves each request without the initialize, so no capability is known there.
-    // A call that asked goes back through the gate even if a new initialize dropped the capability.
+    // A call that asked, or that carries answers, goes back through the gate even if a new
+    // initialize dropped the capability or a later SDK gives the second round a new signal.
     const asks =
       CONFIRM &&
       (server.confirmations.waits(ctx.mcpReq.signal) ||
+        ctx.mcpReq.inputResponses !== undefined ||
         server.getClientCapabilities()?.elicitation?.form !== undefined);
     const confirm = asks ? server.confirmations.gate(ctx.mcpReq) : undefined;
 

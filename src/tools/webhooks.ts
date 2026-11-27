@@ -126,7 +126,7 @@ const tools = [
     annotations: {
       title: "Edit webhook",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },
@@ -239,7 +239,7 @@ const tools = [
     annotations: {
       title: "Edit webhook message",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },

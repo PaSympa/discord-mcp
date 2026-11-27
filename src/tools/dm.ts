@@ -110,7 +110,7 @@ const tools = [
     annotations: {
       title: "Edit DM embed",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },

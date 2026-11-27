@@ -453,7 +453,7 @@ const tools = [
     annotations: {
       title: "Update forum post",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

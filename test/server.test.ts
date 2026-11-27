@@ -52,7 +52,7 @@ test("tools/list serves every definition and rejects unexpected cursors", async 
   await client.close();
 });
 
-test("tools that overwrite existing settings are annotated destructive", async () => {
+test("tools that can lose state no tool can restore are annotated destructive", async () => {
   const client = await connectedClient();
   const { tools } = await client.listTools();
   for (const name of [
@@ -60,6 +60,13 @@ test("tools that overwrite existing settings are annotated destructive", async (
     "discord_lock_channel_permissions",
     "discord_edit_role",
     "discord_edit_scheduled_event",
+    "discord_update_forum_post",
+    "discord_set_role_icon",
+    "discord_edit_webhook",
+    "discord_edit_embed",
+    "discord_edit_dm_embed",
+    "discord_edit_webhook_message",
+    "discord_edit_channel",
   ])
     assert.equal(tools.find((t) => t.name === name)?.annotations?.destructiveHint, true, name);
   await client.close();

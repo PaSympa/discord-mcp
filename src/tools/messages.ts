@@ -1005,7 +1005,7 @@ const tools = [
     annotations: {
       title: "Edit embed",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },

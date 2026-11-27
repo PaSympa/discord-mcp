@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `discord_update_forum_post`, `discord_set_role_icon`, `discord_edit_webhook`, `discord_edit_embed`, `discord_edit_dm_embed`, `discord_edit_webhook_message` and `discord_edit_channel` are annotated `destructiveHint: true`, as the rule CONTRIBUTING states since 2.6.0 asks. Archiving a forum post unpins it, and no tool pins it again. A new role icon or webhook avatar replaces the image. An embed edit replaces the whole embed, and the read tools return only a text summary of it, without its color, images or timestamp, so the old one cannot be set back. `discord_edit_channel` overwrites a text channel's topic, slowmode and NSFW flag, which no read tool returns
+
 ## [2.6.0] - 2026-11-27
 
 ### Added

@@ -131,7 +131,7 @@
       {
         "tool": "discord_bulk_delete_messages",
         "args": ["message_ids: the 4 IDs", "dry_run: false"],
-        "result": "deleted: the 4 IDs, nothing else"
+        "result": "asks you to confirm the 4 IDs; on yes, deleted: the 4 IDs, nothing else"
       }
     ]
   },

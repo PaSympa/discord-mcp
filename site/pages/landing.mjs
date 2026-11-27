@@ -85,7 +85,7 @@ function seeItWork(site) {
   return section(
     "see-it-work",
     "See it work",
-    tpl`<p>The request from the recorded demo, with the calls 2.5.0 makes. The assistant reads the channel, previews the cleanup with a dry run that lists the message IDs, then deletes those IDs and nothing else. The recording predates 2.5.0 and deletes by count.</p>`,
+    tpl`<p>The request from the recorded demo, with the calls the current version makes. The assistant reads the channel, previews the cleanup with a dry run that lists the message IDs, then, once you confirm, deletes those IDs and nothing else. The recording predates 2.5.0 and deletes by count.</p>`,
     body,
   );
 }

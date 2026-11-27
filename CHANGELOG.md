@@ -23,6 +23,7 @@
 - `discord_list_channels` no longer merges two categories with the same name. When a name repeats, each of those categories is keyed by its name and ID, such as `Events (123456789012345678)`. A category named `No Category` or `Hidden parent` gets its ID too, so its channels no longer mix with the channels outside a category or under a hidden one
 - `discord_list_roles` lists only the permission flags set on each role. A role with Administrator used to list every flag. `discord_get_member_info` still lists every flag for an Administrator, as its description says
 - `discord_set_channel_position` says when the order stays unchanged. For a position at or past the number of channels in the channel's group, it gives that number and says the channel kept its place. It used to say the channel moved
+- The 30-second connection timeout also covers the Discord login itself. A login that never answered left every tool call waiting with no error. After 30 seconds the call now fails with the "did not reach READY" error. The login keeps running, and a later call uses it once it ends
 
 ## [2.5.0] - 2026-11-25
 

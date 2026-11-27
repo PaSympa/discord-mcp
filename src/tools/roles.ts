@@ -195,7 +195,7 @@ const tools = [
           color: r.hexColor,
           position: r.position,
           memberCount: counts.get(r.id) ?? 0,
-          permissions: serializePermissions(r.permissions),
+          permissions: serializePermissions(r.permissions, { checkAdmin: false }),
           hoist: r.hoist,
           mentionable: r.mentionable,
         }));

@@ -63,12 +63,16 @@ export const intIn = (min: number, max: number) => z.int().min(min).max(max);
  * Text of at most `max` characters, advertised as `maxLength`. Counted in code points, as
  * JSON Schema counts `maxLength`: zod 4.3, which package.json still accepts, counts UTF-16
  * units in `.max()` and would refuse an emoji-heavy text the advertised schema allows.
+ * With `utf16`, the text is counted in UTF-16 units instead, for a field a discord.js
+ * builder checks that way: the check is then stricter than the advertised `maxLength`.
  */
-export const textUpTo = (max: number) =>
+export const textUpTo = (max: number, { utf16 = false } = {}) =>
   z
     .string()
-    .refine((text) => text.length <= max || [...text].length <= max, {
-      message: `Must be at most ${max} characters.`,
+    .refine((text) => text.length <= max || (!utf16 && [...text].length <= max), {
+      message: utf16
+        ? `Must be at most ${max} characters, most emoji counting as 2.`
+        : `Must be at most ${max} characters.`,
     })
     .meta({ maxLength: max });
 

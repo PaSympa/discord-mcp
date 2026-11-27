@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { ZodError } from "zod";
 import { discord } from "../src/client.js";
 import { messageText, textUpTo } from "../src/tools/define.js";
+import { buildEmbed, embedObjectSchema, type EmbedInput } from "../src/embeds.js";
+import { formatToolError } from "../src/errors.js";
 import { selectModules } from "../src/tools/index.js";
 import type { ToolModule } from "../src/tools/types.js";
 import messages from "../src/tools/messages.js";
@@ -126,6 +128,80 @@ for (const [mod, tool, path, max] of LIMITS) {
     );
   });
 }
+
+const EMBED_TOOLS: [ToolModule, string, (string | number)[]][] = [
+  [messages, "discord_send_embed", []],
+  [messages, "discord_edit_embed", []],
+  [messages, "discord_send_multiple_embeds", ["embeds", 0]],
+  [webhooks, "discord_send_webhook_message", ["embeds", 0]],
+  [webhooks, "discord_edit_webhook_message", ["embeds", 0]],
+  [dm, "discord_send_dm_embed", []],
+  [dm, "discord_edit_dm_embed", []],
+];
+
+/** The limits EmbedBuilder checks, by path inside one embed. */
+const EMBED_LIMITS: [(string | number)[], number][] = [
+  [["title"], 256],
+  [["description"], 4096],
+  [["fields", 0, "name"], 256],
+  [["fields", 0, "value"], 1024],
+  [["author", "name"], 256],
+  [["footer"], 2048],
+];
+
+/** `value` at `path`, with the siblings a field or an author needs to parse. */
+function embedWith(path: (string | number)[], value: string): Record<string, unknown> {
+  if (path[0] === "fields") return { fields: [{ ...FIELD, [path[2]]: value }] };
+  if (path[0] === "author") return { author: { name: value } };
+  return { [path[0]]: value };
+}
+
+for (const [field, max] of EMBED_LIMITS) {
+  const name = field.join(".");
+  test(`embed ${name} advertises and enforces its limit of ${max} on every embed tool`, async () => {
+    for (const [mod, tool, prefix] of EMBED_TOOLS) {
+      const path = [...prefix, ...field];
+      const where = `${tool}.${path.join(".")}`;
+      const node = schemaAt(inputSchema(mod, tool), path);
+      assert.ok(
+        variants(node).some((v) => v.maxLength === max),
+        `${where} must advertise maxLength ${max}`,
+      );
+      const args = (text: string) =>
+        prefix.length ? argsWith(prefix, embedWith(field, text)) : embedWith(field, text);
+
+      const over = await issuesFor(mod, tool, args("x".repeat(max + 1)));
+      const issue = over.find((i) => JSON.stringify(i.path) === JSON.stringify(path));
+      assert.ok(issue, `${max + 1} must be refused at ${where}`);
+      assert.equal(
+        formatToolError(new ZodError([issue])),
+        `Invalid arguments. ${path.join(".")}: Must be at most ${max} characters, most emoji counting as 2.`,
+      );
+      const at = await issuesFor(mod, tool, args("x".repeat(max)));
+      assert.ok(
+        !at.some((i) => JSON.stringify(i.path) === JSON.stringify(path)),
+        `${max} must be accepted at ${where}`,
+      );
+    }
+  });
+}
+
+test("an embed the schema accepts is one EmbedBuilder accepts, emoji included", () => {
+  const emoji = "\u{1F600}";
+  for (const [field, max] of EMBED_LIMITS) {
+    for (const text of [emoji.repeat(max / 2), emoji.repeat(max / 2 + 1), emoji.repeat(max)]) {
+      const embed = embedWith(field, text);
+      const parsed = embedObjectSchema.safeParse(embed);
+      assert.equal(
+        parsed.success,
+        text.length <= max,
+        `${field.join(".")}: ${[...text].length} emoji are ${text.length} UTF-16 units`,
+      );
+      if (parsed.success) assert.doesNotThrow(() => buildEmbed(parsed.data));
+      else assert.throws(() => buildEmbed(embed as EmbedInput));
+    }
+  }
+});
 
 test("text limits count code points, as JSON Schema's maxLength does", () => {
   const emoji = "\u{1F600}";

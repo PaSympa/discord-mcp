@@ -1,15 +1,20 @@
 import { EmbedBuilder, ColorResolvable } from "discord.js";
 import { z } from "zod";
-import { httpUrl, messageText } from "./tools/define.js";
+import { httpUrl, messageText, textUpTo } from "./tools/define.js";
+
+/** EmbedBuilder counts these limits in UTF-16 units. */
+const embedText = (max: number) => textUpTo(max, { utf16: true });
 
 /**
  * Zod fields of a rich embed: spread into a tool's `z.object({...})` schema.
  * The single source of truth for embed input across the message, DM, and webhook tools.
  */
 export const embedFieldsShape = {
-  title: z.string().optional().describe("Embed title shown in bold at the top."),
+  title: embedText(256).optional().describe("Embed title shown in bold at the top."),
   url: httpUrl.optional().describe("URL that makes the title clickable."),
-  description: z.string().optional().describe("Main body text of the embed (supports Markdown)."),
+  description: embedText(4096)
+    .optional()
+    .describe("Main body text of the embed (supports Markdown)."),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Hex color like '#5865F2'.")
@@ -18,8 +23,8 @@ export const embedFieldsShape = {
   fields: z
     .array(
       z.strictObject({
-        name: z.string().describe("Field heading."),
-        value: z.string().describe("Field body text."),
+        name: embedText(256).describe("Field heading."),
+        value: embedText(1024).describe("Field body text."),
         inline: z
           .boolean()
           .optional()
@@ -33,14 +38,14 @@ export const embedFieldsShape = {
     ),
   author: z
     .strictObject({
-      name: z.string().describe("Author display name."),
+      name: embedText(256).describe("Author display name."),
       icon_url: httpUrl.optional().describe("Small icon shown next to the author name."),
       url: httpUrl.optional().describe("URL the author name links to."),
     })
     .optional()
     .describe("Author block shown at the top of the embed."),
   thumbnail_url: httpUrl.optional().describe("Small image shown in the top-right corner."),
-  footer: z.string().optional().describe("Footer text shown at the bottom of the embed."),
+  footer: embedText(2048).optional().describe("Footer text shown at the bottom of the embed."),
   image_url: httpUrl.optional().describe("Large image shown below the embed body."),
   timestamp: z.boolean().optional().describe("If true, stamp the embed with the current time."),
 } as const;

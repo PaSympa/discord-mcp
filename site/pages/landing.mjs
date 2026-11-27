@@ -64,13 +64,12 @@ function seeItWork(site) {
   );
   const body = tpl`<figure class="session">
   <div class="term">
-    <div class="term-bar"><span class="term-title">Claude Code</span><span class="term-note">Summary of the real tool calls</span></div>
+    <div class="term-bar"><span class="term-title">Claude Code</span><span class="term-note">The same request, as the current version runs it</span></div>
     <div class="term-body">
       <p class="term-input"><span class="pm" aria-hidden="true">&gt;</span><span>${session.prompt}</span></p>
       <ol class="term-calls" aria-label="Tool calls">${calls}</ol>
     </div>
   </div>
-  <figcaption>${inline(site.readme.demo.caption)}</figcaption>
 </figure>
 <div class="demo" id="demo">
   <div class="demo-act">
@@ -78,6 +77,7 @@ function seeItWork(site) {
     <span class="demo-size">Video, ${demo.size}</span>
     <a class="demo-full" href="${demo.video}">Watch the full one-minute demo</a>
   </div>
+  <p class="demo-cap">${inline(site.readme.demo.caption)}</p>
   <div class="demo-frame" id="demo-frame" hidden>
     <video id="demo-video" width="${demo.width}" height="${demo.height}" muted loop playsinline preload="none" aria-label="${demo.alt}"><source src="assets/demo.mp4" type="video/mp4"></video>
   </div>

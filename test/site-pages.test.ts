@@ -479,6 +479,20 @@ test("the first load of /, /tools/, /toolsets/, the largest tool and toolset pag
     "the demo loads on demand only",
   );
   assert.doesNotMatch(home, /<video[^>]*\sautoplay/, "the demo never starts on its own");
+  // The recording deletes by count: the panel's calls by ID were never recorded.
+  assert.match(
+    home,
+    /<span class="term-note">The same request, as the current version runs it<\/span>/,
+  );
+  assert.doesNotMatch(home, /real tool calls/);
+  // The README caption describes the recording, so it sits with the video, not under the panel.
+  const panel = /<figure class="session">[\s\S]*?<\/figure>/.exec(home)?.[0] ?? "";
+  assert.ok(panel, "the panel figure");
+  assert.doesNotMatch(panel, /figcaption|summarizes/);
+  assert.match(
+    home,
+    /<div class="demo" id="demo">[\s\S]*?<p class="demo-cap">Calls made live with Claude Code/,
+  );
 });
 
 test("no em dash, and no Claude accent, in any output file", () => {

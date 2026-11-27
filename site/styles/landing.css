@@ -246,7 +246,7 @@ main {
   border-left: 1px solid var(--t-faint);
   border-bottom: 1px solid var(--t-faint);
 }
-.session figcaption {
+.demo-cap {
   margin-top: var(--s3);
   max-width: 82ch;
   font-size: 0.8125rem;

@@ -255,7 +255,7 @@ const tools = [
     annotations: {
       title: "Edit role",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

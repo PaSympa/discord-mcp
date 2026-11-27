@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The plugin README lists the Confirm destructive calls setting, next to the other plugin settings
+
 ## [2.6.1] - 2026-11-27
 
 ### Fixed

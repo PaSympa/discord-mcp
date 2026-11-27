@@ -30,6 +30,7 @@ Settings:
 
 - Toolsets: limit the tools to the areas you need, such as `discovery,messages`.
 - Read-only mode: expose only the tools that change nothing.
+- Confirm destructive calls: ask you before a real call of the six tools that preview by default, when Claude Code supports the form. Turn it off for runs where no one can answer, such as `claude -p` without an `Elicitation` hook.
 - Allowed guilds: reject every call that targets a server ID you did not list, and every DM to a user who is not a member of any listed server.
 - Message Content and Server Members intents: turn them off if they are off in the Developer Portal.
 

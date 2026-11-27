@@ -173,14 +173,35 @@ const tools = [
     }),
     handle: async ({ channel_id, name, topic, slowmode, nsfw }) => {
       const channel = await getGuildChannel(channel_id);
+      const plainText = channel.type === ChannelType.GuildText;
       const editOptions: Record<string, unknown> = {};
+      const ignored: string[] = [];
       if (name !== undefined) editOptions.name = name;
-      if (topic !== undefined && channel.type === ChannelType.GuildText) editOptions.topic = topic;
-      if (slowmode !== undefined && channel.type === ChannelType.GuildText)
-        editOptions.rateLimitPerUser = slowmode;
+      if (topic !== undefined) {
+        if (plainText) editOptions.topic = topic;
+        else ignored.push("topic");
+      }
+      if (slowmode !== undefined) {
+        if (plainText) editOptions.rateLimitPerUser = slowmode;
+        else ignored.push("slowmode");
+      }
       if (nsfw !== undefined) editOptions.nsfw = nsfw;
+      const fields = ignored.join(" and ");
+      if (Object.keys(editOptions).length === 0) {
+        const why = ignored.length
+          ? `this tool sends ${fields} to plain text channels only, so nothing was sent to Discord`
+          : "the call gave no field to change";
+        return {
+          content: [{ type: "text", text: `✅ Channel #${channel.name} unchanged: ${why}.` }],
+        };
+      }
       await channel.edit(editOptions);
-      return { content: [{ type: "text", text: `✅ Channel #${channel.name} updated.` }] };
+      const without = ignored.length
+        ? `, without ${fields}: this tool sends ${ignored.length === 1 ? "it" : "them"} to plain text channels only`
+        : "";
+      return {
+        content: [{ type: "text", text: `✅ Channel #${channel.name} updated${without}.` }],
+      };
     },
   }),
   defineTool({

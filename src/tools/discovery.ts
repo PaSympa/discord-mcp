@@ -96,7 +96,7 @@ const tools = [
       });
 
       visible
-        .filter((c) => c.type !== ChannelType.GuildCategory)
+        .filter((c) => c.type !== ChannelType.GuildCategory && !c.isThread())
         .sort((a, b) => (a as GuildChannel).position - (b as GuildChannel).position)
         .forEach((ch) => {
           const entry = { id: ch.id, name: ch.name, type: ChannelType[ch.type] };

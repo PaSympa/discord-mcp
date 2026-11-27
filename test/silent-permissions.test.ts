@@ -511,6 +511,19 @@ test("clone_channel clones a source the bot can view", async () => {
   assert.equal(create.mock.callCount(), 1);
 });
 
+for (const [label, args, expected] of [
+  ["without new_name, under the source's name", {}, "readable"],
+  ["with new_name, under that name", { new_name: "copy" }, "copy"],
+] as const) {
+  test(`clone_channel creates the clone ${label}`, async () => {
+    const guild = discord.guilds.cache.get(GUILD)!;
+    const create = mock.method(guild.channels, "create", async () => ({ id: "1", name: expected }));
+    await channels.handlers.get("discord_clone_channel")!({ channel_id: READABLE, ...args });
+    const [options] = create.mock.calls[0].arguments as unknown as [{ name?: string }];
+    assert.equal(options.name, expected);
+  });
+}
+
 const channelPermissions = (channel_id: string) =>
   permissions.handlers.get("discord_get_channel_permissions")!({ channel_id });
 

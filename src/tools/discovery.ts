@@ -16,6 +16,23 @@ const channelSummary = z.object({
   type: z.string(),
 });
 
+const NO_CATEGORY = "No Category";
+const HIDDEN_PARENT = "Hidden parent";
+
+/**
+ * Keys list_channels by category name, adding the ID to a name that another category or
+ * a pseudo key also uses, so two categories never merge under one key.
+ */
+function categoryKey(categories: Iterable<{ name: string }>) {
+  const uses = new Map([
+    [NO_CATEGORY, 1],
+    [HIDDEN_PARENT, 1],
+  ]);
+  for (const { name } of categories) uses.set(name, (uses.get(name) ?? 0) + 1);
+  return ({ id, name }: { id: string; name: string }) =>
+    (uses.get(name) ?? 0) > 1 ? `${name} (${id})` : name;
+}
+
 /** Tool definitions for server/guild discovery and channel navigation. */
 const tools = [
   defineTool({
@@ -90,9 +107,10 @@ const tools = [
         .filter((c) => c.type === ChannelType.GuildCategory)
         .sort((a, b) => (a as CategoryChannel).position - (b as CategoryChannel).position);
 
-      const result: Record<string, unknown[]> = { "No Category": [] };
+      const keyOf = categoryKey(categories.values());
+      const result: Record<string, unknown[]> = { [NO_CATEGORY]: [] };
       categories.forEach((cat) => {
-        result[cat.name] = [];
+        result[keyOf(cat)] = [];
       });
 
       visible
@@ -102,10 +120,10 @@ const tools = [
           const entry = { id: ch.id, name: ch.name, type: ChannelType[ch.type] };
           const parent = (ch as GuildChannel).parent;
           const parentName = !parent
-            ? "No Category"
+            ? NO_CATEGORY
             : isObfuscated(parent)
-              ? "Hidden parent"
-              : parent.name;
+              ? HIDDEN_PARENT
+              : keyOf(parent);
           if (!result[parentName]) result[parentName] = [];
           result[parentName].push(entry);
         });

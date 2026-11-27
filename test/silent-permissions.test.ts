@@ -43,6 +43,13 @@ const KEY_GUILD = "200000000000000030";
 const KEY_CATEGORY = "200000000000000031";
 const KEY_CHANNEL = "200000000000000032";
 const KEY_HIDDEN = "200000000000000033";
+const DUP_GUILD = "200000000000000040";
+const EVENTS_A = "200000000000000041";
+const EVENTS_B = "200000000000000042";
+const NAMED_NO_CATEGORY = "200000000000000043";
+const NAMED_HIDDEN_PARENT = "200000000000000044";
+const SOLO = "200000000000000045";
+const DUP_HIDDEN = "200000000000000046";
 
 const OBFUSCATED_FLAG = 1 << 17;
 
@@ -239,6 +246,43 @@ asAdder(discord.guilds)._add(
         permission_overwrites: [],
       },
       obfuscated(KEY_HIDDEN, 0, 1),
+    ],
+    [],
+  ),
+);
+
+const textIn = (id: string, name: string, position: number, parent_id?: string) => ({
+  id,
+  type: 0,
+  name,
+  position,
+  ...(parent_id ? { parent_id } : {}),
+  permission_overwrites: [],
+});
+const category = (id: string, name: string, position: number) => ({
+  id,
+  type: 4,
+  name,
+  position,
+  permission_overwrites: [],
+});
+asAdder(discord.guilds)._add(
+  rawGuild(
+    DUP_GUILD,
+    [
+      category(EVENTS_A, "Events", 0),
+      category(EVENTS_B, "Events", 1),
+      category(NAMED_NO_CATEGORY, "No Category", 2),
+      category(NAMED_HIDDEN_PARENT, "Hidden parent", 3),
+      category(SOLO, "Solo", 4),
+      obfuscated(DUP_HIDDEN, 4, 5),
+      textIn("200000000000000047", "first-events", 0, EVENTS_A),
+      textIn("200000000000000048", "second-events", 1, EVENTS_B),
+      textIn("200000000000000049", "in-named-no-category", 2, NAMED_NO_CATEGORY),
+      textIn("200000000000000050", "in-named-hidden-parent", 3, NAMED_HIDDEN_PARENT),
+      textIn("200000000000000051", "solo-chat", 4, SOLO),
+      textIn("200000000000000052", "under-hidden", 5, DUP_HIDDEN),
+      textIn("200000000000000053", "lobby", 6),
     ],
     [],
   ),
@@ -568,6 +612,23 @@ test("list_channels lists a real category named hiddenChannels and validates", a
     "No Category": [],
     hiddenChannels: [{ id: KEY_CHANNEL, name: "inside", type: "GuildText" }],
   });
+});
+
+test("list_channels gives each category its own key when names repeat or match a pseudo key", async () => {
+  stubChannelRefresh(DUP_GUILD);
+  const entry = (id: string, name: string) => [{ id, name, type: "GuildText" }];
+  assert.deepEqual(Object.entries(await list(DUP_GUILD)), [
+    ["No Category", entry("200000000000000053", "lobby")],
+    [`Events (${EVENTS_A})`, entry("200000000000000047", "first-events")],
+    [`Events (${EVENTS_B})`, entry("200000000000000048", "second-events")],
+    [`No Category (${NAMED_NO_CATEGORY})`, entry("200000000000000049", "in-named-no-category")],
+    [
+      `Hidden parent (${NAMED_HIDDEN_PARENT})`,
+      entry("200000000000000050", "in-named-hidden-parent"),
+    ],
+    ["Solo", entry("200000000000000051", "solo-chat")],
+    ["Hidden parent", entry("200000000000000052", "under-hidden")],
+  ]);
 });
 
 type AuditReport = {

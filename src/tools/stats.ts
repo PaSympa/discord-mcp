@@ -31,7 +31,8 @@ const tools = [
     }),
     handle: async ({ guild_id }) => {
       const guild = await discord.guilds.fetch(guild_id);
-      await guild.channels.fetch();
+      // A channel of a type discord.js does not know stays out of the cache, as a null here.
+      const unknownTypes = (await guild.channels.fetch()).filter((c) => c === null).size;
       const cachedBots = guild.members.cache.filter((m) => m.user.bot).size;
       return structured({
         name: guild.name,
@@ -39,7 +40,7 @@ const tools = [
         humans: guild.memberCount - cachedBots,
         botsInCache: cachedBots,
         channels: {
-          total: guild.channels.cache.size,
+          total: guild.channels.cache.size + unknownTypes,
           text: guild.channels.cache.filter((c) => c.type === ChannelType.GuildText).size,
           voice: guild.channels.cache.filter((c) => c.type === ChannelType.GuildVoice).size,
           categories: guild.channels.cache.filter((c) => c.type === ChannelType.GuildCategory).size,

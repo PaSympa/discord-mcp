@@ -4,6 +4,7 @@ import {
   ChannelFlagsBitField,
   Collection,
   PermissionFlagsBits,
+  Routes,
   type GuildChannel,
 } from "discord.js";
 import { discord, isObfuscated } from "../src/client.js";
@@ -12,6 +13,7 @@ import forums from "../src/tools/forums.js";
 import permissions from "../src/tools/permissions.js";
 import channels from "../src/tools/channels.js";
 import discovery from "../src/tools/discovery.js";
+import stats from "../src/tools/stats.js";
 
 /**
  * Real structures from raw gateway payloads, as in embed-permissions.test.ts, so the
@@ -50,6 +52,15 @@ const NAMED_NO_CATEGORY = "200000000000000043";
 const NAMED_HIDDEN_PARENT = "200000000000000044";
 const SOLO = "200000000000000045";
 const DUP_HIDDEN = "200000000000000046";
+const TYPE20_GUILD = "200000000000000060";
+const LOBBY = "200000000000000061";
+const TYPE20_HIDDEN_CATEGORY = "200000000000000062";
+const TYPE20_GENERAL = "200000000000000063";
+const TYPE20_FREE = "200000000000000064";
+const HUB = "200000000000000065";
+const HUB_TOP = "200000000000000066";
+const HUB_OBFUSCATED = "200000000000000067";
+const HUB_UNDER_HIDDEN = "200000000000000068";
 
 const OBFUSCATED_FLAG = 1 << 17;
 
@@ -287,6 +298,19 @@ asAdder(discord.guilds)._add(
     [],
   ),
 );
+
+/** Type 20 is newer than discord.js, which builds no structure for it and leaves it out of the cache. */
+const TYPE20_CHANNELS = [
+  category(LOBBY, "Lobby", 0),
+  obfuscated(TYPE20_HIDDEN_CATEGORY, 4, 1),
+  textIn(TYPE20_GENERAL, "general", 0, LOBBY),
+  textIn(TYPE20_FREE, "free", 1),
+  { ...textIn(HUB_TOP, "hub-top", 2), type: 20 },
+  { ...textIn(HUB, "server-hub", 1, LOBBY), type: 20 },
+  { ...obfuscated(HUB_OBFUSCATED, 20, 3) },
+  { ...textIn(HUB_UNDER_HIDDEN, "hub-under-hidden", 4, TYPE20_HIDDEN_CATEGORY), type: 20 },
+];
+asAdder(discord.guilds)._add(rawGuild(TYPE20_GUILD, TYPE20_CHANNELS, []));
 
 afterEach(() => mock.restoreAll());
 
@@ -629,6 +653,71 @@ test("list_channels gives each category its own key when names repeat or match a
     ["Solo", entry("200000000000000051", "solo-chat")],
     ["Hidden parent", entry("200000000000000052", "under-hidden")],
   ]);
+});
+
+/** Answers discord.js's channel list request, and any raw read of it, with `raw`. */
+function stubChannelList(guildId: string, raw: unknown[]) {
+  const gets: string[] = [];
+  mock.method(discord.rest, "get", (async (route: string) => {
+    gets.push(route);
+    assert.equal(route, Routes.guildChannels(guildId));
+    return raw;
+  }) as never);
+  return gets;
+}
+
+const serverStats = async (guild_id: string) =>
+  (await stats.handlers.get("discord_get_server_stats")!({ guild_id })).structuredContent as {
+    channels: { total: number };
+  };
+
+test("with no channel of an unknown type, the channel reads make one REST call and list the same", async () => {
+  const raw = [
+    { id: CLEAN_CHANNEL, type: 0, name: "clean", position: 0, permission_overwrites: [] },
+  ];
+  const gets = stubChannelList(CLEAN_GUILD, raw);
+  assert.deepEqual(await list(CLEAN_GUILD), {
+    "No Category": [{ id: CLEAN_CHANNEL, name: "clean", type: "GuildText" }],
+  });
+  assert.deepEqual(await find(CLEAN_GUILD, "clean"), {
+    matches: [{ id: CLEAN_CHANNEL, name: "clean", type: "GuildText" }],
+    hiddenChannels: 0,
+  });
+  assert.equal((await serverStats(CLEAN_GUILD)).channels.total, 1);
+  assert.equal(gets.length, 3, "one channel list request per call");
+});
+
+test("list_channels lists a channel of an unknown type under its category, after the known ones", async () => {
+  const gets = stubChannelList(TYPE20_GUILD, TYPE20_CHANNELS);
+  assert.deepEqual(await list(TYPE20_GUILD), {
+    "No Category": [
+      { id: TYPE20_FREE, name: "free", type: "GuildText" },
+      { id: HUB_TOP, name: "hub-top", type: "Unknown(20)" },
+    ],
+    Lobby: [
+      { id: TYPE20_GENERAL, name: "general", type: "GuildText" },
+      { id: HUB, name: "server-hub", type: "Unknown(20)" },
+    ],
+    "Hidden parent": [{ id: HUB_UNDER_HIDDEN, name: "hub-under-hidden", type: "Unknown(20)" }],
+  });
+  assert.equal(gets.length, 2, "the raw list is read again only for the unknown types");
+});
+
+test("find_channel_by_name matches a channel of an unknown type and counts a hidden one", async () => {
+  stubChannelList(TYPE20_GUILD, TYPE20_CHANNELS);
+  const result = await find(TYPE20_GUILD, "hub");
+  assert.deepEqual(result.matches, [
+    { id: HUB, name: "server-hub", type: "Unknown(20)" },
+    { id: HUB_TOP, name: "hub-top", type: "Unknown(20)" },
+    { id: HUB_UNDER_HIDDEN, name: "hub-under-hidden", type: "Unknown(20)" },
+  ]);
+  assert.equal(result.hiddenChannels, 2, "the hidden category and the hidden type-20 channel");
+});
+
+test("get_server_stats counts the channels of an unknown type in total", async () => {
+  const gets = stubChannelList(TYPE20_GUILD, TYPE20_CHANNELS);
+  assert.equal((await serverStats(TYPE20_GUILD)).channels.total, TYPE20_CHANNELS.length);
+  assert.equal(gets.length, 1);
 });
 
 type AuditReport = {

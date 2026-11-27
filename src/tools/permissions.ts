@@ -32,6 +32,36 @@ const auditOverwriteSummary = z.object({
 /** Tool definitions for viewing and managing per-channel permission overwrites. */
 const tools = [
   defineTool({
+    name: "discord_lock_channel_permissions",
+    description:
+      "Reset a channel's permission overwrites to exactly match its parent category (Discord's 'sync permissions'). The channel must be inside a category. Requires the Manage Channels and Manage Roles permissions (and View Channel on the category): the tool refuses a category the bot cannot view, whose overwrites Discord may replace with a single @everyone View Channel deny. Returns a confirmation. Use discord_reset_channel_permissions to remove every overwrite, or discord_copy_permissions to copy another channel's.",
+    annotations: {
+      title: "Lock permissions to category",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    schema: z.object({
+      channel_id: snowflake.describe(
+        "ID (snowflake) of the channel to sync with its parent category.",
+      ),
+    }),
+    handle: async ({ channel_id }) => {
+      const channel = await getGuildChannel(channel_id);
+      if (channel.parent) assertCanCopyFrom(channel.parent);
+      await channel.lockPermissions();
+      return {
+        content: [
+          {
+            type: "text",
+            text: `✅ Channel #${channel.name} permissions synced with parent category.`,
+          },
+        ],
+      };
+    },
+  }),
+  defineTool({
     name: "discord_get_channel_permissions",
     description:
       "List every permission overwrite on a channel, per role and per member, with the allowed and denied permission flags for each. Read-only. Refuses a channel that Discord hides from the bot behind the placeholder name ___hidden___: Discord shows a placeholder in place of its real overwrites. Reading such a channel requires the View Channel permission. Use discord_audit_permissions for a server-wide report across all channels.",

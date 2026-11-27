@@ -18,7 +18,7 @@
     },
     "permissions": {
       "label": "Permissions",
-      "blurb": "Inspect, set, copy and reset channel permission overwrites."
+      "blurb": "Inspect, set, copy and reset channel permission overwrites, or lock them to the category."
     },
     "members": {
       "label": "Members",

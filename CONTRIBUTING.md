@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing to Discord MCP Server!
+Thanks for your interest in contributing to discord-mcp!
 
 ## Adding a New Tool
 

@@ -1,4 +1,4 @@
-# Discord MCP (community)
+# discord-mcp
 
 Administer and moderate a Discord server from Claude Code through a bot you own. The plugin runs the discord-mcp server from npm, pinned to the plugin's version, and adds two skills.
 

@@ -15,6 +15,9 @@
   "license": "MIT",
   "icon": "./.claude-plugin/icon.png",
   "keywords": ["discord", "discord-bot", "discord-api", "moderation", "bot", "mcp"],
+  "network": {
+    "hosts": ["discord.com", "*.discord.gg", "registry.npmjs.org"]
+  },
   "userConfig": {
     "discord_token": {
       "type": "string",

@@ -51,7 +51,7 @@ If you already added discord-mcp with `claude mcp add`, remove that entry. Other
 
 The server runs on your machine. It connects to the Discord API with your bot's token and sends nothing to the maintainer: no telemetry, no analytics. It writes nothing to disk.
 
-It also reaches two other places. At launch, `npx` downloads the pinned package from npm. A role icon, webhook avatar or event cover given by URL is downloaded from that URL, then uploaded to Discord.
+It also reaches two other places. At launch, `npx` downloads the pinned package from npm. A role icon, webhook avatar or event cover given by URL is downloaded from that URL, then uploaded to Discord. The plugin declares `discord.com`, `*.discord.gg` and `registry.npmjs.org` under `network.hosts`, but not the hosts of those URLs, since you choose them.
 
 What Claude reads from Discord enters your conversation and goes to your model provider under its own terms. Full details: [privacy policy](https://pasympa.github.io/discord-mcp/privacy/).
 

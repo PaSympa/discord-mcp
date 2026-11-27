@@ -17,6 +17,7 @@
 ### Fixed
 
 - `discord_timeout_member`, `discord_edit_embed`, `discord_edit_dm_embed`, `discord_edit_webhook_message` and `discord_set_forum_tags` are annotated `idempotentHint: false`. Repeating the same call moves a timeout's end or an embed's `timestamp` to the new time, and recreates under a new ID a forum tag whose name has a leading or trailing space, since Discord trims the name
+- `discord_send_embed`, `discord_edit_embed`, `discord_send_multiple_embeds`, `discord_send_dm_embed`, `discord_edit_dm_embed`, `discord_send_webhook_message` and `discord_edit_webhook_message` refuse an embed text longer than Discord allows, and the error names the field. The limits are 256 characters for `title`, a field's `name` and `author.name`, 4096 for `description`, 1024 for a field's `value` and 2048 for `footer`, and `tools/list` advertises them as `maxLength`. Most emoji count as 2 characters, as discord.js counts them. The error used to say only "Received one or more errors"
 
 ## [2.5.0] - 2026-11-25
 

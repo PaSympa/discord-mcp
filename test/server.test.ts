@@ -60,6 +60,12 @@ test("tools that overwrite existing settings are annotated destructive", async (
     "discord_lock_channel_permissions",
     "discord_edit_role",
     "discord_edit_scheduled_event",
+    "discord_update_forum_post",
+    "discord_set_role_icon",
+    "discord_edit_webhook",
+    "discord_edit_embed",
+    "discord_edit_dm_embed",
+    "discord_edit_webhook_message",
   ])
     assert.equal(tools.find((t) => t.name === name)?.annotations?.destructiveHint, true, name);
   await client.close();

@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- `discord_update_forum_post`, `discord_set_role_icon`, `discord_edit_webhook`, `discord_edit_embed`, `discord_edit_dm_embed` and `discord_edit_webhook_message` are annotated `destructiveHint: true`, as the rule CONTRIBUTING states since 2.6.0 asks. Archiving a forum post unpins it, and no tool pins it again. A new role icon or webhook avatar replaces the image. An embed edit replaces the whole embed, and no read tool returns embed content, so the old one cannot be set back
+
 ## [2.6.0] - 2026-11-27
 
 ### Added

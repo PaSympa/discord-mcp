@@ -467,7 +467,7 @@ const tools = [
     annotations: {
       title: "Set role icon",
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: true,
       openWorldHint: true,
     },

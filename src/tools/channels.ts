@@ -1,6 +1,13 @@
 import { ChannelType, NewsChannel } from "discord.js";
 import { z } from "zod";
-import { discord, getGuildChannel, fetchChannelChecked, assertCanCopyFrom } from "../client.js";
+import {
+  discord,
+  getGuildChannel,
+  fetchChannelChecked,
+  assertCanCopyFrom,
+  allowListActive,
+  assertDmRecipientAllowed,
+} from "../client.js";
 import {
   defineTool,
   defineModule,
@@ -86,6 +93,13 @@ const tools = [
     handle: async ({ channel_id, reason, dry_run }, { confirm }) => {
       const channel = await fetchChannelChecked(channel_id);
       if (!channel) throw new Error("Channel not found.");
+      if (allowListActive() && channel.isDMBased()) {
+        if (channel.type !== ChannelType.DM)
+          throw new Error(
+            `Channel ${channel.id} is a group DM, which the DISCORD_ALLOWED_GUILDS allow-list cannot check.`,
+          );
+        await assertDmRecipientAllowed(channel.recipientId);
+      }
       const channelName = "name" in channel ? channel.name : channel.id;
       if (dry_run) {
         return {

@@ -389,8 +389,10 @@ test("tool and toolset pages carry a BreadcrumbList that matches the visible bre
 });
 
 test("each tool page shows the tool's title, name, risk, permission, schemas and links as declared", async () => {
-  const { permissionLines, permissionLabel } = await siteDetail();
+  const { linkedText, permissionLines, permissionLabel } = await siteDetail();
   const { breakable, esc, formatInt } = await import("../site/client/tpl.mjs");
+  const byName = new Map(catalog.tools.map((t) => [t.name, t]));
+  const href = (name: string) => `../${name}/`;
   const label: Record<string, string> = {
     read: "Read-only",
     write: "Write",
@@ -415,7 +417,9 @@ test("each tool page shows the tool's title, name, risk, permission, schemas and
       `${page}: dry run`,
     );
     const lines: string[] = permissionLines(tool.permissions);
-    const shown = lines.map((line) => `<span class="perm">${esc(line)}</span>`).join("");
+    const shown = lines
+      .map((line) => `<span class="perm">${linkedText(line, byName, href)}</span>`)
+      .join("");
     const dt = `<dt>${permissionLabel(tool.permissions)}</dt>`;
     assert.equal(id.includes(`${dt}<dd>${shown}</dd>`), lines.length > 0, `${page}: ${shown}`);
     assert.equal(/<dt>Discord permissions?<\/dt>/.test(id), lines.length > 0, page);
@@ -798,6 +802,33 @@ test("permission lines keep the bracketed clauses, and the label follows the cou
     "Discord permissions",
     '<span class="perm">Pin Messages and Read Message History</span>',
   ]);
+  const voice = "View Channel and Connect in the channel for VOICE events";
+  const stage = "Manage Channels, Mute Members and Move Members for STAGE_INSTANCE events";
+  assert.deepEqual(facts("discord_create_scheduled_event"), [
+    "Discord permissions",
+    `<span class="perm">Create Events</span><span class="perm">${voice}</span><span class="perm">${stage}</span>`,
+  ]);
+  for (const name of ["discord_edit_scheduled_event", "discord_delete_scheduled_event"]) {
+    const html = read(toolPage(name));
+    const box = /<dt>Discord permissions<\/dt><dd>([\s\S]*?)<\/dd>/.exec(html)![1];
+    const lines = [
+      ...box.matchAll(/<span class="perm">([\s\S]*?)<\/span>(?=<span class="perm">|$)/g),
+    ];
+    assert.deepEqual(
+      lines.map(([, line]) => textOf(line)),
+      [
+        "Manage Events, or Create Events for an event the bot created",
+        `${voice}, as for discord_create_scheduled_event`,
+        `${stage}, as for discord_create_scheduled_event`,
+      ],
+      name,
+    );
+    assert.match(box, /<a href="\.\.\/discord_create_scheduled_event\/" data-tool=/, name);
+  }
+  const event = /<article[^>]* id="event"[\s\S]*?<\/article>/.exec(read("recipes/index.html"))![0];
+  const safety = textOf(/<h3>Safety<\/h3>[\s\S]*?<\/ul>/.exec(event)![0]);
+  assert.match(safety, /View Channel and Connect in that channel/);
+  assert.match(safety, /The invite link does not grant Connect/);
 });
 
 test("a parameter that accepts several types shows each type with its own rules", () => {

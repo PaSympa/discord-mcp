@@ -135,6 +135,44 @@ test("permissions come from requires-the-X-permission clauses, with the subject 
     ),
     ["Pin Messages"],
   );
+  const create =
+    "Create it. Requires the Create Events permission (Manage Events alone no longer suffices), plus View Channel and Connect in the channel for VOICE events, or Manage Channels, Mute Members and Move Members for STAGE_INSTANCE events. Returns it.";
+  const voice = "in the channel for VOICE events";
+  const stage = "for STAGE_INSTANCE events";
+  assert.deepEqual(permissionsOf(create), [
+    only("Create Events"),
+    only("View Channel", voice),
+    only("Connect", voice),
+    only("Manage Channels", stage),
+    only("Mute Members", stage),
+    only("Move Members", stage),
+  ]);
+  const edit =
+    "Edit it. Requires the Manage Events permission (or Create Events for an event the bot created), plus the same channel permissions as creating it. Use discord_x.";
+  assert.throws(() => permissionsOf(edit), /names another tool's permissions/);
+  const asked: string[] = [];
+  const sourceOf = (gerund: string) => {
+    asked.push(gerund);
+    return tool("discord_create_x", create);
+  };
+  const sameAs = (name: string, condition: string) => ({
+    ...only(name, condition),
+    sameAs: "discord_create_x",
+  });
+  assert.deepEqual(permissionsOf(edit, sourceOf), [
+    only("Manage Events"),
+    {
+      name: "Create Events",
+      condition: "for an event the bot created",
+      alternativeTo: "Manage Events",
+    },
+    sameAs("View Channel", voice),
+    sameAs("Connect", voice),
+    sameAs("Manage Channels", stage),
+    sameAs("Mute Members", stage),
+    sameAs("Move Members", stage),
+  ]);
+  assert.deepEqual(asked, ["creating"]);
   for (const none of [
     "Requires the original webhook token.",
     "Requires the bot to share at least one server with the user.",
@@ -142,6 +180,16 @@ test("permissions come from requires-the-X-permission clauses, with the subject 
     "No bot permission is needed: the token authorizes the call.",
   ])
     assert.deepEqual(permissionsOf(none), [], none);
+});
+
+test("as creating it points to the create tool of the same object, or fails the build", async () => {
+  const { sourceTool } = await site();
+  const tools = ["discord_create_scheduled_event", "discord_edit_scheduled_event"].map((name) =>
+    tool(name),
+  );
+  for (const name of ["discord_edit_scheduled_event", "discord_delete_scheduled_event"])
+    assert.equal(sourceTool(tools, name, "creating").name, "discord_create_scheduled_event");
+  assert.throws(() => sourceTool(tools, "discord_edit_role", "creating"), /discord_edit_role/);
 });
 
 test("toolsets must partition tools/list: no duplicate, no orphan, no stranger, no empty toolset", async () => {
@@ -290,7 +338,15 @@ test("site data from dist/index.js: every tool in one toolset, every derived fie
     );
   const readme = readFileSync(join(__dirname, "..", "README.md"), "utf8");
   const invite = BigInt(/oauth2\/authorize\?[^\s)]*permissions=(\d+)/.exec(readme)![1]);
-  type Permission = { name: string; condition: string | null; alternativeTo: string | null };
+  type Permission = {
+    name: string;
+    condition: string | null;
+    alternativeTo: string | null;
+    sameAs?: string;
+  };
+  // Voice and stage events need channel permissions the invite link leaves out.
+  const uninvited = new Set(["Connect", "Mute Members", "Move Members"]);
+  const omitted = new Set<string>();
   let parsed = 0;
   for (const t of tools)
     for (const p of t.permissions as Permission[]) {
@@ -298,11 +354,34 @@ test("site data from dist/index.js: every tool in one toolset, every derived fie
       const bit = flagOf(p.name);
       assert.ok(bit !== undefined, `${t.name}: "${p.name}" is not a Discord permission`);
       const granted = flagOf(p.alternativeTo ?? p.name)!;
-      assert.equal(invite & granted, granted, `${t.name}: the README invite link omits ${p.name}`);
+      if (uninvited.has(p.name)) {
+        assert.equal(invite & granted, 0n, `${t.name}: the invite link now grants ${p.name}`);
+        assert.match(p.condition ?? "", /for (VOICE|STAGE_INSTANCE) events$/, t.name);
+        omitted.add(p.name);
+      } else
+        assert.equal(
+          invite & granted,
+          granted,
+          `${t.name}: the README invite link omits ${p.name}`,
+        );
       if (p.condition?.startsWith("when "))
         assert.match(p.condition, /^when [a-z]+ing\b/, `${t.name}: "${p.condition}"`);
+      if (p.sameAs) assert.ok(names.has(p.sameAs) && p.sameAs !== t.name, `${t.name}: ${p.sameAs}`);
     }
   assert.ok(parsed > 0, "some descriptions name a permission");
+  assert.deepEqual(omitted, uninvited, "each exception is still needed");
+  const byName = new Map(tools.map((t) => [t.name, t.permissions as Permission[]]));
+  const channelPermissions = (name: string) =>
+    byName.get(name)!.filter((p) => /events$/.test(p.condition ?? ""));
+  for (const name of ["discord_edit_scheduled_event", "discord_delete_scheduled_event"])
+    assert.deepEqual(
+      channelPermissions(name),
+      channelPermissions("discord_create_scheduled_event").map((p) => ({
+        ...p,
+        sameAs: "discord_create_scheduled_event",
+      })),
+      name,
+    );
 
   assert.ok(
     !JSON.stringify(catalog).includes(String.fromCharCode(0x2014)),

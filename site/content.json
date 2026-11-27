@@ -224,7 +224,8 @@
         }
       ],
       "notes": [
-        "Creating an event needs the Create Events permission. Manage Events alone no longer suffices."
+        "Creating an event needs the Create Events permission. Manage Events alone no longer suffices.",
+        "For a voice event, the bot also needs View Channel and Connect in that channel. The invite link does not grant Connect: grant it on a role the bot holds or in the channel's overwrites. A stage event needs Manage Channels, Mute Members and Move Members instead, and the invite link grants only Manage Channels."
       ]
     },
     {

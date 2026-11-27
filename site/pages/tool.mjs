@@ -1,4 +1,9 @@
-import { permissionLabel, permissionLines, renderToolDetail } from "../client/detail.mjs";
+import {
+  linkedText,
+  permissionLabel,
+  permissionLines,
+  renderToolDetail,
+} from "../client/detail.mjs";
 import { breakable, formatInt, raw, RISK_LABEL, riskBadge, tpl } from "../client/tpl.mjs";
 import { firstFitting, layout, SITE_URL } from "./layout.mjs";
 import { breadcrumbLd, breadcrumbs, TOOLSETS_PATH, toolsetPath } from "./toolsets.mjs";
@@ -51,10 +56,11 @@ export function renderToolPage(site, tool) {
   const labels = Object.fromEntries(site.toolsets.map((s) => [s.name, s.label]));
   const label = labels[tool.toolset];
   const trail = toolTrail(tool, label);
+  const href = (name) => `../${name}/`;
   const { body } = renderToolDetail(tool, {
     labels,
     byName: site.byName,
-    href: (name) => `../${name}/`,
+    href,
     level: 2,
     example: EXAMPLE_SLOT,
   });
@@ -66,7 +72,7 @@ export function renderToolPage(site, tool) {
   <p class="tp-badges">${riskBadge(tool.risk)}${tool.dryRunDefault ? tpl`<span class="dry">Dry run by default</span>` : ""}</p>
   <dl class="facts">
     <div><dt>Toolset</dt><dd><a href="../../${toolsetPath(tool.toolset)}">${label}</a> <code>${tool.toolset}</code></dd></div>
-    ${permissions.length ? tpl`<div><dt>${permissionLabel(tool.permissions)}</dt><dd>${permissions.map((line) => tpl`<span class="perm">${line}</span>`)}</dd></div>` : ""}
+    ${permissions.length ? tpl`<div><dt>${permissionLabel(tool.permissions)}</dt><dd>${permissions.map((line) => tpl`<span class="perm">${linkedText(line, site.byName, href)}</span>`)}</dd></div>` : ""}
     <div><dt>Context cost</dt><dd>${formatInt(tool.tokens)} tokens, estimated<span class="fine">${formatInt(tool.bytes)} bytes of definition, divided by 4</span></dd></div>
   </dl>
 </div>`;

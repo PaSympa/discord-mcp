@@ -795,7 +795,15 @@ kbd {
     padding: 0;
     justify-content: center;
   }
-  .search-btn .lbl,
+  /* Clipped, not display: none, since the label is the control's accessible name. */
+  .search-btn .lbl {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .search-btn kbd {
     display: none;
   }

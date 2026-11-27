@@ -323,7 +323,7 @@ const tools = [
   defineTool({
     name: "discord_bulk_ban",
     description:
-      "Ban many users in a single call, intended for raid mitigation. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the user IDs a real call would send to Discord, unchecked, then re-call with dry_run:false to actually ban them. Requires both the Ban Members and Manage Server permissions. Returns { dry_run, would_ban } for a preview, and { dry_run, banned, failed } with the user IDs after a real call; failed also lists users who were already banned. Discord rejects the whole call with an error if no user could be banned. Use discord_ban_member for a single ban with finer control.",
+      "Ban many users in a single call, intended for raid mitigation. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the user IDs a real call would send to Discord, unchecked, then re-call with dry_run:false to actually ban them. A real call can first ask the user to confirm; without a yes it changes nothing, says so, and should not be repeated unless the user asks. Requires both the Ban Members and Manage Server permissions. Returns { dry_run, would_ban } for a preview, and { dry_run, banned, failed } with the user IDs after a real call; failed also lists users who were already banned. Discord rejects the whole call with an error if no user could be banned. Use discord_ban_member for a single ban with finer control.",
     annotations: {
       title: "Bulk ban",
       readOnlyHint: false,
@@ -385,7 +385,7 @@ const tools = [
   defineTool({
     name: "discord_prune_members",
     description:
-      "Remove members who have been inactive (no roles, not seen) for a number of days. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the count, then re-call with dry_run:false to actually remove them. Removal is irreversible (members must rejoin). Requires the Manage Server and Kick Members permissions (or Administrator instead, on a server with the PRUNE_REQUIRES_ADMIN feature). To remove specific members, use discord_kick_member.",
+      "Remove members who have been inactive (no roles, not seen) for a number of days. SAFE BY DEFAULT: dry_run is true unless explicitly set to false, so call it first to preview the count, then re-call with dry_run:false to actually remove them. A real call can first ask the user to confirm; without a yes it changes nothing, says so, and should not be repeated unless the user asks. Removal is irreversible (members must rejoin). Requires the Manage Server and Kick Members permissions (or Administrator instead, on a server with the PRUNE_REQUIRES_ADMIN feature). To remove specific members, use discord_kick_member.",
     annotations: {
       title: "Prune inactive members",
       readOnlyHint: false,

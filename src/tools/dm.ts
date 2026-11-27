@@ -174,7 +174,7 @@ const tools = [
   defineTool({
     name: "discord_read_dms",
     description:
-      "Read the most recent messages from the bot's DM conversation with a user, oldest-to-newest. Returns { messages: [...] } with id, author, content, embed count, timestamp. Read-only. For a server channel or thread, use discord_read_messages. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
+      "Read the most recent messages from the bot's DM conversation with a user, oldest-to-newest. Returns { messages: [...] } with id, author, content, embed count, timestamp. Read-only, except that Discord opens an empty DM channel when none exists yet; nothing is sent. For a server channel or thread, use discord_read_messages. With DISCORD_ALLOWED_GUILDS set, the user must be a member of a listed server.",
     annotations: { title: "Read DMs", readOnlyHint: true, openWorldHint: true },
     schema: z.object({
       user_id: userId,

@@ -389,11 +389,15 @@ export function validateId(value: unknown, label: string): string {
 /**
  * Converts a PermissionsBitField into a human-readable array of permission names.
  * @param perms - The bitfield to serialize.
+ * @param checkAdmin - If true (default), Administrator implies every flag; false lists only the flags set.
  * @returns Array of permission flag names (e.g. ["SendMessages", "ViewChannel"]).
  */
-export function serializePermissions(perms: Readonly<PermissionsBitField>): string[] {
+export function serializePermissions(
+  perms: Readonly<PermissionsBitField>,
+  { checkAdmin = true } = {},
+): string[] {
   return Object.keys(PermissionsBitField.Flags).filter((flag) =>
-    perms.has(flag as keyof typeof PermissionsBitField.Flags),
+    perms.has(flag as keyof typeof PermissionsBitField.Flags, checkAdmin),
   );
 }
 

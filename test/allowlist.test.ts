@@ -14,6 +14,7 @@ import dm from "../src/tools/dm.js";
 import webhooks from "../src/tools/webhooks.js";
 import scheduledEvents from "../src/tools/scheduledEvents.js";
 import messages from "../src/tools/messages.js";
+import channels from "../src/tools/channels.js";
 
 const ALLOWED = "111111111111111111";
 const FOREIGN = "222222222222222222";
@@ -423,4 +424,75 @@ test("without an allow-list, a DM tool looks up no member", async () => {
   assert.ok(!(await readDms()).isError);
   assert.deepEqual(gate.lookups, []);
   assert.deepEqual(gate.fetched, [RECIPIENT]);
+});
+
+const DM_CHANNEL = "999999999999999999";
+asAdder(discord.channels)._add({
+  id: DM_CHANNEL,
+  type: ChannelType.DM,
+  recipients: [{ id: RECIPIENT }],
+  last_message_id: null,
+});
+
+/** DMChannel.recipientId leaves out the bot's own ID, so it reads discord.user. */
+async function asLoggedIn(run: () => Promise<void>) {
+  const client = discord as unknown as { user: unknown };
+  client.user = { id: "100000000000000099" };
+  try {
+    await run();
+  } finally {
+    client.user = null;
+  }
+}
+
+const deleteDmChannel = (dry_run: boolean) =>
+  channels.handlers.get("discord_delete_channel")!({ channel_id: DM_CHANNEL, dry_run });
+const firstText = (result: { content: { type: string; text?: string }[] }) =>
+  result.content[0].text ?? "";
+
+test("delete_channel refuses a DM whose recipient is outside every allowed guild, dry run included", () =>
+  asLoggedIn(async () => {
+    process.env.DISCORD_ALLOWED_GUILDS = `${ALLOWED},${SECOND_ALLOWED}`;
+    const gate = stubDmGate({ [FOREIGN]: "member" });
+    for (const dry_run of [true, false]) await assert.rejects(deleteDmChannel(dry_run), notMember);
+    assert.deepEqual(gate.lookups, [ALLOWED, SECOND_ALLOWED, ALLOWED, SECOND_ALLOWED]);
+    assert.deepEqual(gate.other, [], "the DM must stay open");
+  }));
+
+test("delete_channel closes the DM of a recipient in an allowed guild", () =>
+  asLoggedIn(async () => {
+    process.env.DISCORD_ALLOWED_GUILDS = `${ALLOWED},${SECOND_ALLOWED}`;
+    const gate = stubDmGate({ [SECOND_ALLOWED]: "member" });
+    assert.match(
+      firstText(await deleteDmChannel(true)),
+      /^🔍 Dry run: channel #999999999999999999/,
+    );
+    assert.deepEqual(gate.other, []);
+    assert.match(
+      firstText(await deleteDmChannel(false)),
+      /^✅ Channel #999999999999999999 deleted/,
+    );
+    assert.deepEqual(gate.other, [`DELETE ${Routes.channel(DM_CHANNEL)}`]);
+  }));
+
+test("without an allow-list, delete_channel closes a DM with no member lookup", () =>
+  asLoggedIn(async () => {
+    const gate = stubDmGate({});
+    assert.match(firstText(await deleteDmChannel(true)), /^🔍 Dry run/);
+    await deleteDmChannel(false);
+    assert.deepEqual(gate.lookups, []);
+    assert.deepEqual(gate.other, [`DELETE ${Routes.channel(DM_CHANNEL)}`]);
+  }));
+
+test("with an allow-list, delete_channel refuses a group DM, whose recipients it cannot check", async () => {
+  process.env.DISCORD_ALLOWED_GUILDS = ALLOWED;
+  const groupDm = "999999999999999998";
+  asAdder(discord.channels)._add({ id: groupDm, type: ChannelType.GroupDM, recipients: [] });
+  const gate = stubDmGate({});
+  for (const dry_run of [true, false])
+    await assert.rejects(
+      channels.handlers.get("discord_delete_channel")!({ channel_id: groupDm, dry_run }),
+      /is a group DM, which the DISCORD_ALLOWED_GUILDS allow-list cannot check/,
+    );
+  assert.deepEqual(gate.other, []);
 });

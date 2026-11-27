@@ -200,12 +200,17 @@ async function isAllowedGuildMember(userId: string): Promise<boolean> {
   return false;
 }
 
-/** Fetches a DM recipient, who must be a member of an allowed guild when the allow-list is set. */
-export async function fetchDmRecipient(userId: string): Promise<User> {
+/** Refuses a DM recipient who is not a member of an allowed guild when the allow-list is set. */
+export async function assertDmRecipientAllowed(userId: string): Promise<void> {
   if (allowListActive() && !(await isAllowedGuildMember(userId)))
     throw new Error(
       `User ${userId} is not a member of any guild in the DISCORD_ALLOWED_GUILDS allow-list.`,
     );
+}
+
+/** Fetches a DM recipient, who must be a member of an allowed guild when the allow-list is set. */
+export async function fetchDmRecipient(userId: string): Promise<User> {
+  await assertDmRecipientAllowed(userId);
   return discord.users.fetch(userId);
 }
 

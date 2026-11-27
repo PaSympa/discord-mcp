@@ -164,7 +164,7 @@ const tools = [
       title: "Delete webhook",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z.object({
@@ -285,7 +285,7 @@ const tools = [
       title: "Delete webhook message",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z.object({

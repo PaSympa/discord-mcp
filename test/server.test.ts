@@ -60,6 +60,29 @@ test("tools that overwrite existing settings are annotated destructive", async (
   await client.close();
 });
 
+test("the delete, kick and bulk ban tools are annotated idempotent; prune is not", async () => {
+  const client = await connectedClient();
+  const { tools } = await client.listTools();
+  const annotationsOf = (name: string) => tools.find((t) => t.name === name)?.annotations;
+  for (const name of [
+    "discord_delete_message",
+    "discord_bulk_delete_messages",
+    "discord_delete_channel",
+    "discord_kick_member",
+    "discord_bulk_ban",
+    "discord_delete_role",
+    "discord_delete_forum_post",
+    "discord_delete_webhook",
+    "discord_delete_webhook_message",
+    "discord_delete_scheduled_event",
+    "discord_delete_invite",
+    "discord_delete_dm",
+  ])
+    assert.equal(annotationsOf(name)?.idempotentHint, true, name);
+  assert.equal(annotationsOf("discord_prune_members")?.idempotentHint, false);
+  await client.close();
+});
+
 test("a handler failure surfaces as an isError result, not a protocol error", async () => {
   const { discord } = await import("../src/client.js");
   const { mock } = await import("node:test");

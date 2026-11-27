@@ -150,7 +150,7 @@ const tools = [
       title: "Delete DM",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z.object({

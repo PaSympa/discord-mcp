@@ -302,7 +302,7 @@ const tools = [
       title: "Delete role",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z.object({

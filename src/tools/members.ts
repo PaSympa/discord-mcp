@@ -105,7 +105,7 @@ const tools = [
       title: "Kick member",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z.object({
@@ -328,7 +328,7 @@ const tools = [
       title: "Bulk ban",
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: false,
+      idempotentHint: true,
       openWorldHint: true,
     },
     schema: z.object({

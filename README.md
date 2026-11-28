@@ -23,12 +23,16 @@
 ## See it in action
 
 <p align="center">
-  <a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4"><img src=".github/assets/demo.webp" alt="Claude Code previews a cleanup of four spam messages in #general with a dry run, then deletes them, on a demo Discord server" width="100%"></a>
+  <a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4"><img src=".github/assets/demo.webp" alt="Claude Code previews a cleanup of four spam messages in #general with a dry run that lists their IDs, asks you to confirm, then deletes only those IDs, while a message posted after the preview stays" width="100%"></a>
 </p>
 
-<p align="center"><a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4">Watch the full one-minute demo</a>: a channel recap, a bug forum, the spam cleanup and an event.</p>
+<p align="center">
+  <a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4"><img src=".github/assets/demo-makeover.webp" alt="One prompt turns a brand-new Discord server into categories, emoji channel names and colored roles, then a second prompt posts a welcome embed that explains each role" width="100%"></a>
+</p>
 
-<sub>Calls made live with Claude Code on a demo server, before 2.5.0: the recording deletes by count, where 2.5.0 deletes the message IDs from the preview. The panel summarizes their results. The Discord window shows real captures, except that the spot of each new message or post stays blank until it appears.</sub>
+<p align="center"><a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4">Watch the full one-minute demo</a>: a bare server made over in three prompts, then a spam cleanup you confirm.</p>
+
+<sub>Calls made live with Claude Code and discord-mcp 2.6.1 on a demo server. The terminal is the recorded session; the Discord views are real captures taken after each prompt. Member and spam messages were posted by a script. Waits, highlights and transitions are edited, and after the cleanup the empty channel area above the kept messages is masked.</sub>
 
 ## What you can ask
 

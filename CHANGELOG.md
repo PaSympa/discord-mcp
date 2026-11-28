@@ -5,6 +5,7 @@
 ### Changed
 
 - The plugin README lists the Confirm destructive calls setting, next to the other plugin settings
+- The demo videos are recorded again with Claude Code and 2.6.1 on a new demo server. The spam cleanup now previews the message IDs with a dry run, asks you to confirm, and deletes only those IDs, while a message posted after the preview stays. A second README loop shows a bare server made over in two prompts. On the site, only the spam cleanup and the event prompts are marked as called in the recorded session
 
 ## [2.6.1] - 2026-11-27
 

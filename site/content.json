@@ -78,11 +78,11 @@
   },
   "asks": {
     "Catch up on a busy channel": {
-      "recorded": true,
+      "recorded": false,
       "tools": ["discord_list_channels", "discord_read_messages", "discord_send_embed"]
     },
     "Turn feedback into a tracker": {
-      "recorded": true,
+      "recorded": false,
       "tools": [
         "discord_create_forum_channel",
         "discord_set_forum_tags",
@@ -96,11 +96,7 @@
     },
     "Run community events": {
       "recorded": true,
-      "tools": [
-        "discord_create_scheduled_event",
-        "discord_create_event_invite",
-        "discord_send_message"
-      ]
+      "tools": ["discord_create_scheduled_event", "discord_send_embed"]
     },
     "Audit permissions": {
       "recorded": false,

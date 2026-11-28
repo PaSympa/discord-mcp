@@ -479,7 +479,7 @@ test("the first load of /, /tools/, /toolsets/, the largest tool and toolset pag
     "the demo loads on demand only",
   );
   assert.doesNotMatch(home, /<video[^>]*\sautoplay/, "the demo never starts on its own");
-  // The recording deletes by count: the panel's calls by ID were never recorded.
+  // The panel restates the README prompt; it is not a transcript of the recorded session.
   assert.match(
     home,
     /<span class="term-note">The same request, as the current version runs it<\/span>/,

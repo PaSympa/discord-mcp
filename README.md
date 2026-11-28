@@ -32,7 +32,7 @@
 
 <p align="center"><a href="https://pasympa.github.io/discord-mcp/assets/demo-full.mp4">Watch the full one-minute demo</a>: a bare server made over in three prompts, then a spam cleanup you confirm.</p>
 
-<sub>Calls made live with Claude Code and discord-mcp 2.6.1 on a demo server. The terminal is the recorded session; the Discord views are real captures taken after each prompt. Member and spam messages were posted by a script. Waits, highlights and transitions are edited, and after the cleanup the empty channel area above the kept messages is masked.</sub>
+<sub>Calls made live with Claude Code and discord-mcp 2.6.1 on a demo server. The terminal shows the recorded sessions; the Discord views are real captures taken after each prompt. Member and spam messages were posted by a script. Waits, highlights and transitions are edited. After the cleanup, the channel area above the kept messages, which holds Discord's welcome card and the bot's join line, is masked.</sub>
 
 ## What you can ask
 

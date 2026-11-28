@@ -85,7 +85,7 @@ function seeItWork(site) {
   return section(
     "see-it-work",
     "See it work",
-    tpl`<p>The spam-raid request from the prompt list, with the calls the current version makes. The assistant reads the channel, previews the cleanup with a dry run that lists the message IDs, then, once you confirm, deletes those IDs and nothing else. The recording shows the same steps, live on a demo server.</p>`,
+    tpl`<p>The spam-raid request from the prompt list, with the calls the current version makes. The assistant reads the channel, previews the cleanup with a dry run that lists the message IDs, then, once you confirm, deletes those IDs and nothing else. The recording shows a live cleanup on a demo server, whose dry run takes the message IDs instead of a count.</p>`,
     body,
   );
 }
